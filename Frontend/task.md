@@ -1,0 +1,27 @@
+# WorkQuora Tasks
+
+- [x] Unify KYC field name inconsistencies (`aadharVerified` vs `aadhaarVerified`) across all models, controllers, and seeding scripts
+- [x] Fix Mongoose compatibility issue for pre-save hook callback signature in Mongoose v9
+- [x] Update `requireKyc.js` middleware to restrict only core KYC (Aadhaar & PAN) per Bible Vol 2
+- [x] Add auto-created Wallet model in `authController.registerUser` per Bible Vol 13
+- [x] Add `trustScore` field inside `User` schema per Bible Vol 8
+- [x] Upgrade `errorHandler.js` validation and cast error reporting per Bible Vol 6
+- [x] Update frontend `KycVerificationCard.jsx` to match backend `/kyc/bank/submit` endpoint and parameters
+- [x] Add Account Holder Name input in the bank submission form
+- [x] Integrate `KycVerificationCard` in `Settings.jsx` to replace old insecure, redundant text form
+- [x] Verify complete integration via automated integration script `test-api.js` (21/21 passes)
+- [x] Install 3D dependencies (`three`, `@react-three/fiber`, `@react-three/drei`, `gsap`, `zustand`)
+- [x] Create state store (`appStore.js`) and hooks (`useCountdown.js`, `useMouse.js`, `useCursor.js`)
+- [x] Create interactive custom cursor overlay (`Cursor.jsx`)
+- [x] Create cinematic loading screens with animated logo and progress indicators (`LoadingScreen.jsx`)
+- [x] Create full screen background canvas scene featuring rotating abstract meshes and lighting grids (`ThreeScene.jsx`)
+- [x] Create GPU optimized mouse repulsion particle systems (`Particles.jsx`)
+- [x] Create glowing organic Aurora blobs (`Aurora.jsx`) and shooting star arrays (`Meteor.jsx`)
+- [x] Create glassmorphic cards: Countdown timer, Progress indicator, Upgrade checklist, Milestones timeline
+- [x] Create dynamic email news form and accordion FAQ blocks
+- [x] Integrate new maintenance route path inside `App.jsx`
+- [x] Create `public/maintenance-config.json` configuration file containing all titles, texts, and user-provided social links
+- [x] Update appStore, App.jsx, and all components to load dynamic data from the JSON file
+- [x] Implement global router bypass when `isMaintenanceMode` is active
+- [x] Bind global helper `window.GoToMaintenance()` for developers to trigger maintenance mode programmatically
+- [x] Verify complete frontend builds successfully (`vite build`)

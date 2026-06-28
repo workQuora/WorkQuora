@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#0f0069",
+                        "surface-tint": "#4d44e3",
+                        "inverse-on-surface": "#f0f1f2",
+                        "star-rating": "#FFC107",
+                        "primary-fixed": "#e2dfff",
+                        "verified-blue": "#3525cd",
+                        "tertiary": "#002b7b",
+                        "inverse-primary": "#c3c0ff",
+                        "on-surface-variant": "#464555",
+                        "surface-container-highest": "#e1e3e4",
+                        "primary": "#1e00a9",
+                        "on-error-container": "#93000a",
+                        "promo-orange": "#ff9800",
+                        "on-tertiary-container": "#9eb5ff",
+                        "outline-variant": "#c7c4d8",
+                        "surface-variant": "#e1e3e4",
+                        "secondary-fixed-dim": "#7eda8c",
+                        "background": "#f8f9fa",
+                        "on-secondary-fixed-variant": "#005320",
+                        "primary-container": "#3525cd",
+                        "on-secondary-container": "#0a7231",
+                        "on-primary-container": "#b1afff",
+                        "surface-container-low": "#f3f4f5",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-subtle": "#c7c4d8",
+                        "tertiary-container": "#003fac",
+                        "secondary": "#006e2d",
+                        "on-tertiary-fixed-variant": "#003ea8",
+                        "surface-bright": "#f8f9fa",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed-variant": "#3323cc",
+                        "secondary-fixed": "#9af7a5",
+                        "on-surface": "#191c1d",
+                        "on-tertiary-fixed": "#00174b",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "surface-container": "#edeeef",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "on-background": "#191c1d",
+                        "outline": "#777587",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#c3c0ff",
+                        "tertiary-fixed": "#dbe1ff",
+                        "surface-container-high": "#e7e8e9",
+                        "surface": "#f8f9fa",
+                        "secondary-container": "#97f4a3",
+                        "surface-dim": "#d9dadb",
+                        "inverse-surface": "#2e3132",
+                        "on-secondary-fixed": "#002109"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "0.75rem",
+                        "card-padding": "1.25rem",
+                        "container-margin": "1rem",
+                        "stack-sm": "0.5rem",
+                        "stack-lg": "1.5rem",
+                        "stack-md": "1rem"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "title-lg": ["18px", {"lineHeight": "24px", "fontWeight": "700"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md flex justify-between items-center px-container-margin h-16 w-full">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a recruitment manager in a bright, modern office setting. The lighting is soft and natural, emphasizing a high-trust professional vibe. The background is slightly blurred with soft indigo and white tones to match the corporate modern aesthetic of SkillSync." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_gKYhwDR9Y3L06KCz-peiWktXanoiAapKq7W_2SnFHMa1furZ0ZS5kRwD5YuIiS5r_WX-Kh5AvH6XYuKON-E-LkbblXrhc0OaHaAtYQ5qepO8XrJ61ACCB9XfmPHQtQV_46PxgO0_kXmSghLJB1x5CbYgc1T1-qzEkUf4e2OXDEy_8rkK57-WzTzR1cma-7rYJTejzWU8tS6pHF11Q26bo3-4K9FHmBZxS14rKU45wOMpTQKAbiN6pm9OidJzidxjH9AR-xlpSQM"/>
+</div>
+<span class="text-headline-sm font-headline-sm font-bold text-primary dark:text-primary-fixed">wQ Recruit</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-variant/50 transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="pt-20 pb-24 px-container-margin max-w-2xl mx-auto space-y-stack-lg">
+<!-- Search Section -->
+<section class="relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-on-surface-variant">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="w-full bg-surface-container rounded-full py-3.5 pl-12 pr-4 border-none focus:ring-2 focus:ring-primary/20 transition-all text-body-md placeholder:text-on-surface-variant" placeholder="Search for conversations..." type="text"/>
+</section>
+<!-- Active Chats & Broadcasts (Horizontal Scroll) -->
+<section>
+<div class="flex items-center justify-between mb-stack-md">
+<h2 class="font-title-lg text-title-lg text-on-surface">Active Now</h2>
+<button class="text-label-md text-primary font-bold">View All</button>
+</div>
+<div class="flex gap-4 overflow-x-auto hide-scrollbar -mx-container-margin px-container-margin">
+<!-- Broadcast Item -->
+<div class="flex flex-col items-center gap-2 min-w-[72px]">
+<div class="relative">
+<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container shadow-md">
+<span class="material-symbols-outlined" style="font-variation-settings: 'opsz' 32;">campaign</span>
+</div>
+<div class="absolute bottom-0 right-0 w-4 h-4 bg-secondary rounded-full border-2 border-background"></div>
+</div>
+<span class="text-label-sm text-on-surface truncate w-full text-center">Broadcast</span>
+</div>
+<!-- User Item 1 -->
+<div class="flex flex-col items-center gap-2 min-w-[72px]">
+<div class="relative">
+<div class="w-16 h-16 rounded-full overflow-hidden border-2 border-transparent hover:border-primary-container transition-all cursor-pointer">
+<img class="w-full h-full object-cover" data-alt="A profile photo of a young professional named Alex, with a friendly smile and clean-cut appearance. The portrait has a shallow depth of field, with a modern, minimalist studio background in soft grey and emerald green accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLE2-UkzuxbOkMv0CU2UARKiQEKaZH8NvF_Xk-8g7S7xUxpZLB990mcg6Kh4g3wcHn9ISJExAT5CfRTYn3PFvpfHXmju6Xj8L9wJzk_bEH2G0nGN12TQmKCLK14rcZfEjz3Fpbp5giNx3jDANzpYilTZqCS_BgP6AhD_7LV-sdluQsonVVIAmwWFh0cjVNqaeZuEyC6nZ1l_QHFhLhDL0idgXFdo-2FH3H4YPIYXVPmTFWnyynklhNsFwQpjJ0YuywYS1QdJ0T6A4"/>
+</div>
+<div class="absolute bottom-0 right-0 w-4 h-4 bg-secondary rounded-full border-2 border-background"></div>
+</div>
+<span class="text-label-sm text-on-surface truncate w-full text-center">Alex Ch.</span>
+</div>
+<!-- User Item 2 -->
+<div class="flex flex-col items-center gap-2 min-w-[72px]">
+<div class="relative">
+<div class="w-16 h-16 rounded-full overflow-hidden border-2 border-transparent hover:border-primary-container transition-all cursor-pointer">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of Sarah, a creative professional, with vibrant lighting and a confident expression. The background uses a soft indigo gradient, reinforcing the SkillSync brand identity of reliability and modern talent." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxWZa0aEmRtiXaiCq7RmIipWkJIMof2IyD_4-T4k3bvE3eAqgELyrCG1iJwkYqqEajHoobhwh-QAO1YUMmwyqaA9r-EQyfllsOgLfooOws8aRBTUUIcA6gorw_t0tupNyK-VVcASCsYAUyIOc85A-m2I22TZ06Pp1eLu-D0Lp079evC2jK2ex6H7mdVRyLEqE-jFr_6lYqNlSuUvgtDiQdVJDW_U2v7-IZvWvrJ6oMouMJOUqhrnK2kR93tNMTajKHpcOWRxyCPMQ"/>
+</div>
+<div class="absolute bottom-0 right-0 w-4 h-4 bg-secondary rounded-full border-2 border-background"></div>
+</div>
+<span class="text-label-sm text-on-surface truncate w-full text-center">Sarah J.</span>
+</div>
+<!-- User Item 3 -->
+<div class="flex flex-col items-center gap-2 min-w-[72px]">
+<div class="relative">
+<div class="w-16 h-16 rounded-full overflow-hidden border-2 border-transparent hover:border-primary-container transition-all cursor-pointer">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of Marcus, a senior developer, featuring a neutral, clean aesthetic. The lighting is bright and corporate-modern, set against a blurred office environment with glass and steel elements." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfOzJZUAVbNwh9AZtiFFoF9MsZ5WSJ4CXYMh0GlkBXQr9ey2N6qQidQ9ym4IcbsORBj-SW2gVqcdmP-JOPdUMf0E5ArBtvZO6piQFbfyrATaZJTlwGaz2tKQICV6MxN80q7_3Ifexxzrvs8wdPTi2HkjvD2DNTk7JrMmoyegR4jqmgAAEDw7IKNV2blEcI9EtcZWdXtI-oCs_w7pxPy3T24MnEmmVTaxIZsT_9TFGLkPsZUQBsgTAOjF4mANhkBccThkDlBpVWyXU"/>
+</div>
+<div class="absolute bottom-0 right-0 w-4 h-4 bg-secondary rounded-full border-2 border-background"></div>
+</div>
+<span class="text-label-sm text-on-surface truncate w-full text-center">Marcus T.</span>
+</div>
+</div>
+</section>
+<!-- Conversation List -->
+<section class="space-y-2">
+<h2 class="font-title-lg text-title-lg text-on-surface mb-stack-md">Conversations</h2>
+<!-- Chat Card 1: Jordan Smith -->
+<div class="flex items-center gap-4 p-4 bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 active:scale-[0.98] transition-all cursor-pointer group">
+<div class="relative">
+<div class="w-14 h-14 rounded-full overflow-hidden shadow-sm">
+<img class="w-full h-full object-cover" data-alt="A high-quality portrait of Jordan, a technical lead, wearing a navy polo shirt. The scene is bright with morning sunlight, creating a warm, approachable atmosphere in a modern workspace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGmZcOHy-p_BX3J9E0eklnhgzkmZWDuOos3sKkNWPDK8NA3U8ynmqXzbVt8HQ6u557Oal_BoNoWsnmngwR0eleLJ8S6kq3Ic5_Aq0I0TEpKTfz8sM0x7ynSptvehq6MX0DkEMGWtXys35Y3T42JMrtIYNjM3sVp9TOwSEYAKLAaBgUpsplEGtoCCIA0IQzU0rHyzQvQ8x6sMAYkSxOg2KXCnLXEy8efA6GlLQmK3eW3ZppNYKGWHzo5ToGpsSJxPshSCr6BlOXQgs"/>
+</div>
+<div class="absolute -top-1 -right-1 bg-error text-on-error w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold border-2 border-background">2</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-1">
+<h3 class="font-title-lg text-body-lg font-bold text-on-surface truncate">Jordan Smith</h3>
+<span class="text-label-sm text-primary font-bold">10:45 AM</span>
+</div>
+<div class="flex items-center gap-1.5 text-body-md text-on-surface font-medium truncate">
+<span class="material-symbols-outlined text-primary text-[18px]">attachment</span>
+                        Attached technical doc
+                    </div>
+</div>
+</div>
+<!-- Chat Card 2: Elena Rodriguez -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low rounded-2xl transition-all cursor-pointer">
+<div class="w-14 h-14 rounded-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of Elena, an HR specialist, with a bright smile. The photo is taken in a professional studio setting with clean lighting and a minimalist white and blue background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6BMg79UjxJeMb3V5wC5uVo6Q7oGC8-khmqQlzWd05R1Nxr7Qw-zbT8EdmxknCXTCLHWPWGsBFkf7weiD9-oJdyKV3a1URtcjLRcj47guhfQDXDdZV-FGHz_ink9V7fwUzT-_pQat0frB2mSDeartaX9j5af1Aq2aA6M2DmBf8lezwVCqhHciQfYL9S-_4e5CLzkEFfPvaQeAojAIt_PvbNISaoCt7Aa1JgUPf41jAqJmmuQMpXtPCH2wAOeg7oJXvSY1XQmHXknQ"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-1">
+<h3 class="font-title-lg text-body-lg font-semibold text-on-surface truncate">Elena Rodriguez</h3>
+<span class="text-label-sm text-on-surface-variant">Yesterday</span>
+</div>
+<p class="text-body-md text-on-surface-variant truncate">Interview went great</p>
+</div>
+</div>
+<!-- Chat Card 3: David Kim (Internal) -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low rounded-2xl transition-all cursor-pointer">
+<div class="relative w-14 h-14">
+<div class="w-full h-full rounded-full overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A portrait of David, a project manager, in a casual professional setting. He is wearing glasses and a grey sweater. The background features warm indoor lighting and a hint of a modern library." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8A65K9wAns5wDevv-QZYIpwRQKR2926VNfCKb1YMd5mQ83MbvOlD0Ni2H55ghA9drg5GdjOBd5ldDBR2j9UWo1mygxE1MXsiSnQ41JfgBV2HO8IzDK-AehvGQ4UQI7uLymwWzx0uPVDI7rNmWKd7q10UFtmLhr4G5xYBMYI6ZPw1JB5-oP82Fg6TT5pJmlhXn1WkBa72u_MpWjnRPTZmOJxEbOligHcBNmKN64Ls6Xk6YibtmqXGVS7I8SgC6bXbzGuavhn4iOiY"/>
+</div>
+<div class="absolute -bottom-1 -right-1 bg-surface-container-highest rounded-full px-1 py-0.5 border border-outline-subtle text-[8px] font-bold text-on-surface-variant uppercase">Internal</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-1">
+<h3 class="font-title-lg text-body-lg font-semibold text-on-surface truncate">David Kim</h3>
+<span class="text-label-sm text-on-surface-variant">Monday</span>
+</div>
+<div class="flex items-center gap-1.5 text-body-md text-on-surface-variant truncate">
+<span class="material-symbols-outlined text-[18px]">mic</span>
+                        Voice message (0:45)
+                    </div>
+</div>
+</div>
+<!-- Chat Card 4: Support -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low rounded-2xl transition-all cursor-pointer">
+<div class="w-14 h-14 rounded-full bg-tertiary-fixed-dim flex items-center justify-center text-on-tertiary-fixed">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-1">
+<h3 class="font-title-lg text-body-lg font-semibold text-on-surface truncate">wQ Support</h3>
+<span class="text-label-sm text-on-surface-variant">Oct 24</span>
+</div>
+<p class="text-body-md text-on-surface-variant truncate">Subscription successful</p>
+</div>
+</div>
+</section>
+</main>
+<!-- FAB -->
+<button class="fixed bottom-24 right-6 w-14 h-14 bg-primary text-on-primary rounded-2xl shadow-xl shadow-primary/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300 z-40">
+<span class="material-symbols-outlined" style="font-variation-settings: 'opsz' 32;">add_comment</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full z-50 bg-surface/90 dark:bg-surface-dim/90 backdrop-blur-md flex justify-around items-center px-2 py-3 border-t border-outline-variant/30 shadow-xl shadow-primary/10">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1.5 transition-transform duration-300 active:scale-90 hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-md text-label-md">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1.5 transition-transform duration-300 active:scale-90 hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="font-label-md text-label-md">Discover</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1.5 transition-transform duration-300 active:scale-90 hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-label-md text-label-md">Post</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-xl px-4 py-1.5 transition-transform duration-300 active:scale-90" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mail</span>
+<span class="font-label-md text-label-md">Messages</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1.5 transition-transform duration-300 active:scale-90 hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-md text-label-md">Profile</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions for chat list items
+        document.querySelectorAll('.cursor-pointer').forEach(item => {
+            item.addEventListener('click', () => {
+                item.classList.add('bg-surface-container');
+                setTimeout(() => {
+                    item.classList.remove('bg-surface-container');
+                }, 200);
+            });
+        });
+    </script>
+</body></html>

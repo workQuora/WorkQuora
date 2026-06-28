@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Secure Wallet - SkillSync</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#0f0069",
+                    "surface-tint": "#4d44e3",
+                    "inverse-on-surface": "#f0f1f2",
+                    "star-rating": "#FFC107",
+                    "primary-fixed": "#e2dfff",
+                    "verified-blue": "#3525cd",
+                    "tertiary": "#002b7b",
+                    "inverse-primary": "#c3c0ff",
+                    "on-surface-variant": "#464555",
+                    "surface-container-highest": "#e1e3e4",
+                    "primary": "#1e00a9",
+                    "on-error-container": "#93000a",
+                    "promo-orange": "#ff9800",
+                    "on-tertiary-container": "#9eb5ff",
+                    "outline-variant": "#c7c4d8",
+                    "surface-variant": "#e1e3e4",
+                    "secondary-fixed-dim": "#7eda8c",
+                    "background": "#f8f9fa",
+                    "on-secondary-fixed-variant": "#005320",
+                    "primary-container": "#3525cd",
+                    "on-secondary-container": "#0a7231",
+                    "on-primary-container": "#b1afff",
+                    "surface-container-low": "#f3f4f5",
+                    "surface-container-lowest": "#ffffff",
+                    "outline-subtle": "#c7c4d8",
+                    "tertiary-container": "#003fac",
+                    "secondary": "#006e2d",
+                    "on-tertiary-fixed-variant": "#003ea8",
+                    "surface-bright": "#f8f9fa",
+                    "error-container": "#ffdad6",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed-variant": "#3323cc",
+                    "secondary-fixed": "#9af7a5",
+                    "on-surface": "#191c1d",
+                    "on-tertiary-fixed": "#00174b",
+                    "on-secondary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "surface-container": "#edeeef",
+                    "tertiary-fixed-dim": "#b4c5ff",
+                    "on-background": "#191c1d",
+                    "outline": "#777587",
+                    "on-tertiary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#c3c0ff",
+                    "tertiary-fixed": "#dbe1ff",
+                    "surface-container-high": "#e7e8e9",
+                    "surface": "#f8f9fa",
+                    "secondary-container": "#97f4a3",
+                    "surface-dim": "#d9dadb",
+                    "inverse-surface": "#2e3132",
+                    "on-secondary-fixed": "#002109"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "0.75rem",
+                    "card-padding": "1.25rem",
+                    "container-margin": "1rem",
+                    "stack-sm": "0.5rem",
+                    "stack-lg": "1.5rem",
+                    "stack-md": "1rem"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "title-lg": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "title-lg": ["18px", {"lineHeight": "24px", "fontWeight": "700"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .balance-card-gradient {
+            background: linear-gradient(135deg, #1e00a9 0%, #3525cd 100%);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md flex justify-between items-center px-container-margin h-16 w-full">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional portrait of a business executive for a client profile. The person is smiling warmly, set against a soft-focus corporate office background with cool blue and grey tones. The lighting is soft and flattering, creating a high-trust professional aesthetic consistent with a premium gig marketplace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgaqkPKpyuCq_1O8vG7LRbvEUj-wxVZy5DLlLbNhG17LqPWm4KkpsNZFUrJm_9W3P0IUwpOq6Zcu4DIG9ULlrXCFam-TOGYA1pywWaZSvRX7N_Lz9g4HOTapNVX3aC_DqTwY3PQYw25t9mJOfPxtZkQTiSklgkEW5n8VIveMpiDe90jUyYilJWdSkm0YpV6s63Nemzz20pOLiBLQhmd21wHUdi7kFC0KwGqSvS6LDOzBu8KvuoerNXCryWHS5nCbErQVTm2j2wOAs"/>
+</div>
+<h1 class="text-headline-sm font-headline-sm font-bold text-primary">wQ Recruit</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/50 transition-all active:scale-95 text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="pt-20 px-container-margin max-w-5xl mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-stack-md py-stack-lg">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface">Secure Wallet</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Manage your recruitment funds and billing</p>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-outline-subtle font-label-md text-label-md text-primary hover:bg-surface-container transition-all active:scale-95">
+                    Statement
+                </button>
+<button class="flex-1 md:flex-none px-6 py-3 rounded-xl bg-primary text-on-primary font-label-md text-label-md shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95">
+                    Deposit Funds
+                </button>
+</div>
+</div>
+<!-- Balance & Stats Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-stack-md mb-stack-lg">
+<!-- Balance Card -->
+<div class="md:col-span-2 balance-card-gradient rounded-3xl p-card-padding text-on-primary flex flex-col justify-between min-h-[220px] shadow-xl shadow-primary/30 relative overflow-hidden">
+
+<div class="relative z-10 flex justify-between items-start">
+<div>
+<p class="font-label-md text-label-md text-on-primary-container/80 uppercase tracking-wider">Total Available Balance</p>
+<h3 class="font-display-lg text-[40px] leading-tight mt-2">$12,450.00</h3>
+</div>
+<span class="material-symbols-outlined text-4xl opacity-50">account_balance_wallet</span>
+</div>
+<div class="relative z-10 flex items-center gap-4 mt-8">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-primary bg-surface-container-highest overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up of a diverse professional woman in a tech environment, softly lit with purple and indigo atmospheric light. High quality photography, professional gig worker profile style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuArjKcdOyp6z8NIFUOa2hV3H8SGAnqwxD2eK_Fi8-q6OV7B0zcFOL0mrgQU3VF-ho3Fl2bIA9BvNP-Mha5dHCvHml_o1EOjZSduueXkDzdpROgzgzxBi6cznsz4kIoyswyZLw_ft4sEj9-OpJOGHICuy0bcoA9L6NeSkXcGmkjmZu6aGnkVbrdinVxmkY0CL3oGorcpzNeMgF0X2yV-0yfUnWC51Z4jbtBPAn7DXh55l_8Rsg_MaTqUast7GXPKt4_IVotlnmyv4uU"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-primary bg-surface-container-highest overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A portrait of a male software developer in a modern office with minimalist decor. The lighting is natural and bright, matching a professional corporate UI theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5g3ShGTKBDawB6LtJh5p2sLPW_DgrPCAcSLubNhq6QxJ879aYCBW3NR6agKjjosWsUqCpE-t9HMUsD1EM-XLadWz0q2IJTP4o_tJRci1G3_mlMEBYxauv9CcCzvXC3RrzzFd0o6ynJMyIJrrCwjbfax5y7taL-sf6I9u-fO3fFBdvAr9bLlvIl2fiH9nSeaU1DlOeaW6QFBN-2WMi2QkVJknz8SRDxwa06UP_40ryMiE7uGk5OaCy3qGII27AxGsVlRDgPHW05cU"/>
+</div>
+<div class="w-10 h-8 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center font-label-sm text-[10px]">
+                            +12
+                        </div>
+</div>
+<p class="font-label-sm text-label-sm text-on-primary-container">Active Contracts</p>
+</div>
+</div>
+<!-- Growth Mini Card -->
+<div class="bg-secondary-container rounded-3xl p-card-padding flex flex-col justify-between shadow-sm">
+<div class="flex justify-between items-center">
+<span class="material-symbols-outlined text-on-secondary-container text-3xl">trending_up</span>
+<span class="bg-secondary text-on-secondary px-3 py-1 rounded-full font-label-md text-label-md">+12%</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-secondary-container/70">Efficiency Growth</p>
+<p class="font-headline-sm text-headline-sm text-on-secondary-container mt-1">Wallet health is excellent this month</p>
+</div>
+</div>
+</div>
+<!-- Summary Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-stack-md mb-stack-lg">
+<div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30">
+<p class="font-label-md text-label-md text-on-surface-variant">In Escrow</p>
+<p class="font-title-lg text-title-lg text-on-surface mt-1">$4,200</p>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30">
+<p class="font-label-md text-label-md text-on-surface-variant">Spent</p>
+<p class="font-title-lg text-title-lg text-on-surface mt-1">$8,120</p>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30">
+<p class="font-label-md text-label-md text-on-surface-variant">Pending</p>
+<p class="font-title-lg text-title-lg text-on-surface mt-1">$1,500</p>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30">
+<p class="font-label-md text-label-md text-on-surface-variant">Saved</p>
+<p class="font-title-lg text-title-lg text-secondary mt-1">$2,340</p>
+</div>
+</div>
+<!-- Two Column Layout: Payment Methods & Recent Transactions -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-stack-lg pb-stack-lg">
+<!-- Payment Methods Column -->
+<div class="lg:col-span-1 space-y-stack-md">
+<h3 class="font-title-lg text-title-lg text-on-surface px-1">Payment Methods</h3>
+<!-- Visa Card -->
+<div class="group bg-surface-container-lowest p-card-padding rounded-2xl border border-outline-variant/50 hover:border-primary transition-all cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-8 bg-surface-container-highest rounded-md flex items-center justify-center overflow-hidden">
+<img class="h-4" data-alt="Minimalist Visa card logo icon, clean vector style on a light background, professional financial branding." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZ8lxmjnB1YbVnwpUyL0nuTLKFrjhFK-ML4a504oaVkIptWcceriPz4MMYg_ZEjsB4jJpmoXhUjcihunYCR0yPXA0e_ivCeK4iDKuNj2a0pGATAWxlSPzhyqE50aj080rDrljCtNS_fPZYSvBijWWmiZYxaemf4CYa5uofUlGSi4ofvXlqV0wOWPycwk-WYI5C06bOv0hDj6nAWhy4CTMDjgHlepXJjuZIlxxZQPGsUO_4MyAU0sLQFnQUihoMTfTFIR4DrnrSXtE"/>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">more_vert</span>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface mb-1">Visa Classic</p>
+<p class="font-label-md text-label-md text-on-surface-variant">**** 4242</p>
+</div>
+<!-- UPI Card -->
+<div class="group bg-surface-container-lowest p-card-padding rounded-2xl border border-outline-variant/50 hover:border-primary transition-all cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-8 bg-surface-container-highest rounded-md flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-primary">account_balance</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">more_vert</span>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface mb-1">UPI Payment</p>
+<p class="font-label-md text-label-md text-on-surface-variant">acmecorp@okaxis</p>
+</div>
+<button class="w-full py-4 rounded-2xl border-2 border-dashed border-outline-subtle text-on-surface-variant font-label-md text-label-md hover:bg-surface-container transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">add</span>
+                    Add Method
+                </button>
+</div>
+<!-- Recent Transactions Column -->
+<div class="lg:col-span-2 space-y-stack-md">
+<div class="flex justify-between items-center px-1">
+<h3 class="font-title-lg text-title-lg text-on-surface">Recent Transactions</h3>
+<button class="text-primary font-label-md text-label-md hover:underline">View All</button>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm overflow-hidden">
+<!-- Transaction 1 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low transition-colors cursor-pointer border-b border-outline-variant/20">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-secondary-container/30 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+<div>
+<p class="font-body-lg text-body-lg text-on-surface">Payment to Alex Rivera</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">UI/UX Design Milestone 1 • Oct 24, 2023</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-title-lg text-title-lg text-on-surface">-$1,200.00</p>
+<p class="font-label-sm text-label-sm text-secondary">Completed</p>
+</div>
+</div>
+<!-- Transaction 2 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low transition-colors cursor-pointer border-b border-outline-variant/20">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">add_circle</span>
+</div>
+<div>
+<p class="font-body-lg text-body-lg text-on-surface">Funds Deposited</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Via Visa **** 4242 • Oct 22, 2023</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-title-lg text-title-lg text-primary">+$5,000.00</p>
+<p class="font-label-sm text-label-sm text-secondary">Success</p>
+</div>
+</div>
+<!-- Transaction 3 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low transition-colors cursor-pointer border-b border-outline-variant/20">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-tertiary-container/20 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+<div>
+<p class="font-body-lg text-body-lg text-on-surface">Escrow Hold: Mobile App</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Contract ID: #99281 • Oct 20, 2023</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-title-lg text-title-lg text-on-surface">-$2,500.00</p>
+<p class="font-label-sm text-label-sm text-tertiary">Pending Release</p>
+</div>
+</div>
+<!-- Transaction 4 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-error-container/30 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">cancel</span>
+</div>
+<div>
+<p class="font-body-lg text-body-lg text-on-surface">Refund: Quality Dispute</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Ticket #4412 • Oct 15, 2023</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-title-lg text-title-lg text-error">+$450.00</p>
+<p class="font-label-sm text-label-sm text-error">Refunded</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 bg-surface/90 backdrop-blur-md flex justify-around items-center w-full px-2 py-3 border-t border-outline-variant/30 shadow-xl shadow-primary/10">
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 transition-transform active:scale-90">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-md text-label-md">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 transition-transform active:scale-90">
+<span class="material-symbols-outlined">search</span>
+<span class="font-label-md text-label-md">Discover</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 transition-transform active:scale-90">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-label-md text-label-md">Post</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 transition-transform active:scale-90">
+<span class="material-symbols-outlined">mail</span>
+<span class="font-label-md text-label-md">Messages</span>
+</button>
+<!-- Profile is active for Wallet/Account related screens in this mapping context -->
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-1.5 transition-transform active:scale-90">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-md text-label-md">Profile</span>
+</button>
+</nav>
+<!-- Floating Action Button - Only for Primary Transaction Flow -->
+<button class="fixed bottom-24 right-6 md:bottom-12 md:right-12 w-14 h-14 bg-primary text-on-primary rounded-2xl shadow-xl shadow-primary/40 flex items-center justify-center transition-all hover:scale-110 active:scale-95 group z-40">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform">payments</span>
+</button>
+<script>
+        // Micro-interaction for balance hover
+        const balanceCard = document.querySelector('.balance-card-gradient');
+        if (balanceCard) {
+            balanceCard.addEventListener('mousemove', (e) => {
+                const rect = balanceCard.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                balanceCard.style.setProperty('--mouse-x', `${x}px`);
+                balanceCard.style.setProperty('--mouse-y', `${y}px`);
+            });
+        }
+    </script>
+</body></html>

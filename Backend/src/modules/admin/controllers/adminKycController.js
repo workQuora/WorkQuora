@@ -32,7 +32,7 @@ const recalculateKycStatus = async (kycId, io) => {
 exports.getPendingKycs = async (req, res, next) => {
   try {
     // Basic admin check (could be robust middleware in prod)
-    if (req.user.role !== 'ADMIN') {
+    if (!req.admin || (req.admin.role !== 'ADMIN' && req.admin.role !== 'SUPER_ADMIN')) {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
@@ -48,7 +48,7 @@ exports.getPendingKycs = async (req, res, next) => {
 // @access  Private (Admin)
 exports.reviewKycStep = async (req, res, next) => {
   try {
-    if (req.user.role !== 'ADMIN') {
+    if (!req.admin || (req.admin.role !== 'ADMIN' && req.admin.role !== 'SUPER_ADMIN')) {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 

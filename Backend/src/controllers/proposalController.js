@@ -4,30 +4,15 @@ const { createNotification } = require('../utils/notification');
 
 // @desc    Submit a proposal for a job
 // @route   POST /api/v1/proposals/:jobId
-// @access  Private (Freelancers only)
+// @access  Private (Freelancers only) — requireKyc middleware enforces Aadhaar+PAN check
 const submitProposal = async (req, res, next) => {
   try {
-    const Kyc = require('../models/Kyc');
-    const User = require('../models/User');
-
-    // Check Freelancer KYC (Aadhaar, PAN, and Mobile number)
-    const freelancerKyc = await Kyc.findOne({ userId: req.user.id });
-    const freelancerUser = await User.findById(req.user.id);
-    const freelancerKycComplete = freelancerKyc && freelancerKyc.aadharVerified && freelancerKyc.panVerified && freelancerUser?.mobileNumber && freelancerUser.mobileNumber.trim().length > 0;
-    
-    if (!freelancerKycComplete) {
-      return res.status(400).json({
-        success: false,
-        message: 'You must complete your KYC verification (Aadhaar, PAN, and Mobile number) before applying to jobs.'
-      });
-    }
-
-    // Freelancer one active job constraint
+    // Freelancer one active job constraint (Bible Vol 2)
     const activeJob = await Job.findOne({ assignedTo: req.user.id, status: 'in-progress' });
     if (activeJob) {
       return res.status(400).json({
         success: false,
-        message: 'You are currently working on another active job. You must complete it first before you can apply to a new one.'
+        message: 'You are currently working on another active job. You must complete it first before you can apply to a new one.',
       });
     }
 
@@ -109,43 +94,28 @@ const acceptProposal = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
+    // 1. Verify freelancer also has core KYC (Aadhaar + PAN)
     const Kyc = require('../models/Kyc');
-    const User = require('../models/User');
-
-    // 1. Check Client KYC (Aadhaar, PAN, and Mobile)
-    const clientKyc = await Kyc.findOne({ userId: req.user.id });
-    const clientUser = await User.findById(req.user.id);
-    const clientKycComplete = clientKyc && clientKyc.aadharVerified && clientKyc.panVerified && clientUser?.mobileNumber && clientUser.mobileNumber.trim().length > 0;
-    
-    if (!clientKycComplete) {
-      return res.status(400).json({
-        success: false,
-        message: 'You must complete your KYC verification (Aadhaar, PAN, and Mobile number) before accepting proposals or assigning jobs.'
-      });
-    }
-
-    // 2. Check Freelancer KYC (Aadhaar, PAN, and Mobile)
     const freelancerKyc = await Kyc.findOne({ userId: proposal.freelancer });
-    const freelancerUser = await User.findById(proposal.freelancer);
-    const freelancerKycComplete = freelancerKyc && freelancerKyc.aadharVerified && freelancerKyc.panVerified && freelancerUser?.mobileNumber && freelancerUser.mobileNumber.trim().length > 0;
-    
+    const freelancerKycComplete = freelancerKyc && freelancerKyc.aadhaarVerified && freelancerKyc.panVerified;
+
     if (!freelancerKycComplete) {
       return res.status(400).json({
         success: false,
-        message: 'This freelancer has not completed their KYC verification (Aadhaar, PAN, and Mobile number). The job cannot be assigned.'
+        message: 'This freelancer has not completed their KYC verification (Aadhaar + PAN). The job cannot be assigned.',
       });
     }
 
-    // 3. Check Freelancer one active job constraint
+    // 2. Check Freelancer one active job constraint (Bible Vol 2)
     const activeJob = await Job.findOne({ assignedTo: proposal.freelancer, status: 'in-progress' });
     if (activeJob) {
       return res.status(400).json({
         success: false,
-        message: 'This freelancer is currently working on another active job. They must complete it first before they can be assigned to a new one.'
+        message: 'This freelancer is currently working on another active job. They must complete it first before they can be assigned to a new one.',
       });
     }
 
-    // 4. Check Client Wallet Balance
+    // 3. Check Client Wallet Balance (escrow requirement — Bible Vol 13)
     const Earnings = require('../models/Earnings');
     const clientEarnings = await Earnings.findOne({ userId: req.user.id });
     const walletBalance = clientEarnings?.walletBalance || 0;
@@ -156,57 +126,62 @@ const acceptProposal = async (req, res, next) => {
       });
     }
 
-    // Deduct from wallet and move to escrow
-    await Earnings.findOneAndUpdate(
-      { userId: req.user.id },
-      { 
-        $inc: { 
-          walletBalance: -proposal.bidAmount,
-          escrowBalance: proposal.bidAmount
-        } 
-      },
-      { upsert: true }
-    );
+    const { runInTransaction } = require('../utils/transactionHelper');
 
-    // Create escrow deposit transaction record
-    const Transaction = require('../models/Transaction');
-    await Transaction.create({
-      sender: req.user.id,
-      receiver: String(proposal.freelancer),
-      job: proposal.job._id,
-      amount: proposal.bidAmount,
-      type: 'escrow_deposit',
-      status: 'completed'
-    });
+    await runInTransaction(async (session) => {
+      // Deduct from wallet and move to escrow
+      await Earnings.findOneAndUpdate(
+        { userId: req.user.id },
+        { 
+          $inc: { 
+            walletBalance: -proposal.bidAmount,
+            escrowBalance: proposal.bidAmount
+          } 
+        },
+        { upsert: true, session }
+      );
 
-    // Create associated Task in assigned status
-    const Task = require('../models/Task');
-    await Task.create({
-      job: proposal.job._id,
-      client: req.user.id,
-      freelancer: proposal.freelancer,
-      status: 'assigned',
-    });
+      // Create escrow deposit transaction record
+      const Transaction = require('../models/Transaction');
+      await Transaction.create([{
+        sender: req.user.id,
+        receiver: String(proposal.freelancer),
+        job: proposal.job._id,
+        amount: proposal.bidAmount,
+        type: 'escrow_deposit',
+        status: 'completed'
+      }], { session });
 
-    proposal.status = 'accepted';
-    await proposal.save();
-    // Update job status and set contract budget to proposal's bidAmount
-    await Job.findByIdAndUpdate(proposal.job._id, { 
-      status: 'in-progress', 
-      assignedTo: proposal.freelancer,
-      budget: proposal.bidAmount
-    });
+      // Create associated Task in assigned status
+      const Task = require('../models/Task');
+      await Task.create([{
+        job: proposal.job._id,
+        client: req.user.id,
+        freelancer: proposal.freelancer,
+        status: 'assigned',
+      }], { session });
 
-    // Reject all other proposals
-    await Proposal.updateMany({ job: proposal.job._id, _id: { $ne: proposal._id } }, { status: 'rejected' });
+      proposal.status = 'accepted';
+      await proposal.save({ session });
 
-    // Initialize conversation by sending an automated welcome message
-    const Message = require('../models/Message');
-    const welcomeMessage = await Message.create({
-      sender: req.user.id,
-      receiver: proposal.freelancer,
-      job: proposal.job._id,
-      text: `Hello! I have accepted your proposal for "${proposal.job.title}". Let's collaborate!`,
+      // Update job status and set contract budget to proposal's bidAmount
+      await Job.findByIdAndUpdate(proposal.job._id, { 
+        status: 'in-progress', 
+        assignedTo: proposal.freelancer,
+        budget: proposal.bidAmount
+      }, { session });
+
+      // Reject all other proposals
+      await Proposal.updateMany({ job: proposal.job._id, _id: { $ne: proposal._id } }, { status: 'rejected' }, { session });
+
+      // Initialize conversation by sending an automated welcome message
+      const Message = require('../models/Message');
+      await Message.create([{
+        sender: req.user.id,
+        receiver: proposal.freelancer,
+        job: proposal.job._id,
+        text: `Hello! I have accepted your proposal for "${proposal.job.title}". Let's collaborate!`,
+      }], { session });
     });
 
     // Notify the freelancer that their proposal was accepted

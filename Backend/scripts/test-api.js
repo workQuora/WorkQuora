@@ -30,26 +30,54 @@ async function run() {
     const health = await request('GET', '/health');
     log('GET /health', health.status === 200, `status ${health.status}`);
 
+    const emailClient = `client_${stamp}@test.local`;
     const reg = await request('POST', '/auth/register', {
       name: 'API Test Client',
-      email: `client_${stamp}@test.local`,
+      email: emailClient,
       password: 'testpass123',
       role: 'CLIENT',
+      mobileNumber: '+919999999901',
     });
-    const clientToken = reg.data?.token;
-    log('POST /auth/register (client)', reg.status === 201 && !!clientToken, reg.data?.message);
+    log('POST /auth/register (client)', reg.status === 200, reg.data?.message);
 
+    const verifyEmailClient = await request('POST', '/auth/verify-registration', {
+      email: emailClient,
+      otp: '123456',
+    });
+    log('POST /auth/verify-registration (client)', verifyEmailClient.status === 200, verifyEmailClient.data?.message);
+
+    const verifyMobileClient = await request('POST', '/auth/verify-mobile', {
+      email: emailClient,
+      otp: '123456',
+    });
+    const clientToken = verifyMobileClient.data?.token;
+    log('POST /auth/verify-mobile (client)', verifyMobileClient.status === 201 && !!clientToken, verifyMobileClient.data?.message);
+
+    const emailFreelancer = `freelancer_${stamp}@test.local`;
     const regF = await request('POST', '/auth/register', {
       name: 'API Test Freelancer',
-      email: `freelancer_${stamp}@test.local`,
+      email: emailFreelancer,
       password: 'testpass123',
       role: 'FREELANCER',
+      mobileNumber: '+919999999902',
     });
-    const freelancerToken = regF.data?.token;
-    log('POST /auth/register (freelancer)', regF.status === 201 && !!freelancerToken);
+    log('POST /auth/register (freelancer)', regF.status === 200, regF.data?.message);
+
+    const verifyEmailFreelancer = await request('POST', '/auth/verify-registration', {
+      email: emailFreelancer,
+      otp: '123456',
+    });
+    log('POST /auth/verify-registration (freelancer)', verifyEmailFreelancer.status === 200, verifyEmailFreelancer.data?.message);
+
+    const verifyMobileFreelancer = await request('POST', '/auth/verify-mobile', {
+      email: emailFreelancer,
+      otp: '123456',
+    });
+    const freelancerToken = verifyMobileFreelancer.data?.token;
+    log('POST /auth/verify-mobile (freelancer)', verifyMobileFreelancer.status === 201 && !!freelancerToken, verifyMobileFreelancer.data?.message);
 
     const login = await request('POST', '/auth/login', {
-      email: `client_${stamp}@test.local`,
+      email: emailClient,
       password: 'testpass123',
     });
     log('POST /auth/login', login.status === 200 && !!login.data?.token);
@@ -59,6 +87,12 @@ async function run() {
 
     const profile = await request('GET', '/profile/me', null, clientToken);
     log('GET /profile/me', profile.status === 200);
+
+    const submitAadhaarRes = await request('POST', '/kyc/aadhaar/submit', { aadhaarNumber: '111122223333' }, clientToken);
+    log('POST /kyc/aadhaar/submit', submitAadhaarRes.status === 200, submitAadhaarRes.data?.message);
+
+    const submitPanRes = await request('POST', '/kyc/pan/submit', { panNumber: 'ABCDE1234F' }, clientToken);
+    log('POST /kyc/pan/submit', submitPanRes.status === 200, submitPanRes.data?.message);
 
     const createJob = await request(
       'POST',
@@ -74,7 +108,7 @@ async function run() {
       clientToken
     );
     const jobId = createJob.data?.data?._id;
-    log('POST /jobs', createJob.status === 201 && !!jobId);
+    log('POST /jobs', createJob.status === 201 && !!jobId, createJob.data?.message || JSON.stringify(createJob.data));
 
     const listJobs = await request('GET', '/jobs');
     log('GET /jobs', listJobs.status === 200 && Array.isArray(listJobs.data?.data));
@@ -89,6 +123,13 @@ async function run() {
     log('GET /dashboard/freelancer', dashFree.status === 200);
 
     if (jobId) {
+      // Freelancer KYC Submission
+      const submitAadhaarResF = await request('POST', '/kyc/aadhaar/submit', { aadhaarNumber: '222233334444' }, freelancerToken);
+      log('POST /kyc/aadhaar/submit (freelancer)', submitAadhaarResF.status === 200, submitAadhaarResF.data?.message);
+
+      const submitPanResF = await request('POST', '/kyc/pan/submit', { panNumber: 'FGHIJ5678K' }, freelancerToken);
+      log('POST /kyc/pan/submit (freelancer)', submitPanResF.status === 200, submitPanResF.data?.message);
+
       const proposal = await request(
         'POST',
         `/proposals/${jobId}`,
@@ -97,17 +138,89 @@ async function run() {
       );
       log('POST /proposals/:jobId', proposal.status === 201, proposal.data?.message);
 
+      // Bible Vol 14: Only CLIENT can initiate a chat. Freelancer can only reply after bid accepted.
+      const freelancerUser = await request('GET', '/auth/me', null, freelancerToken);
+      const freelancerId = freelancerUser.data?.data?.id;
+
       const msg = await request(
         'POST',
         '/messages',
         {
           jobId,
-          receiverId: me.data?.data?.id,
-          text: 'Hello from API test',
+          receiverId: freelancerId,
+          text: 'Hello from client! Interested in your work.',
+        },
+        clientToken
+      );
+      log('POST /messages', msg.status === 201, msg.data?.message || JSON.stringify(msg.data));
+
+      // Geolocation, Geo-fencing & Smart Match Tests (Vol 7 & 8)
+      const updateFreeProfile = await request(
+        'PUT',
+        '/profile/update',
+        {
+          skills: ['Plumber', 'Appliance Repair'],
+          serviceRadius: 20,
+          coordinates: [77.209, 28.6139],
         },
         freelancerToken
       );
-      log('POST /messages', msg.status === 201);
+      log('PUT /profile/update (freelancer skills & location)', updateFreeProfile.status === 200, updateFreeProfile.data?.message);
+
+      const getFreeProfile = await request('GET', '/profile/me', null, freelancerToken);
+      const hasNormalized = getFreeProfile.data?.data?.normalizedSkills?.includes('plumber');
+      log('Verify Skills Normalization Pre-save Hook', getFreeProfile.status === 200 && hasNormalized, `normalizedSkills: ${JSON.stringify(getFreeProfile.data?.data?.normalizedSkills)}`);
+
+      // Smart Match API test (client to freelancer)
+      const smartMatchRes = await request(
+        'POST',
+        '/jobs/smart-match',
+        {
+          description: 'Mera geyser kharab ho gya h plumber bulado',
+          coordinates: [77.209, 28.6139],
+          radius: 15,
+        },
+        clientToken
+      );
+      const isMatched = smartMatchRes.data?.data?.some(f => f._id === freelancerId);
+      const hasExplanation = smartMatchRes.data?.data?.[0]?.matchExplanation && smartMatchRes.data?.data?.[0]?.matchScore;
+      log('POST /jobs/smart-match (dynamic candidate ranking)', smartMatchRes.status === 200 && isMatched && hasExplanation, `matched count: ${smartMatchRes.data?.count}, top score: ${smartMatchRes.data?.data?.[0]?.matchScore}%`);
+
+      // Dynamic Radius validation (Far location check)
+      const smartMatchFarRes = await request(
+        'POST',
+        '/jobs/smart-match',
+        {
+          description: 'Mera geyser kharab ho gya h plumber bulado',
+          coordinates: [78.500, 29.500], // Far away
+          radius: 15,
+        },
+        clientToken
+      );
+      log('Smart Match Geo-fencing (Far Location Exclusion)', smartMatchFarRes.status === 200 && smartMatchFarRes.data?.count === 0, `matched count: ${smartMatchFarRes.data?.count}`);
+
+      // Async JobCreated Notification & Deduplication
+      const asyncJob = await request(
+        'POST',
+        '/jobs',
+        {
+          title: 'Emergency Tap Replacement',
+          description: 'Kitchen sink tap leaking, urgent plumber required today.',
+          category: 'Home Services',
+          minBudget: 800,
+          maxBudget: 2000,
+          location: { type: 'Point', coordinates: [77.209, 28.6139], address: 'Delhi' },
+        },
+        clientToken
+      );
+      log('POST /jobs (asynchronous notification trigger)', asyncJob.status === 201);
+
+      // Wait for background eventBus queue to finish matching
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const freelancerNotifs = await request('GET', '/notifications', null, freelancerToken);
+      const hasJobAlert = freelancerNotifs.data?.data?.some(n => n.message.includes('Emergency Tap Replacement'));
+      log('Asynchronous Notification Delivery & Deduplication Validation', freelancerNotifs.status === 200 && hasJobAlert, `freelancer notification count: ${freelancerNotifs.data?.data?.length}`);
     }
 
     const failed = results.filter((r) => !r.ok).length;

@@ -6,23 +6,24 @@ const smsService = require('../services/smsService');
 const digilockerService = require('../services/digilockerService');
 const encryption = require('../utils/encryption');
 
-// Helper to check global KYC status
+// Helper to check global KYC status and update atomically
 const checkAndUpdateGlobalStatus = async (kycId) => {
   const kyc = await Kyc.findById(kycId);
   if (!kyc) return;
-  
-  if (kyc.mobileVerified && kyc.panVerified && kyc.aadhaarVerified && kyc.bankVerified && kyc.selfieVerified) {
-    kyc.status = 'verified';
-    kyc.verifiedAt = new Date();
-    await kyc.save();
-    
-    // Update User model
+
+  const allVerified = kyc.mobileVerified && kyc.panVerified && kyc.aadhaarVerified && kyc.bankVerified && kyc.selfieVerified;
+  const coreVerified = kyc.panVerified && kyc.aadhaarVerified;
+
+  if (allVerified && kyc.status !== 'verified') {
+    await Kyc.findByIdAndUpdate(kycId, {
+      status: 'verified',
+      verifiedAt: new Date(),
+    });
     await User.findByIdAndUpdate(kyc.userId, { isVerified: true, kycVerified: true });
-  } else if (kyc.status === 'verified') {
-    // Demote if a step was rejected
-    kyc.status = 'pending';
-    await kyc.save();
-    await User.findByIdAndUpdate(kyc.userId, { isVerified: false, kycVerified: false });
+  } else if (coreVerified && kyc.status === 'rejected') {
+    // Promote back from rejected if core steps pass
+    await Kyc.findByIdAndUpdate(kycId, { status: 'pending' });
+    await User.findByIdAndUpdate(kyc.userId, { kycVerified: false });
   }
 };
 

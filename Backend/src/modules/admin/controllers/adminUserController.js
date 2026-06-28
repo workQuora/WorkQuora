@@ -53,7 +53,7 @@ exports.searchUsers = async (req, res, next) => {
     // Enrich with KYC status
     const enriched = await Promise.all(users.map(async (u) => {
       const kyc = await Kyc.findOne({ userId: u._id }).lean();
-      return { ...u, kyc: kyc ? { status: kyc.status, aadharVerified: kyc.aadharVerified, panVerified: kyc.panVerified } : null };
+      return { ...u, kyc: kyc ? { status: kyc.status, aadhaarVerified: kyc.aadhaarVerified, panVerified: kyc.panVerified } : null };
     }));
 
     res.status(200).json({ success: true, count: enriched.length, data: enriched });
@@ -284,5 +284,82 @@ exports.getUserHistory = async (req, res, next) => {
     ]);
 
     res.status(200).json({ success: true, data: { user, jobs, proposals, transactions } });
+  } catch (error) { next(error); }
+};
+
+// PUT /api/admin/users/:userId — update profile (excluding password)
+exports.updateUserProfile = async (req, res, next) => {
+  try {
+    const { name, email, username, mobileNumber, role, isAvailable, kycVerified, isVerified } = req.body;
+    const userId = req.params.userId;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    // Validate email uniqueness if changed
+    if (email && email.toLowerCase() !== user.email.toLowerCase()) {
+      const emailExists = await User.findOne({ email: email.toLowerCase() });
+      if (emailExists) return res.status(400).json({ success: false, message: 'Email already in use.' });
+      user.email = email.toLowerCase();
+    }
+
+    // Validate username uniqueness if changed
+    if (username && username.toLowerCase() !== (user.username || '').toLowerCase()) {
+      const usernameExists = await User.findOne({ username: username.toLowerCase() });
+      if (usernameExists) return res.status(400).json({ success: false, message: 'Username already in use.' });
+      user.username = username.toLowerCase();
+    }
+
+    const oldData = {
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      mobileNumber: user.mobileNumber,
+      role: user.role,
+      isAvailable: user.isAvailable,
+      kycVerified: user.kycVerified,
+      isVerified: user.isVerified
+    };
+
+    if (name) user.name = name;
+    if (mobileNumber !== undefined) user.mobileNumber = mobileNumber;
+    if (role) user.role = role.toUpperCase();
+    if (isAvailable !== undefined) user.isAvailable = isAvailable;
+    if (kycVerified !== undefined) user.kycVerified = kycVerified;
+    if (isVerified !== undefined) user.isVerified = isVerified;
+
+    await user.save({ validateBeforeSave: false });
+
+    // Sync with Kyc model if kycVerified was changed
+    if (kycVerified !== undefined) {
+      let kyc = await Kyc.findOne({ userId });
+      if (!kyc && kycVerified) {
+        kyc = new Kyc({ userId });
+      }
+      if (kyc) {
+        kyc.status = kycVerified ? 'verified' : 'pending';
+        kyc.panVerified = kycVerified;
+        kyc.aadhaarVerified = kycVerified;
+        kyc.bankVerified = kycVerified;
+        kyc.selfieVerified = kycVerified;
+        kyc.mobileVerified = kycVerified;
+        if (kycVerified) kyc.verifiedAt = new Date();
+        await kyc.save();
+      }
+    }
+
+    await createAuditLog({
+      admin: req.admin, actionType: 'USER_PROFILE_MODIFY', targetType: 'USER',
+      targetId: user._id, targetName: user.name,
+      description: `Admin updated user profile for ${user.name} (${user.email}).`,
+      oldData, newData: { name: user.name, username: user.username, email: user.email, mobileNumber: user.mobileNumber, role: user.role, isAvailable: user.isAvailable, kycVerified: user.kycVerified, isVerified: user.isVerified },
+      req, severity: 'HIGH',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'User profile updated successfully.',
+      data: user
+    });
   } catch (error) { next(error); }
 };

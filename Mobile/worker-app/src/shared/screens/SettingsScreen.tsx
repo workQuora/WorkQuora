@@ -11,12 +11,14 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
-import { logoutUserSession } from '../../store/authSlice';
+import { logoutUserSession, updateUser } from '../../store/authSlice';
 import { useTheme } from '../theme/theme';
 import { useLanguage } from '../../services/i18n';
 
@@ -47,6 +49,12 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+
+  // Mobile Verification States
+  const [mobileOtpModalVisible, setMobileOtpModalVisible] = useState(false);
+  const [mobileOtp, setMobileOtp] = useState('');
+  const [isSendingMobileOtp, setIsSendingMobileOtp] = useState(false);
+  const [isVerifyingMobile, setIsVerifyingMobile] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('safety_alerts_enabled').then((val) => {
@@ -155,6 +163,39 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
     }
   };
 
+  const handleSendMobileOtp = async () => {
+    if (user?.isMobileVerified) {
+      Alert.alert('Already Verified', 'Your mobile number is already verified.');
+      return;
+    }
+    try {
+      setIsSendingMobileOtp(true);
+      await api.post('/auth/send-mobile-otp', { email: user?.email });
+      setMobileOtpModalVisible(true);
+      Alert.alert('OTP Sent', 'Mobile OTP sent via SMS.');
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to send OTP.');
+    } finally {
+      setIsSendingMobileOtp(false);
+    }
+  };
+
+  const handleVerifyMobile = async () => {
+    if (!mobileOtp) return Alert.alert('Error', 'Enter OTP');
+    try {
+      setIsVerifyingMobile(true);
+      await api.post('/auth/verify-mobile', { email: user?.email, otp: mobileOtp });
+      Alert.alert('Success', 'Mobile Verified Successfully!');
+      setMobileOtpModalVisible(false);
+      dispatch(updateUser({ ...user, isMobileVerified: true }));
+      api.get('/profile/me').then(res => setProfileData(res.data?.data));
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || 'Invalid OTP.');
+    } finally {
+      setIsVerifyingMobile(false);
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert(t('logoutAlertTitle'), t('logoutAlertMsg'), [
       { text: t('cancelBtn'), style: 'cancel' },
@@ -207,6 +248,31 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
         <Text style={[styles.sectionHeading, { color: colors.textMuted }]}>IDENTITY VERIFICATION (KYC)</Text>
         <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           
+          {/* Verify Mobile Number */}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={handleSendMobileOtp}
+            disabled={isSendingMobileOtp}
+          >
+            <View style={styles.rowLeft}>
+              <View style={[styles.iconBox, { backgroundColor: '#d1fae5' }]}>
+                <Feather name="phone" size={18} color="#059669" />
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={[styles.label, { color: colors.text }]}>Verify Mobile Number</Text>
+                <Text style={styles.subLabel}>{profileData?.mobileNumber || user?.mobileNumber || 'No mobile linked'}</Text>
+              </View>
+            </View>
+            <View style={styles.rowRight}>
+              <View style={user?.isMobileVerified ? styles.badgeVerified : styles.badgePending}>
+                <Text style={user?.isMobileVerified ? styles.badgeVerifiedText : styles.badgePendingText}>
+                  {user?.isMobileVerified ? 'VERIFIED' : 'PENDING'}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color="#9ca3af" style={{ marginLeft: 8 }} />
+            </View>
+          </TouchableOpacity>
+
           {/* Identity Document (Aadhaar/PAN) */}
           <TouchableOpacity
             style={styles.row}
@@ -511,6 +577,34 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Mobile OTP Modal */}
+      <Modal visible={mobileOtpModalVisible} transparent animationType="fade">
+        <View style={styles.modalBg}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Enter Mobile OTP</Text>
+            <Text style={[styles.modalSub, { color: colors.textMuted }]}>We sent a 6-digit OTP to your mobile number.</Text>
+            <TextInput
+              style={[styles.modalInput, { color: colors.text, borderColor: colors.border }]}
+              placeholder="000000"
+              placeholderTextColor="#9ca3af"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={mobileOtp}
+              onChangeText={setMobileOtp}
+              textAlign="center"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalCancel, { backgroundColor: colors.grayLight }]} onPress={() => setMobileOtpModalVisible(false)}>
+                <Text style={[styles.modalCancelText, { color: colors.text }]}>{t('cancelBtn') || 'Cancel'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalSubmit, { backgroundColor: colors.primary }]} onPress={handleVerifyMobile} disabled={isVerifyingMobile}>
+                <Text style={[styles.modalSubmitText, { color: colors.white }]}>{isVerifyingMobile ? 'Verifying...' : 'Verify'}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>

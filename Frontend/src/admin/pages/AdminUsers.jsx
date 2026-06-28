@@ -10,6 +10,9 @@ const AdminUsers = ({ roleProp }) => {
   // roleFilter is now determined by the route (roleProp)
   const [selectedUser, setSelectedUser] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', email: '', username: '', mobileNumber: '', role: '', isAvailable: true, kycVerified: false, isVerified: false });
+  const [editSaving, setEditSaving] = useState(false);
 
   const fetchUsers = useCallback(async (page = 1) => {
     setLoading(true);
@@ -66,6 +69,35 @@ const AdminUsers = ({ roleProp }) => {
     }
   };
 
+  const startEditing = () => {
+    setEditForm({
+      name: selectedUser.name || '',
+      email: selectedUser.email || '',
+      username: selectedUser.username || '',
+      mobileNumber: selectedUser.mobileNumber || '',
+      role: selectedUser.role || 'CLIENT',
+      isAvailable: selectedUser.isAvailable !== false,
+      kycVerified: !!selectedUser.kycVerified,
+      isVerified: !!selectedUser.isVerified
+    });
+    setIsEditing(true);
+  };
+
+  const handleSaveProfile = async () => {
+    setEditSaving(true);
+    try {
+      await adminApi.put(`/users/${selectedUser._id}`, editForm);
+      alert('Profile updated successfully!');
+      setIsEditing(false);
+      viewUser(selectedUser._id);
+      fetchUsers(pagination.page);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   return (
     <div>
       <h1 className="text-xl font-extrabold text-white mb-1">
@@ -111,7 +143,7 @@ const AdminUsers = ({ roleProp }) => {
                 <tbody className="divide-y" style={{ divideColor: 'rgba(255,255,255,0.04)' }}>
                   {users.map((u) => (
                     <tr key={u._id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-5 py-3">
+                      <td className="px-5 py-3 cursor-pointer" onClick={() => viewUser(u._id)}>
                         <div className="flex items-center gap-3">
                           <img src={u.profilePic || u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`}
                             className="w-8 h-8 rounded-lg object-cover" style={{ background: 'rgba(99,102,241,0.1)' }} />
@@ -121,8 +153,8 @@ const AdminUsers = ({ roleProp }) => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3 text-xs text-gray-400">{u.email}</td>
-                      <td className="px-5 py-3">
+                      <td className="px-5 py-3 text-xs text-gray-400 cursor-pointer" onClick={() => viewUser(u._id)}>{u.email}</td>
+                      <td className="px-5 py-3 cursor-pointer" onClick={() => viewUser(u._id)}>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           u.role === 'CLIENT' ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'
                         }`}>{u.role}</span>
@@ -176,25 +208,88 @@ const AdminUsers = ({ roleProp }) => {
             {detailLoading ? <Loader2 className="w-6 h-6 animate-spin text-indigo-400 mx-auto" /> : (
               <>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-white">User Profile</h2>
-                  <button onClick={() => setSelectedUser(null)} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-400"><X className="w-4 h-4" /></button>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-bold text-white">User Profile</h2>
+                    {!isEditing ? (
+                      <button onClick={startEditing} className="px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-bold transition-colors">Edit Profile</button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveProfile} disabled={editSaving} className="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold transition-colors">{editSaving ? 'Saving...' : 'Save'}</button>
+                        <button onClick={() => setIsEditing(false)} className="px-3 py-1 bg-white/5 hover:bg-white/10 text-gray-400 rounded-lg text-xs font-bold transition-colors">Cancel</button>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => { setSelectedUser(null); setIsEditing(false); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-400"><X className="w-4 h-4" /></button>
                 </div>
 
                 {/* Basic info */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {[
-                    ['Name', selectedUser.name], ['Email', selectedUser.email],
-                    ['Username', `@${selectedUser.username}`], ['Mobile', selectedUser.mobileNumber || '—'],
-                    ['Role', selectedUser.role], ['KYC', selectedUser.kycVerified ? '✅ Verified' : '❌ Not Verified'],
-                    ['Joined', new Date(selectedUser.createdAt).toLocaleDateString()],
-                    ['Status', selectedUser.isAvailable !== false ? '🟢 Active' : '🔴 Suspended'],
-                  ].map(([k, v]) => (
-                    <div key={k} className="px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase">{k}</p>
-                      <p className="text-xs font-semibold text-gray-200 mt-0.5">{v}</p>
+                {isEditing ? (
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">Name</label>
+                      <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="bg-transparent text-xs font-semibold text-gray-200 outline-none border-b border-gray-700 focus:border-indigo-500 py-0.5" />
                     </div>
-                  ))}
-                </div>
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">Email</label>
+                      <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                        className="bg-transparent text-xs font-semibold text-gray-200 outline-none border-b border-gray-700 focus:border-indigo-500 py-0.5" />
+                    </div>
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">Username</label>
+                      <input type="text" value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                        className="bg-transparent text-xs font-semibold text-gray-200 outline-none border-b border-gray-700 focus:border-indigo-500 py-0.5" />
+                    </div>
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">Mobile</label>
+                      <input type="text" value={editForm.mobileNumber} onChange={(e) => setEditForm({ ...editForm, mobileNumber: e.target.value })}
+                        className="bg-transparent text-xs font-semibold text-gray-200 outline-none border-b border-gray-700 focus:border-indigo-500 py-0.5" />
+                    </div>
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">Role</label>
+                      <select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                        className="bg-[#12121e] text-xs font-semibold text-gray-200 outline-none border-b border-gray-700 focus:border-indigo-500 py-0.5">
+                        <option value="CLIENT">CLIENT</option>
+                        <option value="FREELANCER">FREELANCER</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">Status</label>
+                      <select value={editForm.isAvailable} onChange={(e) => setEditForm({ ...editForm, isAvailable: e.target.value === 'true' })}
+                        className="bg-[#12121e] text-xs font-semibold text-gray-200 outline-none border-b border-gray-700 focus:border-indigo-500 py-0.5">
+                        <option value="true">Active</option>
+                        <option value="false">Suspended</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">KYC Verified</label>
+                      <select value={editForm.kycVerified} onChange={(e) => setEditForm({ ...editForm, kycVerified: e.target.value === 'true', isVerified: e.target.value === 'true' })}
+                        className="bg-[#12121e] text-xs font-semibold text-gray-200 outline-none border-b border-gray-700 focus:border-indigo-500 py-0.5">
+                        <option value="true">Verified</option>
+                        <option value="false">Not Verified</option>
+                      </select>
+                    </div>
+                    <div className="px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase">Joined</p>
+                      <p className="text-xs font-semibold text-gray-400 mt-0.5">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {[
+                      ['Name', selectedUser.name], ['Email', selectedUser.email],
+                      ['Username', selectedUser.username ? `@${selectedUser.username}` : '—'], ['Mobile', selectedUser.mobileNumber || '—'],
+                      ['Role', selectedUser.role], ['KYC', selectedUser.kycVerified ? '✅ Verified' : '❌ Not Verified'],
+                      ['Joined', new Date(selectedUser.createdAt).toLocaleDateString()],
+                      ['Status', selectedUser.isAvailable !== false ? '🟢 Active' : '🔴 Suspended'],
+                    ].map(([k, v]) => (
+                      <div key={k} className="px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">{k}</p>
+                        <p className="text-xs font-semibold text-gray-200 mt-0.5">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* KYC details */}
                 {selectedUser.kyc && (
@@ -262,6 +357,26 @@ const AdminUsers = ({ roleProp }) => {
                           <div className="flex gap-2">
                             <button onClick={() => handleKycReview(selectedUser._id, 'bank', 'approve')} className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30">Approve</button>
                             <button onClick={() => handleKycReview(selectedUser._id, 'bank', 'reject')} className="px-2 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30">Reject</button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Selfie */}
+                      <div className="flex flex-col gap-2 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 font-semibold">Selfie:</span> 
+                          <span className="text-gray-300 font-bold">{selectedUser.kyc.selfieVerified ? '✅ Verified' : '❌ Pending'}</span>
+                        </div>
+                        {selectedUser.kyc.documentUrls?.selfieUrl && (
+                          <div className="mt-2">
+                            <a href={selectedUser.kyc.documentUrls.selfieUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline inline-block mb-2">View Selfie Document</a>
+                            <img src={selectedUser.kyc.documentUrls.selfieUrl} alt="Selfie" className="w-32 h-32 rounded-lg object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                          </div>
+                        )}
+                        {!selectedUser.kyc.selfieVerified && (
+                          <div className="flex gap-2">
+                            <button onClick={() => handleKycReview(selectedUser._id, 'selfie', 'approve')} className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30">Approve</button>
+                            <button onClick={() => handleKycReview(selectedUser._id, 'selfie', 'reject')} className="px-2 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30">Reject</button>
                           </div>
                         )}
                       </div>

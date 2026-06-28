@@ -27,7 +27,7 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
-  const { jobId, otherUserId, otherUserName } = route.params;
+  const { jobId, otherUserId, otherUserName } = route.params || {};
   const { colors } = useTheme();
   
   const currentUser = useSelector((state: any) => state.auth.user);

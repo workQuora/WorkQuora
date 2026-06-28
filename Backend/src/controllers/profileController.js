@@ -17,7 +17,7 @@ exports.getProfile = async (req, res, next) => {
     user.bankDetails = await BankDetails.findOne({ userId: req.user.id }).lean();
 
     // kycVerified = dedicated KYC flag (Aadhaar + PAN) — use as truth, fallback to kyc record
-    const kycVerified = !!(user.kycVerified || (user.kyc && user.kyc.aadharVerified && user.kyc.panVerified));
+    const kycVerified = !!(user.kycVerified || (user.kyc && user.kyc.aadhaarVerified && user.kyc.panVerified));
 
     res.status(200).json({
       success: true,
@@ -37,7 +37,7 @@ exports.getProfile = async (req, res, next) => {
         kycVerified,
         kyc: user.kyc ? {
           status: user.kyc.status,
-          aadharVerified: user.kyc.aadharVerified,
+          aadhaarVerified: user.kyc.aadhaarVerified,
           panVerified: user.kyc.panVerified,
         } : null,
       },
@@ -182,7 +182,7 @@ exports.getPublicProfile = async (req, res, next) => {
     };
 
     // kycVerified = dedicated KYC flag (Aadhaar + PAN) — use as truth, fallback to kyc record
-    const kycVerified = !!(user.kycVerified || (user.kyc && user.kyc.aadharVerified && user.kyc.panVerified));
+    const kycVerified = !!(user.kycVerified || (user.kyc && user.kyc.aadhaarVerified && user.kyc.panVerified));
 
     res.status(200).json({
       success: true,
@@ -193,7 +193,7 @@ exports.getPublicProfile = async (req, res, next) => {
         createdAt: user.createdAt,
         isVerified: kycVerified,
         kycVerified,
-        kyc: user.kyc ? { status: user.kyc.status, aadharVerified: user.kyc.aadharVerified, panVerified: user.kyc.panVerified } : null,
+        kyc: user.kyc ? { status: user.kyc.status, aadhaarVerified: user.kyc.aadhaarVerified, panVerified: user.kyc.panVerified } : null,
         bankDetails: user.bankDetails ? { id: user.bankDetails._id } : null,
         earnings: user.earnings ? { completedJobs: user.earnings.completedJobs, allTimeIncome: user.earnings.allTimeIncome, rating: user.averageRating } : null,
         stats,
@@ -201,7 +201,7 @@ exports.getPublicProfile = async (req, res, next) => {
         verifications: {
           email: !!user.email,
           phone: !!user.mobileNumber,
-          aadhar: user.kyc?.aadharVerified || false,
+          aadhar: user.kyc?.aadhaarVerified || false,
           pan: user.kyc?.panVerified || false,
           bank: !!user.bankDetails,
           kycStatus: user.kyc?.status || 'not_submitted',

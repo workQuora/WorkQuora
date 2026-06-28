@@ -426,7 +426,7 @@ async function seed() {
         aadharNumber: `11112222333${i}`.substring(0, 12),
         panCard: `ABCDE1234${i}`.substring(0, 10).toUpperCase(),
         status: isVerified ? 'verified' : 'pending',
-        aadharVerified: isVerified,
+        aadhaarVerified: isVerified,
         panVerified: isVerified
       });
     }

@@ -1,28 +1,18 @@
 import React from 'react';
-import { useTheme } from '../context/ThemeContext';
+import { motion } from 'framer-motion';
 
-export const LogoIcon = ({ className = "w-8 h-8" }) => {
+const Logo = () => {
   return (
-    <img 
-      src="/favicon.png" 
-      alt="WorkQuora Logo" 
-      className={`object-contain ${className}`}
-    />
-  );
-};
-
-const Logo = ({ showText = true, className = "w-8 h-8", textClassName = "text-xl" }) => {
-  const { theme } = useTheme();
-  const colorClass = theme === 'dark' ? 'text-[#e0d2ff]' : 'text-[#4f378a]';
-
-  return (
-    <div className={`flex items-center gap-2 select-none ${colorClass}`}>
-      <LogoIcon className={className} />
-      {showText && (
-        <span className={`font-extrabold tracking-tight ${textClassName} ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-          WorkQuora
-        </span>
-      )}
+    <div className="flex items-center gap-2 select-none">
+      <motion.div 
+        className="w-8 h-8 bg-gradient-to-br from-primary via-indigo-500 to-cyan-400 rounded-xl flex items-center justify-center border border-white/10 shadow-[0_0_15px_rgba(99,102,241,0.25)]"
+        whileHover={{ scale: 1.05, rotate: 5 }}
+      >
+        <span className="text-white font-black text-base tracking-tighter">W</span>
+      </motion.div>
+      <span className="text-white font-extrabold text-lg tracking-tight">
+        Work<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-400">Quora</span>
+      </span>
     </div>
   );
 };

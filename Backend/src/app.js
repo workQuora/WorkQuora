@@ -23,6 +23,7 @@ const paymentRoutes     = require('./routes/paymentRoutes');
 const analyticsRoutes   = require('./routes/analyticsroutes');
 const dashboardRoutes   = require('./routes/dashboardRoutes');
 const adRoutes          = require('./routes/adRoutes');
+const monitoringRoutes  = require('./routes/monitoringRoutes');
 
 // Admin module routes
 const adminAuthRoutes      = require('./modules/admin/routes/adminAuthRoutes');
@@ -45,9 +46,11 @@ app.use(rateLimit({ windowMs: 15*60*1000, max: 200, message: { success:false, me
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(mongoSanitize);
-if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
+const { traceRequest, morganLogger } = require('./middlewares/requestLogger');
+app.use(traceRequest);
+app.use(morganLogger);
 
-app.get('/api/v1/health', (_, res) => res.json({ status: 'active', message: 'WorkQuora API running' }));
+app.use('/api/v1/health',        monitoringRoutes);
 
 // ── Platform Routes ─────────────────────────────────
 app.use('/api/v1/auth',          authRoutes);

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Text,
   ScrollView,
-  SafeAreaView,
   Image,
   Alert,
   Switch,
@@ -14,6 +13,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -557,6 +557,7 @@ function ActiveGigsStack({ navigation }: { navigation: any }) {
 // ─── Bottom Tab Navigator ─────────────────────────────────────────────────────
 function MainTabs() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -567,11 +568,11 @@ function MainTabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: '#8e8e8e',
         tabBarStyle: {
-          height: 68,
+          height: 56 + (insets.bottom > 0 ? insets.bottom : 8),
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#f1f5f9',
-          paddingBottom: Platform.OS === 'ios' ? 16 : 8,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 8,
           elevation: 8,
           shadowColor: '#000',
@@ -595,8 +596,8 @@ function MainTabs() {
             Chat: 'Chats',
             ProfileTab: 'Profile',
           };
-          const name = icons[route.name] || 'circle';
-          const label = labels[route.name] || '';
+          const name = route && route.name ? (icons[route.name] || 'circle') : 'circle';
+          const label = route && route.name ? (labels[route.name] || '') : '';
 
           if (focused) {
             return (
@@ -1134,10 +1135,10 @@ const navBarStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     height: 38,
-    gap: 6,
+    gap: 4,
   },
   activeTabLabel: {
     fontSize: 12,

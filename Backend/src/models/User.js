@@ -21,8 +21,11 @@ const userSchema = new mongoose.Schema(
     mobileNumber: { type: String },
     isMobileEdited: { type: Boolean, default: false }, // Rule: Can only edit mobile once
     isMobileVerified: { type: Boolean, default: false },
+    mobileVerified: { type: Boolean, default: false },
     mobileOtp: { type: String, default: null, select: false },
     mobileOtpExpires: { type: Date, default: null, select: false },
+    mobileOtpCount: { type: Number, default: 0 },
+    mobileOtpLastSent: { type: Date, default: null },
     
     password: { type: String, required: [true, 'Password is required'], select: false },
     gender: { type: String, enum: ['MALE', 'FEMALE', 'OTHER'], default: 'OTHER' },
@@ -34,6 +37,8 @@ const userSchema = new mongoose.Schema(
     title: { type: String, default: '' },
     bio: { type: String, default: '' },
     skills: { type: [String], default: [] },
+    normalizedSkills: { type: [String], default: [] },
+    skillTags: { type: [String], default: [] },
     hourlyRate: { type: Number, default: 0 },
     
     location: {
@@ -45,10 +50,23 @@ const userSchema = new mongoose.Schema(
     
     serviceRadius: { type: Number, default: 25 },
     isAvailable: { type: Boolean, default: true },
+    availabilityStatus: { type: String, enum: ['AVAILABLE', 'ONLINE', 'BUSY', 'ON_JOB', 'VACATION', 'OFFLINE'], default: 'AVAILABLE' },
     averageRating: { type: Number, default: 0 },
     totalJobsCompleted: { type: Number, default: 0 },
+    // Bible Vol 8: Trust score (0–100) computed from ratings, KYC, job history, response time
+    trustScore: { type: Number, default: 0, min: 0, max: 100 },
     isVerified: { type: Boolean, default: false },   // Email OTP verified
     kycVerified: { type: Boolean, default: false },  // Aadhaar + PAN both verified
+    
+    // Performance Metrics (Vol 8)
+    jobSuccessRate: { type: Number, default: 95, min: 0, max: 100 },
+    experienceYears: { type: Number, default: 2 },
+    responseTimeMinutes: { type: Number, default: 30 },
+    cancellationRate: { type: Number, default: 2, min: 0, max: 100 },
+    
+    // Utilization / Marketplace Balancer
+    pendingJobsCount: { type: Number, default: 0 },
+    recentJobsReceivedCount: { type: Number, default: 0 },
     
     // Security & OTP fields
     twoFactorEnabled: { type: Boolean, default: false },
@@ -81,6 +99,14 @@ userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Normalize skills to lowercase and trim on saving
+userSchema.pre('save', function () {
+  if (this.isModified('skills')) {
+    this.normalizedSkills = (this.skills || []).map(s => s.toLowerCase().trim());
+    this.skillTags = this.skills || [];
+  }
 });
 
 // Compare password utility for Login

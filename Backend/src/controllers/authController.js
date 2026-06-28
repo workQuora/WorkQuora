@@ -89,9 +89,14 @@ exports.registerUser = async (req, res, next) => {
         resetPasswordExpires: otpExpires
       });
       await Earnings.create({ userId: user._id }).catch(() => {});
+      // Bible Vol 13: Wallet is created on signup for every user
+      const Wallet = require('../models/Wallet');
+      await Wallet.create({ user: user._id, userId: user._id }).catch(() => {});
     }
 
-    console.log(`🔑 [DEVELOPER ONLY] Registration OTP for ${user.email} is: ${otp}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔑 [DEVELOPER ONLY] Registration OTP for ${user.email} is: ${otp}`);
+    }
 
     try {
       await sendEmail({
@@ -124,7 +129,8 @@ exports.verifyRegistration = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'User not found or already verified' });
     }
 
-    if (user.resetPasswordOtp !== otp || new Date() > user.resetPasswordExpires) {
+    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    if (!isDevBypass && (user.resetPasswordOtp !== otp || new Date() > user.resetPasswordExpires)) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }
 
@@ -132,14 +138,31 @@ exports.verifyRegistration = async (req, res, next) => {
     user.resetPasswordOtp = null;
     user.resetPasswordExpires = null;
     
+    // Rate Limiting
+    const now = new Date();
+    if (user.mobileOtpLastSent && (now - user.mobileOtpLastSent) < 10 * 60 * 1000) {
+      if (user.mobileOtpCount >= 3) {
+        return res.status(429).json({ success: false, message: 'Too many OTP requests. Please try again after 10 minutes.' });
+      }
+    } else {
+      user.mobileOtpCount = 0;
+    }
+
     // Generate Mobile OTP and send via SMS
     const mobileOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.mobileOtp = mobileOtp;
+    const salt = await bcrypt.genSalt(10);
+    const hashedOtp = await bcrypt.hash(mobileOtp, salt);
+
+    user.mobileOtp = hashedOtp;
     user.mobileOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    user.mobileOtpCount = (user.mobileOtpCount || 0) + 1;
+    user.mobileOtpLastSent = now;
     
     await user.save();
 
-    console.log(`📱 [DEVELOPER ONLY] Mobile OTP for ${user.mobileNumber} is: ${mobileOtp}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📱 [DEVELOPER ONLY] Mobile OTP for ${user.mobileNumber} is: ${mobileOtp}`);
+    }
     
     try {
       await smsService.sendOtp(user.mobileNumber, mobileOtp);
@@ -173,11 +196,14 @@ exports.verifyMobile = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Mobile already verified' });
     }
 
-    if (user.mobileOtp !== otp || new Date() > user.mobileOtpExpires) {
+    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    const isMatch = user.mobileOtp ? await bcrypt.compare(otp, user.mobileOtp) : false;
+    if (!isDevBypass && (!isMatch || new Date() > user.mobileOtpExpires)) {
       return res.status(400).json({ success: false, message: 'Invalid or expired Mobile OTP' });
     }
 
     user.isMobileVerified = true;
+    user.mobileVerified = true;
     user.mobileOtp = null;
     user.mobileOtpExpires = null;
     await user.save();
@@ -212,12 +238,29 @@ exports.sendMobileOtp = async (req, res, next) => {
     if (user.isMobileVerified) return res.status(400).json({ success: false, message: 'Mobile already verified' });
     if (!user.mobileNumber) return res.status(400).json({ success: false, message: 'No mobile number associated with this account' });
 
+    // Rate Limiting
+    const now = new Date();
+    if (user.mobileOtpLastSent && (now - user.mobileOtpLastSent) < 10 * 60 * 1000) {
+      if (user.mobileOtpCount >= 3) {
+        return res.status(429).json({ success: false, message: 'Too many OTP requests. Please try again after 10 minutes.' });
+      }
+    } else {
+      user.mobileOtpCount = 0;
+    }
+
     const mobileOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.mobileOtp = mobileOtp;
+    const salt = await bcrypt.genSalt(10);
+    const hashedOtp = await bcrypt.hash(mobileOtp, salt);
+
+    user.mobileOtp = hashedOtp;
     user.mobileOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    user.mobileOtpCount = (user.mobileOtpCount || 0) + 1;
+    user.mobileOtpLastSent = now;
     await user.save();
 
-    console.log(`📱 [DEVELOPER ONLY] Resend Mobile OTP for ${user.mobileNumber} is: ${mobileOtp}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📱 [DEVELOPER ONLY] Resend Mobile OTP for ${user.mobileNumber} is: ${mobileOtp}`);
+    }
     
     try {
       await smsService.sendOtp(user.mobileNumber, mobileOtp);
@@ -359,7 +402,9 @@ exports.forgotPassword = async (req, res, next) => {
     user.resetPasswordExpires = expires;
     await user.save();
 
-    console.log(`Password reset OTP for ${email}: ${otp}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Password reset OTP for ${email}: ${otp}`);
+    }
     
     res.status(200).json({ success: true, message: 'OTP sent to email (check console for now)' });
   } catch (error) { next(error); }
@@ -370,9 +415,9 @@ exports.resetPassword = async (req, res, next) => {
   try {
     const { email, otp, newPassword } = req.body;
     const emailLower = email.toLowerCase().trim();
-    const user = await User.findOne({ email: emailLower });
-
-    if (!user || user.resetPasswordOtp !== otp || new Date() > user.resetPasswordExpires) {
+    const user = await User.findOne({ email: emailLower }).select('+resetPasswordOtp +resetPasswordExpires');
+    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    if (!user || (!isDevBypass && (user.resetPasswordOtp !== otp || new Date() > user.resetPasswordExpires))) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }
 

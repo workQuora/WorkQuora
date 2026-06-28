@@ -13,6 +13,7 @@ import { loginSuccess } from '../../actions/authSlice';
 import api from '../../services/api';
 import imageCompression from 'browser-image-compression';
 import AdBanner from '../../components/shared/AdBanner';
+import KycVerificationCard from '../../components/KycVerificationCard';
 
 const TABS = [
   { id: 'profile', label: 'Personal Information', icon: User, desc: 'Manage your personal and professional details.' },
@@ -32,8 +33,6 @@ const Settings = () => {
   const { data: profile, isLoading, refetch } = useGetProfile();
   
   const { register, handleSubmit, reset } = useForm();
-  const { register: kycReg, handleSubmit: kycSubmit, reset: kycReset } = useForm();
-  const [kycLoading, setKycLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [resettingPwd, setResettingPwd] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -51,12 +50,8 @@ const Settings = () => {
         hourlyRate: profile.hourlyRate || '',
       });
       setTwoFactorEnabled(profile.twoFactorEnabled || false);
-      kycReset({
-        aadharNumber: profile.kyc?.aadharNumber || '',
-        panCard: profile.kyc?.panCard || '',
-      });
     }
-  }, [profile, reset, kycReset]);
+  }, [profile, reset]);
 
   const onProfileSubmit = (data) => {
     updateProfile(
@@ -119,21 +114,7 @@ const Settings = () => {
     updateProfile({ twoFactorEnabled: newVal });
   };
 
-  const onKycSubmit = async (data) => {
-    if (!data.aadharNumber || data.aadharNumber.length !== 12) {
-      return toast.error('Aadhar number must be exactly 12 digits');
-    }
-    setKycLoading(true);
-    try {
-      await api.post('/profile/kyc', { aadharNumber: data.aadharNumber, panCard: data.panCard || undefined });
-      toast.success('KYC details submitted! Verification in progress.');
-      refetch();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'KYC submission failed.');
-    } finally {
-      setKycLoading(false);
-    }
-  };
+
 
   const handlePhotoChange = async (e) => {
     let file = e.target.files?.[0];
@@ -350,43 +331,7 @@ const Settings = () => {
             {/* KYC TAB */}
             {activeTab === 'kyc' && (
               <div className="animate-in fade-in duration-300">
-                {kycStatus === 'approved' || kycStatus === 'pending' ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-inner ${kycStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                      {kycStatus === 'approved' ? <CheckCircle2 className="w-12 h-12" /> : <Loader2 className="w-12 h-12 animate-spin" />}
-                    </div>
-                    <h3 className="text-3xl font-extrabold text-foreground mb-3">{kycStatus === 'approved' ? 'Identity Verified' : 'Verification Pending'}</h3>
-                    <p className="text-muted-foreground text-lg max-w-md mx-auto leading-relaxed">
-                      {kycStatus === 'approved' 
-                        ? 'Your Aadhar and PAN details have been successfully verified. You are good to go!'
-                        : 'We have received your documents and are currently verifying them. This usually takes 24-48 hours.'}
-                    </p>
-                  </div>
-                ) : (
-                  <form onSubmit={kycSubmit(onKycSubmit)} className="space-y-6 max-w-xl">
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mb-8">
-                      <h4 className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2 text-sm"><ShieldCheck className="w-4 h-4"/> Trust & Safety</h4>
-                      <p className="text-sm text-amber-700/80 dark:text-amber-400/80 mt-2 leading-relaxed">Government ID verification is legally required to ensure platform safety and process secure payments. Your data is encrypted and never shared publicly.</p>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Aadhar Number <span className="text-red-500">*</span></label>
-                      <input {...kycReg('aadharNumber')} placeholder="1234 5678 9012" maxLength={12} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm tracking-widest font-mono" />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">PAN Card Number <span className="opacity-50">(Optional)</span></label>
-                      <input {...kycReg('panCard')} placeholder="ABCDE1234F" maxLength={10} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm uppercase font-mono" />
-                    </div>
-
-                    <div className="pt-4">
-                      <button type="submit" disabled={kycLoading} className="bg-foreground hover:bg-foreground/90 text-background px-8 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all w-full sm:w-auto">
-                        {kycLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lock className="w-5 h-5" />}
-                        {kycLoading ? 'Encrypting & Submitting...' : 'Submit Securely'}
-                      </button>
-                    </div>
-                  </form>
-                )}
+                <KycVerificationCard hideOnComplete={false} />
               </div>
             )}
 

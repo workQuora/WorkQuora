@@ -33,7 +33,7 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
-  const { jobId, otherUserId, otherUserName } = route.params;
+  const { jobId, otherUserId, otherUserName } = route.params || {};
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const token = useSelector((state: RootState) => state.auth.token);
 

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createBrowserRouter, RouterProvider, redirect } from 'react-router-dom';
 import { store } from './redux/store';
+import { useAppStore } from './store/appStore';
 
 // Layouts
 import MainLayout from './Layouts/MainLayout';
@@ -43,6 +44,7 @@ import AdminAuditLogs from './admin/pages/AdminAuditLogs';
 import AdminSettings from './admin/pages/AdminSettings';
 import AdminAds from './admin/pages/AdminAds';
 import InfoPage from './pages/shared/InfoPage';
+import Maintenance from './pages/Maintenance';
 
 
 /* ── Route Guards ─────────────────────────────────── */
@@ -158,6 +160,11 @@ const router = createBrowserRouter([
     ],
   },
 
+  {
+    path: '/maintenance',
+    element: <Maintenance />
+  },
+
   // 404
   {
     path: '*',
@@ -172,6 +179,23 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
+  const { isMaintenanceMode, fetchMaintenanceConfig, GoToMaintenance } = useAppStore();
+
+  useEffect(() => {
+    // Fetch maintenance configurations from JSON file
+    fetchMaintenanceConfig();
+    
+    // Bind global function for developers only in local development mode
+    if (import.meta.env.DEV) {
+      window.GoToMaintenance = GoToMaintenance;
+    }
+  }, [fetchMaintenanceConfig, GoToMaintenance]);
+
+  // Intercept all routes if maintenance mode is active
+  if (isMaintenanceMode) {
+    return <Maintenance />;
+  }
+
   return <RouterProvider router={router} />;
 }
 

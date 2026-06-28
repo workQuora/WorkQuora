@@ -61,7 +61,7 @@ exports.getFreelancerDashboard = async (req, res, next) => {
 
     const financialData = await Earnings.findOne({ userId });
     const myTasks = await Task.find({ freelancer: userId })
-      .populate('job', 'title status budgetRange')
+      .populate('job', 'title status budget budgetRange category')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -103,7 +103,7 @@ exports.getWallet = async (req, res, next) => {
         allTimeIncome: earnings?.allTimeIncome || 0,
         kycStatus: kyc?.status || 'not_submitted',
         kycVerified: kyc?.status === 'verified',
-        aadharVerified: kyc?.aadharVerified || false,
+        aadhaarVerified: kyc?.aadhaarVerified || false,
         panVerified: kyc?.panVerified || false,
         hasWithdrawalPin: !!user?.withdrawalPin,
         bankAccounts: bankAccounts || [],

@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/prashantjha/Desktop/workQuora/Backend/logs/.e3c1977d2fb67f65342905240be5c15916a650fb-audit.json",
+    "files": [
+        {
+            "date": 1782683833607,
+            "name": "/Users/prashantjha/Desktop/workQuora/Backend/logs/combined-2026-06-29.log",
+            "hash": "ed546abe79e233a20ffed82617d3feee4d4f66a04aa90f7092b926fcd3761c7d"
+        }
+    ],
+    "hashType": "sha256"
+}

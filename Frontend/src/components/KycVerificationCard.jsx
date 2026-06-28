@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import imageCompression from 'browser-image-compression';
 import { termsAndConditions } from '../data/termsAndConditions';
 
-const KycVerificationCard = () => {
+const KycVerificationCard = ({ hideOnComplete = true }) => {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { user } = useSelector((s) => s.auth);
@@ -58,6 +58,7 @@ const KycVerificationCard = () => {
   const [panFile, setPanFile] = useState(null);
 
   const [bankName, setBankName] = useState('');
+  const [holderName, setHolderName] = useState('');
   const [accountNo, setAccountNo] = useState('');
   const [ifscCode, setIfscCode] = useState('');
   const [pin, setPin] = useState('');
@@ -162,7 +163,7 @@ const KycVerificationCard = () => {
 
   const handleBankSubmit = async (e) => {
     e.preventDefault();
-    if (!bankName || !accountNo || !ifscCode) return setError('All bank details are required');
+    if (!bankName || !accountNo || !ifscCode || !holderName) return setError('All bank details are required');
     if (!pin || pin.length !== 4 || /\D/.test(pin)) return setError('Withdrawal PIN must be exactly 4 digits');
     if (pin !== confirmPin) return setError('Withdrawal PINs do not match');
     
@@ -170,10 +171,11 @@ const KycVerificationCard = () => {
     setError('');
 
     try {
-      await api.post('/kyc/bank', {
+      await api.post('/kyc/bank/submit', {
         bankName,
-        accountNo,
-        ifscCode,
+        accountNumber: accountNo,
+        ifsc: ifscCode,
+        holderName,
         pin,
         confirmPin
       });
@@ -188,7 +190,21 @@ const KycVerificationCard = () => {
   };
 
   if (dataLoading) return null;
-  if (step === 'done') return null;
+  if (step === 'done') {
+    if (hideOnComplete) return null;
+    return (
+      <div className="w-full bg-card border border-border rounded-3xl p-6 text-center shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
+          <CheckCircle2 size={32} />
+        </div>
+        <h3 className="text-base font-bold text-foreground">KYC Verification Completed</h3>
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto leading-relaxed">
+          Your Aadhaar, PAN card, and Bank Details are verified and active. You are fully authorized to perform all job applications, hiring actions, and financial transactions.
+        </p>
+      </div>
+    );
+  }
 
   if (user && !user.isMobileVerified) {
     return (
@@ -368,7 +384,7 @@ const KycVerificationCard = () => {
             <h4 className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5">
               <Landmark size={14} className="text-primary" /> Link Bank Account & Generate Withdrawal PIN
             </h4>
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-4 gap-4">
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Bank Name</label>
                 <div className="flex bg-accent/40 border border-border rounded-xl px-3.5 py-2.5 items-center focus-within:border-primary/40 transition-all">
@@ -377,6 +393,19 @@ const KycVerificationCard = () => {
                     placeholder="e.g. State Bank of India"
                     value={bankName} 
                     onChange={(e) => setBankName(e.target.value)}
+                    className="bg-transparent border-none outline-none w-full text-xs font-semibold text-foreground placeholder:text-muted-foreground" 
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Account Holder Name</label>
+                <div className="flex bg-accent/40 border border-border rounded-xl px-3.5 py-2.5 items-center focus-within:border-primary/40 transition-all">
+                  <input 
+                    type="text" 
+                    placeholder="Enter Holder Name"
+                    value={holderName} 
+                    onChange={(e) => setHolderName(e.target.value)}
                     className="bg-transparent border-none outline-none w-full text-xs font-semibold text-foreground placeholder:text-muted-foreground" 
                     required
                   />

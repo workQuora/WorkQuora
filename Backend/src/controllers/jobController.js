@@ -3,6 +3,8 @@ const Proposal = require('../models/Proposal');
 const redisClient = require('../config/redis');
 const User = require('../models/User');
 const Earnings = require('../models/Earnings');
+const eventProvider = require('../events/eventProvider');
+require('../services/smartMatchingService');
 
 // @desc    Create a new Job
 // @route   POST /api/v1/jobs
@@ -15,7 +17,7 @@ exports.createJob = async (req, res, next) => {
     // Enforce KYC check (Aadhaar, PAN)
     const kyc = await Kyc.findOne({ userId: req.user.id });
 
-    const isKycVerified = kyc && kyc.aadharVerified && kyc.panVerified;
+    const isKycVerified = kyc && kyc.aadhaarVerified && kyc.panVerified;
 
     if (!isKycVerified) {
       return res.status(400).json({
@@ -64,6 +66,9 @@ exports.createJob = async (req, res, next) => {
     if (redisClient.isOpen) {
       await redisClient.del('jobs:active').catch(() => {});
     }
+
+    // Publish asynchronous JobCreated event via eventProvider
+    eventProvider.publish('JobCreated', job._id, req.app.get('io'));
 
     res.status(201).json({
       success: true,

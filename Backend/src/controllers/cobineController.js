@@ -17,16 +17,40 @@ exports.withdraw = async (req, res, next) => {
   try {
     const { amount } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Valid amount required' });
-    const e = await Earnings.findOne({ userId: req.user.id });
-    if (!e || e.walletBalance < Number(amount))
-      return res.status(400).json({ success: false, message: 'Insufficient balance' });
-    const updated = await Earnings.findOneAndUpdate(
-      { userId: req.user.id },
-      { $inc: { walletBalance: -Number(amount) } },
-      { new: true }
-    );
+
+    const { runInTransaction } = require('../utils/transactionHelper');
+    let updated;
+
+    await runInTransaction(async (session) => {
+      const e = await Earnings.findOne({ userId: req.user.id }).session(session);
+      if (!e || e.walletBalance < Number(amount)) {
+        throw new Error('Insufficient balance');
+      }
+
+      updated = await Earnings.findOneAndUpdate(
+        { userId: req.user.id },
+        { $inc: { walletBalance: -Number(amount) } },
+        { new: true, session }
+      );
+
+      // Create transaction audit ledger log
+      const Transaction = require('../models/Transaction');
+      await Transaction.create([{
+        sender: req.user.id,
+        receiver: 'BANK',
+        amount: Number(amount),
+        type: 'withdrawal',
+        status: 'completed'
+      }], { session });
+    });
+
     res.status(200).json({ success: true, message: `₹${amount} withdrawal initiated`, data: { newBalance: updated.walletBalance } });
-  } catch (error) { next(error); }
+  } catch (error) {
+    if (error.message === 'Insufficient balance') {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    next(error);
+  }
 };
 
 // GET /payments/transactions

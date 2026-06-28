@@ -61,9 +61,9 @@ const CustomSlider = ({
 };
 
 export default function GigDetailsScreen({ route, navigation }: GigDetailsScreenProps) {
-  const { job } = route.params;
+  const { job } = route.params || {};
 
-  const [bidRate, setBidRate] = useState(job.budget);
+  const [bidRate, setBidRate] = useState(job?.budget || 0);
   const [days, setDays] = useState('1');
   const [coverLetter, setCoverLetter] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -83,7 +83,7 @@ export default function GigDetailsScreen({ route, navigation }: GigDetailsScreen
       }
       setSubmitting(true);
       try {
-        const response = await api.post(`/proposals/${job._id ?? job.id}`, {
+        const response = await api.post(`/proposals/${job?._id ?? job?.id}`, {
           coverLetter: coverLetter.trim(),
           bidAmount: bidRate,
           estimatedDays: parseInt(days.trim(), 10),
@@ -103,9 +103,9 @@ export default function GigDetailsScreen({ route, navigation }: GigDetailsScreen
     }, 'Complete KYC to bid on jobs');
   };
 
-  const addressText = job.location?.address ?? job.address ?? 'Local area';
-  const minBid = job.budget * 0.5;
-  const maxBid = job.budget * 2.0;
+  const addressText = job?.location?.address ?? job?.address ?? 'Local area';
+  const minBid = (job?.budget || 0) * 0.5;
+  const maxBid = (job?.budget || 0) * 2.0;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -122,11 +122,11 @@ export default function GigDetailsScreen({ route, navigation }: GigDetailsScreen
         {/* Urgent Banner */}
         {(() => {
           const isUrgent = 
-            job.isUrgent === true ||
-            job.title?.toLowerCase().includes('urgent') || 
-            job.description?.toLowerCase().includes('urgent') ||
-            job.title?.toLowerCase().includes('emergency') || 
-            job.description?.toLowerCase().includes('emergency');
+            job?.isUrgent === true ||
+            job?.title?.toLowerCase().includes('urgent') || 
+            job?.description?.toLowerCase().includes('urgent') ||
+            job?.title?.toLowerCase().includes('emergency') || 
+            job?.description?.toLowerCase().includes('emergency');
           
           if (!isUrgent) return null;
           return (
@@ -138,25 +138,25 @@ export default function GigDetailsScreen({ route, navigation }: GigDetailsScreen
         })()}
 
         {/* Title */}
-        <Text style={styles.jobTitle}>{job.title}</Text>
-        <Text style={styles.jobCategory}>Category: {job.category || 'General'}</Text>
+        <Text style={styles.jobTitle}>{job?.title}</Text>
+        <Text style={styles.jobCategory}>Category: {job?.category || 'General'}</Text>
 
         {/* Client Est. Budget Card */}
         <View style={styles.budgetCard}>
           <Text style={styles.budgetLabel}>Client Est. Budget</Text>
-          <Text style={styles.budgetValue}>₹{Math.round(job.budget)}</Text>
+          <Text style={styles.budgetValue}>₹{Math.round(job?.budget || 0)}</Text>
         </View>
 
         {/* Work Description */}
         <Text style={styles.sectionHeading}>Work Description</Text>
-        <Text style={styles.descriptionText}>{job.description}</Text>
+        <Text style={styles.descriptionText}>{job?.description}</Text>
 
         {/* Location */}
         <Text style={styles.sectionHeading}>Location</Text>
         <Text style={styles.locationText}>{addressText}</Text>
 
         {/* Job Images */}
-        {job.pictures && job.pictures.length > 0 && (
+        {job?.pictures && job?.pictures.length > 0 && (
           <View style={{ marginBottom: 16 }}>
             <Text style={styles.sectionHeading}>Job Images</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.picturesScrollContent}>

@@ -36,14 +36,14 @@ async function verifyAll() {
           aadharNumber: aadhar,
           panCard: pan,
           status: 'verified',
-          aadharVerified: true,
+          aadhaarVerified: true,
           panVerified: true,
         });
         console.log(`Created verified KYC record for: ${user.name} (Aadhar: ${aadhar}, PAN: ${pan})`);
         verifiedCount++;
-      } else if (!kyc.aadharVerified || !kyc.panVerified || kyc.status !== 'verified') {
+      } else if (!kyc.aadhaarVerified || !kyc.panVerified || kyc.status !== 'verified') {
         kyc.status = 'verified';
-        kyc.aadharVerified = true;
+        kyc.aadhaarVerified = true;
         kyc.panVerified = true;
         await kyc.save();
         console.log(`Updated KYC record to verified for: ${user.name}`);
