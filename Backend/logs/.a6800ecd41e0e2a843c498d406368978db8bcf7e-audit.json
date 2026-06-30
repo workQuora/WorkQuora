@@ -14,6 +14,11 @@
             "date": 1782759935072,
             "name": "/Users/prashantjha/Desktop/workQuora/Backend/logs/error-2026-06-30.log",
             "hash": "e447e71e3e0ec5c13a2c20bbef0313216a24dbcb81285788006d5a6f8538cdda"
+        },
+        {
+            "date": 1782857969986,
+            "name": "/Users/prashantjha/Desktop/workQuora/Backend/logs/error-2026-07-01.log",
+            "hash": "4c96beb765b97784ad8807d48c385fbdd26ea4813f44f12b11c02ff9d90806d4"
         }
     ],
     "hashType": "sha256"
