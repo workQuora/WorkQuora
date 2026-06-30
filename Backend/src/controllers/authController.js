@@ -181,6 +181,7 @@ exports.registerUser = async (req, res, next) => {
         email: user.email,
         subject: 'Verify your WorkQuora Account 🚀',
         message: `Hi ${user.name},\n\nYour registration OTP is: ${otp}\n\nIt expires in 5 minutes.\n\nWorkQuora Team`,
+        otp,
       });
     } catch (err) {
       console.error('❌ Registration Email sending failed:', err.message);
@@ -215,7 +216,7 @@ exports.verifyRegistration = async (req, res, next) => {
       });
     }
 
-    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    const isDevBypass = (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && otp === '123456';
     if (!isDevBypass && (user.resetPasswordOtp !== otp || new Date() > user.resetPasswordExpires)) {
       // Increment failures
       user.otpAttempts = (user.otpAttempts || 0) + 1;
@@ -299,7 +300,7 @@ exports.verifyMobile = async (req, res, next) => {
       });
     }
 
-    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    const isDevBypass = (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && otp === '123456';
     const isMatch = user.mobileOtp ? await bcrypt.compare(otp, user.mobileOtp) : false;
 
     if (!isDevBypass && (!isMatch || new Date() > user.mobileOtpExpires)) {
@@ -665,11 +666,18 @@ exports.forgotPassword = async (req, res, next) => {
       entityId: user.id
     });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Password reset OTP for ${email}: ${otp}`);
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Reset your WorkQuora Password 🔑',
+        message: `Hi ${user.name},\n\nYour password reset OTP is: ${otp}\n\nIt expires in 5 minutes.\n\nWorkQuora Team`,
+        otp,
+      });
+    } catch (err) {
+      console.error('❌ Forgot Password Email sending failed:', err.message);
     }
 
-    res.status(200).json({ success: true, message: 'OTP sent to email (check console for now)' });
+    res.status(200).json({ success: true, message: 'OTP sent to email. Please verify.' });
   } catch (error) {
     next(error);
   }
@@ -682,7 +690,7 @@ exports.resetPassword = async (req, res, next) => {
     const emailLower = email.toLowerCase().trim();
     const user = await User.findOne({ email: emailLower }).select('+password +resetPasswordOtp +resetPasswordExpires +passwordHistory');
 
-    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    const isDevBypass = (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && otp === '123456';
     if (!user || (!isDevBypass && (user.resetPasswordOtp !== otp || new Date() > user.resetPasswordExpires))) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }
