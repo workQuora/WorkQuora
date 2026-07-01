@@ -17,15 +17,19 @@ class AuthController extends AsyncNotifier<UserModel?> {
     return result.match((failure) => null, (user) => user);
   }
 
+  /// Deliberately does NOT set state to AsyncLoading while the request is in
+  /// flight. The router's redirect treats authControllerProvider.isLoading
+  /// as "app is still checking session on boot" and bounces to /splash — if
+  /// that fires mid-login, LoginScreen gets disposed before the result comes
+  /// back, which silently drops the error message on failure (and causes a
+  /// jarring splash flash even on success). LoginScreen already tracks its
+  /// own local isLoading for the button spinner, so this provider's state
+  /// should only change once we have a real result — same as registration.
   Future<AppFailure?> login({required String emailOrUsername, required String password}) async {
-    state = const AsyncLoading();
     final repo = ref.read(authRepositoryProvider);
     final result = await repo.login(emailOrUsername: emailOrUsername, password: password);
     return result.match(
-      (failure) {
-        state = AsyncData(state.valueOrNull);
-        return failure;
-      },
+      (failure) => failure,
       (user) {
         state = AsyncData(user);
         return null;

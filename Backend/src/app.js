@@ -62,6 +62,14 @@ app.use(helmet({
       frameSrc: ["'self'", "https://api.razorpay.com"],
     }
   },
+  // API is consumed cross-origin by the Flutter web/mobile clients (different
+  // origin than this server). Helmet's defaults — Cross-Origin-Resource-Policy:
+  // same-origin and Cross-Origin-Opener-Policy: same-origin — make the browser
+  // silently block reading the response even when CORS headers are correct.
+  // That surfaced as generic "Failed to fetch" / DioExceptionType.unknown
+  // errors on every screen in the client app. Relax both for this API server.
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: false,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   frameguard: { action: 'deny' },
   xssFilter: true,
