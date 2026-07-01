@@ -15,4 +15,7 @@ abstract class PostJobRepository {
     required String address,
     bool isUrgent = false,
   });
+
+  Future<Either<AppFailure, List<JobModel>>> getMyJobs();
+  Future<Either<AppFailure, JobModel>> getJobById(String id);
 }

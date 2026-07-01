@@ -33,6 +33,8 @@ class ApiEndpoints {
 
   // ---- jobs (jobRoutes.js) ----
   static const jobs = '/jobs';
+  static const myJobs = '/jobs/my-jobs';
+  static String jobDetails(String id) => '/jobs/$id';
 
   // ---- messages (messageRoutes.js) ----
   static const conversations = '/messages/conversations';
@@ -74,4 +76,14 @@ class ApiEndpoints {
 
   // ---- reviews (reviewRoutes.js) ----
   static String userReviews(String userId) => '/reviews/$userId';
+  static const reviews = '/reviews';
+
+  // ---- ads (adRoutes.js) ----
+  static const adsActive = '/ads/active';
+  static const adsTrack = '/ads/track';
+
+  // ---- notifications (notificationRoutes.js) ----
+  static const notifications = '/notifications';
+  static String notificationRead(String id) => '/notifications/$id/read';
+  static const notificationsReadAll = '/notifications/read-all';
 }

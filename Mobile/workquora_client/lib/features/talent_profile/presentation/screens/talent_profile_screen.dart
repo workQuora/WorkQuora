@@ -9,6 +9,7 @@ import '../../domain/repositories/talent_profile_repository.dart';
 import '../../data/talent_profile_providers.dart';
 import '../widgets/review_tile.dart';
 import '../widgets/stat_block.dart';
+import '../widgets/review_modal.dart';
 
 class TalentProfileScreen extends ConsumerWidget {
   const TalentProfileScreen({super.key, required this.userId});
@@ -161,6 +162,29 @@ class _ProfileContent extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text('(${bundle.reviews.length})',
                             style: textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant)),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (ctx) => Padding(
+                                padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+                                child: ReviewModal(
+                                  jobId: '658bf4e8c1b2c45e88bb68b3', // Mock valid MongoDB ObjectId
+                                  revieweeId: profile.id,
+                                  revieweeName: profile.name,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.rate_review_rounded, size: 16, color: AppColors.primary),
+                          label: Text(
+                            'Write a Review',
+                            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                          ),
+                        ),
                       ],
                     ),
                     if (bundle.reviews.isEmpty)

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/app_exception.dart';
 import '../data/profile_kyc_providers.dart';
@@ -18,9 +19,32 @@ class ProfileController extends AsyncNotifier<ProfileModel?> {
     state = await AsyncValue.guard(_fetch);
   }
 
-  Future<AppFailure?> updateProfile({String? name, String? bio, String? title}) async {
+  Future<AppFailure?> updateProfile({
+    String? name,
+    String? bio,
+    String? title,
+    String? username,
+    String? address,
+    String? city,
+  }) async {
     final repo = ref.read(profileRepositoryProvider);
-    final result = await repo.updateProfile(name: name, bio: bio, title: title);
+    final result = await repo.updateProfile(
+      name: name,
+      bio: bio,
+      title: title,
+      username: username,
+      address: address,
+      city: city,
+    );
+    return result.match((failure) => failure, (_) {
+      refresh();
+      return null;
+    });
+  }
+
+  Future<AppFailure?> uploadPhoto(File file) async {
+    final repo = ref.read(profileRepositoryProvider);
+    final result = await repo.uploadPhoto(file);
     return result.match((failure) => failure, (_) {
       refresh();
       return null;

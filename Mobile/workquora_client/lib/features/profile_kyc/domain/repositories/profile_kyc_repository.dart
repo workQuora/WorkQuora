@@ -6,7 +6,15 @@ import '../../data/models/profile_model.dart';
 
 abstract class ProfileRepository {
   Future<Either<AppFailure, ProfileModel>> getProfile();
-  Future<Either<AppFailure, void>> updateProfile({String? name, String? bio, String? title});
+  Future<Either<AppFailure, void>> updateProfile({
+    String? name,
+    String? bio,
+    String? title,
+    String? username,
+    String? address,
+    String? city,
+  });
+  Future<Either<AppFailure, String>> uploadPhoto(File file);
 }
 
 abstract class KycRepository {

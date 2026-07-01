@@ -30,8 +30,26 @@ class ProfileRepositoryImpl implements ProfileRepository {
   Future<Either<AppFailure, ProfileModel>> getProfile() => _guard(() => _remote.getProfile());
 
   @override
-  Future<Either<AppFailure, void>> updateProfile({String? name, String? bio, String? title}) =>
-      _guard(() => _remote.updateProfile(name: name, bio: bio, title: title));
+  Future<Either<AppFailure, void>> updateProfile({
+    String? name,
+    String? bio,
+    String? title,
+    String? username,
+    String? address,
+    String? city,
+  }) =>
+      _guard(() => _remote.updateProfile(
+            name: name,
+            bio: bio,
+            title: title,
+            username: username,
+            address: address,
+            city: city,
+          ));
+
+  @override
+  Future<Either<AppFailure, String>> uploadPhoto(File file) =>
+      _guard(() => _remote.uploadPhoto(file));
 }
 
 class KycRepositoryImpl implements KycRepository {

@@ -37,4 +37,30 @@ class TalentProfileRepositoryImpl implements TalentProfileRepository {
       return Left(AppFailure.fromMessage('Unexpected error loading profile.'));
     }
   }
+
+  @override
+  Future<Either<AppFailure, void>> submitReview({
+    required String jobId,
+    required String revieweeId,
+    required int rating,
+    required String comment,
+  }) async {
+    try {
+      await _remote.submitReview(
+        jobId: jobId,
+        revieweeId: revieweeId,
+        rating: rating,
+        comment: comment,
+      );
+      return const Right(null);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout) {
+        return Left(AppFailure.network());
+      }
+      final message = (e.response?.data is Map) ? e.response?.data['message'] as String? : null;
+      return Left(AppFailure.fromMessage(message ?? 'Could not submit review.'));
+    } catch (_) {
+      return Left(AppFailure.fromMessage('Unexpected error submitting review.'));
+    }
+  }
 }

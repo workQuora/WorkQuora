@@ -54,4 +54,36 @@ class PostJobRepositoryImpl implements PostJobRepository {
       return Left(AppFailure.fromMessage('Unexpected error posting job.'));
     }
   }
+
+  @override
+  Future<Either<AppFailure, List<JobModel>>> getMyJobs() async {
+    try {
+      final jobs = await _remote.getMyJobs();
+      return Right(jobs);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout) {
+        return Left(AppFailure.network());
+      }
+      final message = (e.response?.data is Map) ? e.response?.data['message'] as String? : null;
+      return Left(AppFailure.fromMessage(message ?? 'Could not load your jobs. Please try again.'));
+    } catch (_) {
+      return Left(AppFailure.fromMessage('Unexpected error loading your jobs.'));
+    }
+  }
+
+  @override
+  Future<Either<AppFailure, JobModel>> getJobById(String id) async {
+    try {
+      final job = await _remote.getJobById(id);
+      return Right(job);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout) {
+        return Left(AppFailure.network());
+      }
+      final message = (e.response?.data is Map) ? e.response?.data['message'] as String? : null;
+      return Left(AppFailure.fromMessage(message ?? 'Could not load job details.'));
+    } catch (_) {
+      return Left(AppFailure.fromMessage('Unexpected error loading job details.'));
+    }
+  }
 }

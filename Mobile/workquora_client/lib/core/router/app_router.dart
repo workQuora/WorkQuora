@@ -8,10 +8,12 @@ import '../../features/discover/presentation/screens/discover_screen.dart';
 import '../../features/messages/presentation/screens/chat_screen.dart';
 import '../../features/messages/presentation/screens/conversations_screen.dart';
 import '../../features/post_job/presentation/screens/post_job_screen.dart';
+import '../../features/post_job/presentation/screens/project_success_screen.dart';
 import '../../features/profile_kyc/presentation/screens/profile_screen.dart';
 import '../../features/talent_profile/presentation/screens/talent_profile_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_screen.dart';
-import '../../shared/widgets/home_placeholder_screen.dart';
+import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../shared/widgets/splash_screen.dart';
 import 'main_shell.dart';
 
@@ -46,11 +48,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
+      GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+        path: '/project-success/:jobId',
+        builder: (context, state) => ProjectSuccessScreen(
+          jobId: state.pathParameters['jobId']!,
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => MainShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(routes: [
-            GoRoute(path: '/home', builder: (_, __) => const HomePlaceholderScreen()),
+            GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

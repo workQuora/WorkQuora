@@ -38,4 +38,15 @@ class PostJobRemoteDataSource {
     });
     return JobModel.fromJson(res.data['data'] as Map<String, dynamic>);
   }
+
+  Future<List<JobModel>> getMyJobs() async {
+    final res = await _dio.get(ApiEndpoints.myJobs);
+    final list = (res.data['data'] ?? res.data) as List;
+    return list.map((e) => JobModel.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<JobModel> getJobById(String id) async {
+    final res = await _dio.get(ApiEndpoints.jobDetails(id));
+    return JobModel.fromJson(res.data['data'] as Map<String, dynamic>);
+  }
 }
