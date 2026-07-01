@@ -23,7 +23,16 @@ class AuthRepositoryImpl implements AuthRepository {
       }
       final status = e.response?.statusCode;
       final message = (e.response?.data is Map) ? e.response?.data['message'] as String? : null;
-      if (status == 401) return Left(AppFailure.unauthorized());
+      // A 401 means different things depending on the call: for login/register
+      // it's "Invalid credentials" or "Account locked" from the backend; for
+      // getCurrentUser/refresh it genuinely means the session expired. Prefer
+      // whatever message the backend actually sent — only fall back to the
+      // generic "session expired" wording when the backend didn't send one
+      // (e.g. a bare 401 from a proxy), so login failures show the real
+      // reason instead of a confusing, unrelated message.
+      if (status == 401) {
+        return Left(message != null ? AppFailure.fromMessage(message, statusCode: 401) : AppFailure.unauthorized());
+      }
       return Left(AppFailure.fromMessage(message ?? 'Something went wrong. Please try again.', statusCode: status));
     } catch (_) {
       return Left(AppFailure.fromMessage('Unexpected error. Please try again.'));

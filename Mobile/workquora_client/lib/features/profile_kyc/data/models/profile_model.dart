@@ -21,6 +21,7 @@ class ProfileModel {
     this.kycStatus = 'pending',
     this.panVerified = false,
     this.aadhaarVerified = false,
+    this.twoFactorEnabled = false,
   });
 
   final String id;
@@ -35,6 +36,7 @@ class ProfileModel {
   final String kycStatus;
   final bool panVerified;
   final bool aadhaarVerified;
+  final bool twoFactorEnabled;
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) {
     final kyc = json['kyc'] as Map<String, dynamic>?;
@@ -51,6 +53,7 @@ class ProfileModel {
       kycStatus: kyc?['status'] as String? ?? 'pending',
       panVerified: kyc?['panVerified'] as bool? ?? false,
       aadhaarVerified: kyc?['aadhaarVerified'] as bool? ?? false,
+      twoFactorEnabled: json['twoFactorEnabled'] as bool? ?? false,
     );
   }
 }
