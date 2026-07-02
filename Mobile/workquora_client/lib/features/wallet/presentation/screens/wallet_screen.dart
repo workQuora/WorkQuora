@@ -1,476 +1,406 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../application/transactions_controller.dart';
 import '../../application/wallet_controller.dart';
-import '../widgets/add_bank_account_sheet.dart';
+import '../../application/transactions_controller.dart';
+import '../../data/models/wallet_transaction_model.dart';
 import '../widgets/add_money_sheet.dart';
-import '../widgets/bank_account_tile.dart';
-import '../widgets/transaction_tile.dart';
+import '../widgets/add_bank_account_sheet.dart';
 
-class WalletScreen extends ConsumerStatefulWidget {
+/// Wallet screen — "Secure Wallet" target design, all figures live from the
+/// backend. Balance comes pre-formatted from the server (paise→rupee is
+/// server-side only, per the project's wallet-unit rule).
+class WalletScreen extends ConsumerWidget {
   const WalletScreen({super.key});
 
   @override
-  ConsumerState<WalletScreen> createState() => _WalletScreenState();
-}
-
-class _WalletScreenState extends ConsumerState<WalletScreen> with SingleTickerProviderStateMixin {
-  final _scrollController = ScrollController();
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
-        ref.read(transactionsControllerProvider.notifier).loadMore();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final walletAsync = ref.watch(walletControllerProvider);
     final txState = ref.watch(transactionsControllerProvider);
-    final textTheme = AppTypography.light;
+    final tt = AppTypography.light;
+    final inr = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          'Secure Wallet',
-          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.onSurface,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => context.go('/profile'),
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.outline,
-          indicatorColor: AppColors.primary,
-          labelStyle: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-          tabs: const [
-            Tab(text: 'Statement'),
-            Tab(text: 'Deposit Funds'),
-          ],
-        ),
-      ),
+      backgroundColor: const Color(0xFFF5F6FA),
       body: SafeArea(
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            // Tab 1: Statement List (Overview, Stats, recent txs)
-            RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: () async {
-                await ref.read(walletControllerProvider.notifier).refresh();
-                await ref.read(transactionsControllerProvider.notifier).refresh();
-              },
-              child: ListView(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(AppSpacing.containerMargin),
-                children: [
-                  walletAsync.when(
-                    loading: () => const SizedBox(
-                      height: 160,
-                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            await ref.read(walletControllerProvider.notifier).refresh();
+            await ref.read(transactionsControllerProvider.notifier).refresh();
+          },
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+
+                    // ── Header ──────────────────────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(children: [
+                          Container(
+                            width: 36, height: 36,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                  colors: [AppColors.primary, AppColors.primaryContainer]),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.person_rounded,
+                                color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('wQ Recruit',
+                              style: tt.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800, color: AppColors.primary)),
+                        ]),
+                        IconButton(
+                          icon: const Icon(Icons.notifications_none_rounded),
+                          onPressed: () => context.push('/notifications'),
+                        ),
+                      ],
                     ),
-                    error: (error, _) => _BalanceError(
-                      message: error.toString(),
-                      onRetry: () => ref.read(walletControllerProvider.notifier).refresh(),
-                    ),
-                    data: (wallet) {
-                      if (wallet == null) return const SizedBox.shrink();
+                    const SizedBox(height: 8),
+                    Text('Secure Wallet',
+                        style: tt.headlineLarge?.copyWith(fontWeight: FontWeight.w900)),
+                    Text('Manage your recruitment funds and billing',
+                        style: tt.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant)),
+                    const SizedBox(height: 16),
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Big Balance Card
-                          _buildBalanceCard(wallet.formattedBalance),
-                          const SizedBox(height: 12),
+                    // ── Statement / Deposit buttons ─────────────────────────
+                    Row(children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.outlineVariant),
+                            shape:
+                                RoundedRectangleBorder(borderRadius: AppRadius.lgR),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {},
+                          child: const Text('Statement',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape:
+                                RoundedRectangleBorder(borderRadius: AppRadius.lgR),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () => showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => const AddMoneySheet(),
+                          ),
+                          child: const Text('Deposit Funds',
+                              style: TextStyle(fontWeight: FontWeight.w800)),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
 
-                          // Wallet Health card
-                          _buildWalletHealthCard(),
-                          const SizedBox(height: 16),
-
-                          // 4 Stat Tiles
-                          _build4StatTiles(wallet.formattedBalance),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.stackLg),
-
-                  // Recent Transactions list
-                  Row(
-                    children: [
-                      Text(
-                        'Recent Transactions',
-                        style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const Spacer(),
-                      const Icon(Icons.swap_vert_rounded, color: AppColors.outline, size: 18),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (txState.isLoading && txState.transactions.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 36),
-                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                    )
-                  else if (txState.transactions.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: AppRadius.xlR,
-                        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'No transactions logged yet.',
-                        style: textTheme.bodyMedium?.copyWith(color: AppColors.outline),
-                      ),
-                    )
-                  else
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: AppRadius.xlR,
-                        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: AppRadius.xlR,
+                    // ── Balance card ────────────────────────────────────────
+                    walletAsync.when(
+                      loading: () => const _BalanceCardShimmer(),
+                      error: (e, _) => _BalanceError(
+                          message: e.toString(),
+                          onRetry: () =>
+                              ref.read(walletControllerProvider.notifier).refresh()),
+                      data: (wallet) => Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1E00A9), Color(0xFF3525CD)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                                color: AppColors.primary.withOpacity(0.35),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10)),
+                          ],
+                        ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (final tx in txState.transactions) ...[
-                              TransactionTile(transaction: tx),
-                              if (tx != txState.transactions.last) const Divider(height: 1),
-                            ],
-                            if (txState.isLoadingMore)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('TOTAL AVAILABLE BALANCE',
+                                    style: tt.labelSmall?.copyWith(
+                                        color: Colors.white70,
+                                        letterSpacing: 1,
+                                        fontWeight: FontWeight.w700)),
+                                const Icon(Icons.account_balance_wallet_outlined,
+                                    color: Colors.white54),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              inr.format(wallet?.formattedBalance ?? 0),
+                              style: tt.displaySmall?.copyWith(
+                                  color: Colors.white, fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    borderRadius: AppRadius.fullR),
+                                child: Text(
+                                    '${wallet?.bankAccounts.length ?? 0} linked account(s)',
+                                    style: tt.labelSmall
+                                        ?.copyWith(color: Colors.white)),
                               ),
+                            ]),
                           ],
                         ),
                       ),
                     ),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
+                    const SizedBox(height: 16),
 
-            // Tab 2: Deposit Funds & Bank management
-            RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: () async {
-                await ref.read(walletControllerProvider.notifier).refresh();
-              },
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.containerMargin),
-                children: [
-                  walletAsync.when(
-                    loading: () => const SizedBox(
-                      height: 120,
-                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                    ),
-                    error: (error, _) => Text(error.toString()),
-                    data: (wallet) {
-                      if (wallet == null) return const SizedBox.shrink();
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    // ── Payment Methods ─────────────────────────────────────
+                    Text('Payment Methods',
+                        style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
+                    walletAsync.maybeWhen(
+                      data: (wallet) => Column(
                         children: [
-                          // Deposit CTA card
-                          _buildDepositCtaCard(context),
-                          const SizedBox(height: AppSpacing.stackLg),
-
-                          // Payment methods lists
-                          Row(
-                            children: [
-                              Text(
-                                'Linked Bank Accounts',
-                                style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const Spacer(),
-                              TextButton.icon(
-                                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-                                onPressed: () => AddBankAccountSheet.show(context),
-                                icon: const Icon(Icons.add_rounded, size: 16),
-                                label: const Text('Add Account', style: TextStyle(fontWeight: FontWeight.w700)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (wallet.bankAccounts.isEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(24),
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: AppRadius.xlR,
-                                border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
-                              ),
-                              child: Column(
-                                children: [
-                                  const Icon(Icons.account_balance_rounded, size: 36, color: AppColors.outline),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'No linked bank accounts found.',
-                                    style: textTheme.bodyMedium?.copyWith(color: AppColors.outline),
+                          ...?wallet?.bankAccounts.map((acc) => Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: AppRadius.xlR),
+                                child: Row(children: [
+                                  Container(
+                                    width: 40, height: 40,
+                                    decoration: BoxDecoration(
+                                        color: AppColors.primaryFixed,
+                                        borderRadius: AppRadius.mdR),
+                                    child: const Icon(Icons.account_balance_rounded,
+                                        color: AppColors.primary, size: 20),
                                   ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(acc.bankName,
+                                            style: tt.bodyLarge?.copyWith(
+                                                fontWeight: FontWeight.w700)),
+                                        Text('•••• ${acc.accountEnding}',
+                                            style: tt.labelSmall?.copyWith(
+                                                color: AppColors.outline)),
+                                      ],
+                                    ),
+                                  ),
+                                  if (acc.isPrimary)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                          color: AppColors.secondaryFixed
+                                              .withOpacity(0.4),
+                                          borderRadius: AppRadius.fullR),
+                                      child: Text('Primary',
+                                          style: tt.labelSmall?.copyWith(
+                                              color: AppColors.secondary,
+                                              fontWeight: FontWeight.w800)),
+                                    ),
+                                ]),
+                              )),
+                          // Add method (dashed)
+                          GestureDetector(
+                            onTap: () => showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => const AddBankAccountSheet(),
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: AppColors.outlineVariant, width: 1.4),
+                                borderRadius: AppRadius.xlR,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.add_rounded,
+                                      color: AppColors.onSurfaceVariant, size: 20),
+                                  const SizedBox(width: 6),
+                                  Text('Add Method',
+                                      style: tt.labelMedium?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.onSurfaceVariant)),
                                 ],
                               ),
-                            )
-                          else
-                            ...wallet.bankAccounts.map((b) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: BankAccountTile(account: b),
-                                )),
+                            ),
+                          ),
                         ],
-                      );
-                    },
-                  ),
-                ],
+                      ),
+                      orElse: () => const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── Recent Transactions ─────────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Recent Transactions',
+                            style:
+                                tt.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                        TextButton(
+                          onPressed: () => ref
+                              .read(transactionsControllerProvider.notifier)
+                              .loadMore(),
+                          child: Text('View All',
+                              style: tt.labelMedium?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+
+                    if (txState.isLoading)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(
+                            child: CircularProgressIndicator(
+                                color: AppColors.primary, strokeWidth: 2)),
+                      )
+                    else if (txState.transactions.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: Text('No transactions yet.',
+                              style: tt.bodyMedium
+                                  ?.copyWith(color: AppColors.outline)),
+                        ),
+                      )
+                    else
+                      ...txState.transactions
+                          .take(10)
+                          .map((tx) => _TransactionTile(tx: tx, inr: inr)),
+
+                    const SizedBox(height: 100),
+                  ]),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildBalanceCard(num balance) {
+// ── Transaction tile ──────────────────────────────────────────────────────────
+class _TransactionTile extends StatelessWidget {
+  const _TransactionTile({required this.tx, required this.inr});
+  final WalletTransactionModel tx;
+  final NumberFormat inr;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = AppTypography.light;
+    final isCredit = tx.isCredit;
+    final (icon, iconBg, iconColor) = switch (tx.status) {
+      'pending' => (Icons.schedule_rounded, AppColors.primaryFixed, AppColors.primary),
+      'failed' => (Icons.cancel_outlined, AppColors.errorContainer, AppColors.error),
+      _ => isCredit
+          ? (Icons.add_circle_outline_rounded, const Color(0xFFEAF7ED), AppColors.secondary)
+          : (Icons.check_circle_outline_rounded, const Color(0xFFEAF7ED), AppColors.secondary),
+    };
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryContainer],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration:
+          BoxDecoration(color: Colors.white, borderRadius: AppRadius.xlR),
+      child: Row(children: [
+        Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+          child: Icon(icon, color: iconColor, size: 20),
         ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'TOTAL AVAILABLE BALANCE',
-                style: AppTypography.textTheme(Colors.white.withOpacity(0.75)).labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-              ),
-              const Icon(Icons.verified_user_rounded, color: Colors.white70, size: 18),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '₹${balance.toStringAsFixed(2)}',
-            style: AppTypography.textTheme(Colors.white).displayLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 34,
-                ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              // Mock active contract avatars
-              Stack(
-                children: [
-                  CircleAvatar(radius: 12, backgroundColor: Colors.white.withOpacity(0.2), backgroundImage: const NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=Alex')),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16),
-                    child: CircleAvatar(radius: 12, backgroundColor: Colors.white.withOpacity(0.2), backgroundImage: const NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=Jordan')),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 32),
-                    child: CircleAvatar(radius: 12, backgroundColor: Colors.white.withOpacity(0.2), backgroundImage: const NetworkImage('https://api.dicebear.com/7.x/avataaars/png?seed=Pat')),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Active Contracts Escrow Locked',
-                style: AppTypography.textTheme(Colors.white.withOpacity(0.8)).labelSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWalletHealthCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.secondary.withOpacity(0.08),
-        borderRadius: AppRadius.xlR,
-        border: Border.all(color: AppColors.secondary.withOpacity(0.15)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: const BoxDecoration(
-              color: AppColors.secondary,
-              shape: BoxShape.circle,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              tx.description.isNotEmpty ? tx.description : tx.source.replaceAll('_', ' '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
-            child: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 16),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Wallet Health: Stable (+12%)',
-                style: AppTypography.light.labelMedium?.copyWith(
-                  color: AppColors.secondary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                'All transaction records are verified in escrow.',
-                style: AppTypography.light.labelSmall?.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _build4StatTiles(num balance) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 1.6,
-      children: [
-        _buildStatTile('In Escrow', '₹${(balance * 0.4).toStringAsFixed(0)}', Icons.lock_clock_rounded, AppColors.primary),
-        _buildStatTile('Spent', '₹${(balance * 1.2).toStringAsFixed(0)}', Icons.outbox_rounded, AppColors.error),
-        _buildStatTile('Pending', '₹${(balance * 0.15).toStringAsFixed(0)}', Icons.hourglass_empty_rounded, AppColors.promoOrange),
-        _buildStatTile('Saved', '₹${(balance * 0.6).toStringAsFixed(0)}', Icons.savings_rounded, AppColors.secondary),
-      ],
-    );
-  }
-
-  Widget _buildStatTile(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppRadius.lgR,
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: AppTypography.light.labelSmall?.copyWith(
-                  color: AppColors.outline,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
+            Text(
+              DateFormat('MMM d, yyyy').format(tx.createdAt),
+              style: tt.labelSmall?.copyWith(color: AppColors.outline),
+            ),
+          ]),
+        ),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(
-            value,
-            style: AppTypography.light.titleLarge?.copyWith(
+            '${isCredit ? '+' : '-'}${inr.format(tx.amountRupees)}',
+            style: tt.bodyLarge?.copyWith(
               fontWeight: FontWeight.w800,
-              color: AppColors.onSurface,
+              color: isCredit ? AppColors.secondary : AppColors.onSurface,
             ),
           ),
-        ],
-      ),
+          Text(
+            tx.status[0].toUpperCase() + tx.status.substring(1),
+            style: tt.labelSmall?.copyWith(
+              color: switch (tx.status) {
+                'completed' => AppColors.secondary,
+                'failed' => AppColors.error,
+                _ => AppColors.promoOrange,
+              },
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ]),
+      ]),
     );
   }
+}
 
-  Widget _buildDepositCtaCard(BuildContext context) {
+class _BalanceCardShimmer extends StatelessWidget {
+  const _BalanceCardShimmer();
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
+      height: 160,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppRadius.xlR,
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Deposit Funds via Razorpay',
-            style: AppTypography.light.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Add money securely to your recruitment escrow account to fund projects and hire top talent instantly.',
-            style: AppTypography.light.bodyMedium?.copyWith(color: AppColors.outline, height: 1.3),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.onPrimary,
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.lgR),
-                elevation: 0,
-              ),
-              onPressed: () => AddMoneySheet.show(context),
-              icon: const Icon(Icons.add_rounded, size: 20),
-              label: Text(
-                'Initiate Deposit',
-                style: AppTypography.textTheme(AppColors.onPrimary).labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: const Center(
+          child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2)),
     );
   }
 }
@@ -479,20 +409,20 @@ class _BalanceError extends StatelessWidget {
   const _BalanceError({required this.message, required this.onRetry});
   final String message;
   final VoidCallback onRetry;
-
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(color: AppColors.surfaceContainer, borderRadius: BorderRadius.circular(20)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(message, style: AppTypography.light.bodyMedium),
-          const SizedBox(height: AppSpacing.stackSm),
-          OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
-      ),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+          color: AppColors.errorContainer.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(24)),
+      child: Column(children: [
+        Text(message,
+            textAlign: TextAlign.center,
+            style: AppTypography.light.bodyMedium?.copyWith(color: AppColors.error)),
+        const SizedBox(height: 8),
+        TextButton(onPressed: onRetry, child: const Text('Retry')),
+      ]),
     );
   }
 }
