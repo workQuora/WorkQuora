@@ -59,29 +59,67 @@ const chatSocketHandler = (io) => {
           socket.emit('error', { message: 'Malformed roomId' });
           return;
         }
+
+        const [jobId, otherUserId] = parts;
+        if (!socket.userId) {
+          socket.emit('error', { message: 'Unauthorized' });
+          return;
+        }
+
+        // Verify membership: client or freelancer on this job post/proposal
+        const Job = require('../models/Job');
+        const Proposal = require('../models/Proposal');
+        const job = await Job.findById(jobId);
+        if (!job) {
+          socket.emit('error', { message: 'Job not found' });
+          return;
+        }
+
+        const isClient = String(job.client) === String(socket.userId);
+        let authorized = false;
+        if (isClient) {
+          if (job.assignedTo && String(job.assignedTo) === String(otherUserId)) {
+            authorized = true;
+          } else {
+            const hasProposal = await Proposal.findOne({ job: jobId, freelancer: otherUserId });
+            if (hasProposal) authorized = true;
+          }
+        } else {
+          if (String(job.client) === String(otherUserId)) {
+            if (job.assignedTo && String(job.assignedTo) === String(socket.userId)) {
+              authorized = true;
+            } else {
+              const hasProposal = await Proposal.findOne({ job: jobId, freelancer: socket.userId });
+              if (hasProposal) authorized = true;
+            }
+          }
+        }
+
+        if (!authorized) {
+          socket.emit('error', { message: 'Unauthorized room access' });
+          return;
+        }
+
         socket.join(roomId);
         console.log(`💬 Socket ${socket.id} joined room: ${roomId}`);
 
         // 2. Mark messages in this room as read automatically
-        if (socket.userId) {
-          const [jobId, otherUserId] = parts;
-          const mongoose = require('mongoose');
-          const validJobId = mongoose.Types.ObjectId.isValid(jobId) ? jobId : '000000000000000000000000';
-          const unread = await Message.find({
-            job: validJobId,
-            sender: otherUserId,
-            receiver: socket.userId,
-            status: { $ne: 'read' }
-          });
+        const mongoose = require('mongoose');
+        const validJobId = mongoose.Types.ObjectId.isValid(jobId) ? jobId : '000000000000000000000000';
+        const unread = await Message.find({
+          job: validJobId,
+          sender: otherUserId,
+          receiver: socket.userId,
+          status: { $ne: 'read' }
+        });
 
-          if (unread.length > 0) {
-            await Message.updateMany(
-              { job: validJobId, sender: otherUserId, receiver: socket.userId },
-              { $set: { status: 'read', isRead: true } }
-            );
-            // Notify the sender that their messages have been read
-            io.to(otherUserId).emit('messages_read', { jobId: validJobId, readerId: socket.userId });
-          }
+        if (unread.length > 0) {
+          await Message.updateMany(
+            { job: validJobId, sender: otherUserId, receiver: socket.userId },
+            { $set: { status: 'read', isRead: true } }
+          );
+          // Notify the sender that their messages have been read
+          io.to(otherUserId).emit('messages_read', { jobId: validJobId, readerId: socket.userId });
         }
       } catch (err) {
         console.error('join_room error:', err);
@@ -108,6 +146,35 @@ const chatSocketHandler = (io) => {
         const { jobId, senderId } = data || {};
         const myId = socket.userId;
         if (!myId || !jobId || !senderId) return;
+
+        // Verify membership authorization
+        const Job = require('../models/Job');
+        const Proposal = require('../models/Proposal');
+        const job = await Job.findById(jobId);
+        if (!job) return;
+
+        const isClient = String(job.client) === String(myId);
+        let authorized = false;
+        if (isClient) {
+          if (job.assignedTo && String(job.assignedTo) === String(senderId)) {
+            authorized = true;
+          } else {
+            const hasProposal = await Proposal.findOne({ job: jobId, freelancer: senderId });
+            if (hasProposal) authorized = true;
+          }
+        } else {
+          if (String(job.client) === String(senderId)) {
+            if (job.assignedTo && String(job.assignedTo) === String(myId)) {
+              authorized = true;
+            } else {
+              const hasProposal = await Proposal.findOne({ job: jobId, freelancer: myId });
+              if (hasProposal) authorized = true;
+            }
+          }
+        }
+
+        if (!authorized) return;
+
         const mongoose = require('mongoose');
         const validJobId = mongoose.Types.ObjectId.isValid(jobId) ? jobId : '000000000000000000000000';
         const unread = await Message.find({
@@ -130,12 +197,44 @@ const chatSocketHandler = (io) => {
     });
 
     // Support join_chat event for backwards compatibility
-    socket.on('join_chat', (room) => {
+    socket.on('join_chat', async (room) => {
       try {
-        if (room) {
-          socket.join(room);
-          console.log(`💬 Socket ${socket.id} joined room: ${room}`);
+        if (!room || typeof room !== 'string') return;
+        const parts = room.split('_');
+        if (parts.length !== 2) return;
+        const [jobId, otherUserId] = parts;
+        if (!socket.userId) return;
+
+        // Verify membership authorization
+        const Job = require('../models/Job');
+        const Proposal = require('../models/Proposal');
+        const job = await Job.findById(jobId);
+        if (!job) return;
+
+        const isClient = String(job.client) === String(socket.userId);
+        let authorized = false;
+        if (isClient) {
+          if (job.assignedTo && String(job.assignedTo) === String(otherUserId)) {
+            authorized = true;
+          } else {
+            const hasProposal = await Proposal.findOne({ job: jobId, freelancer: otherUserId });
+            if (hasProposal) authorized = true;
+          }
+        } else {
+          if (String(job.client) === String(otherUserId)) {
+            if (job.assignedTo && String(job.assignedTo) === String(socket.userId)) {
+              authorized = true;
+            } else {
+              const hasProposal = await Proposal.findOne({ job: jobId, freelancer: socket.userId });
+              if (hasProposal) authorized = true;
+            }
+          }
         }
+
+        if (!authorized) return;
+
+        socket.join(room);
+        console.log(`💬 Socket ${socket.id} joined room: ${room}`);
       } catch (err) {
         console.error('join_chat error:', err);
       }
