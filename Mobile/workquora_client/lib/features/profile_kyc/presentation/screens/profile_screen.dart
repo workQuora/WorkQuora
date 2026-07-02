@@ -47,13 +47,13 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 // ── Error view ────────────────────────────────────────────────────────────────
-class _ErrorView extends StatelessWidget {
+class _ErrorView extends ConsumerWidget {
   const _ErrorView({required this.message, required this.onRetry});
   final String message;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -75,16 +75,33 @@ class _ErrorView extends StatelessWidget {
               style: AppTypography.light.bodyLarge?.copyWith(color: AppColors.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.lgR),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Retry'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: onRetry,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.lgR),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Retry'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.lgR),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.logout_rounded, size: 18),
+                  label: const Text('Logout'),
+                ),
+              ],
             ),
           ],
         ),
