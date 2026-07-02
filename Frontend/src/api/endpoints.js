@@ -81,10 +81,14 @@ export const transactionsApi = {
 };
 
 export const kycApi = {
-  sendOtp:   (f) => api.post('/kyc/send-otp', f, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  verifyOtp: (d) => api.post('/kyc/verify-otp', d),
-  addPan:    (f) => api.post('/kyc/pan', f, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  addBank:   (d) => api.post('/kyc/bank', d),
+  sendOtp:      (f) => api.post('/kyc/otp/send', f, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  verifyOtp:    (d) => api.post('/kyc/otp/verify', d),
+  submitAadhaar:(f) => api.post('/kyc/aadhaar/submit', f, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  addPan:       (f) => api.post('/kyc/pan/submit', f, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  addBank:      (d) => api.post('/kyc/bank/submit', d),
+  submitSelfie: (f) => api.post('/kyc/selfie/submit', f, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  getStatus:    ()  => api.get('/kyc/status'),
+  reset:        ()  => api.post('/kyc/reset'),
 };
 
 export const reviewsApi = {
