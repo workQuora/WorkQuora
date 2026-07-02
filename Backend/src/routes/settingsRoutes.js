@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const settingsController = require('../controllers/settingsController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, authorize } = require('../middlewares/authMiddleware');
 
 router.use(protect);
 
-router.post('/', settingsController.updateSettings); // admin scoped in theory, simplified for E2E verification
-router.get('/', settingsController.getSettings);
+router.post('/', authorize('ADMIN'), settingsController.updateSettings);
+router.get('/', authorize('ADMIN'), settingsController.getSettings);
 
 module.exports = router;
