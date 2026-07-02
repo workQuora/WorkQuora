@@ -196,8 +196,16 @@ exports.verifyAddMoneyPayment = async (req, res, next) => {
 
     res.status(200).json({ success: true, message: 'Money added successfully', balance: wallet.balance });
   } catch (error) {
-    await session.abortTransaction();
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
     session.endSession();
+
+    // Catch duplicate payment verification race condition
+    if (error.code === 11000) {
+      return res.status(200).json({ success: true, message: 'Payment already processed successfully' });
+    }
+
     console.error('[AddMoney Verify Error]', error);
     res.status(500).json({ success: false, message: 'Could not verify payment' });
   }
