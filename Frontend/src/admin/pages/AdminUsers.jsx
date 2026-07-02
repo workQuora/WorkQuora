@@ -301,14 +301,14 @@ const AdminUsers = ({ roleProp }) => {
                       <div className="flex flex-col gap-2 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-500 font-semibold">Aadhaar:</span> 
-                          <span className="text-gray-300 font-bold">{selectedUser.kyc.aadharVerified ? '✅ Verified' : '❌ Pending'}</span>
+                          <span className="text-gray-300 font-bold">{selectedUser.kyc.aadhaarVerified ? '✅ Verified' : '❌ Pending'}</span>
                         </div>
                         {selectedUser.kyc.documentUrls?.aadhaarDocUrl && (
                           <div className="mt-2">
                             <a href={selectedUser.kyc.documentUrls.aadhaarDocUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">View Aadhaar Document</a>
                           </div>
                         )}
-                        {!selectedUser.kyc.aadharVerified && (
+                        {!selectedUser.kyc.aadhaarVerified && (
                           <div className="flex gap-2">
                             <button onClick={() => handleKycReview(selectedUser._id, 'aadhaar', 'approve')} className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30">Approve</button>
                             <button onClick={() => handleKycReview(selectedUser._id, 'aadhaar', 'reject')} className="px-2 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30">Reject</button>
