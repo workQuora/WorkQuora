@@ -8,8 +8,8 @@
   --card: 0 0% 100%;
   --card-foreground: 240 10% 3.9%;
   --border: 240 5.9% 90%;         /* Soft Light Gray Border */
-  --primary: 243 75% 59%;         /* Indigo Blue */
-  --primary-foreground: 0 0% 98%;
+  --primary: 251 100% 33%;         /* Brand #1E00A9 */
+  --primary-foreground: 0 0% 100%;
   --muted: 240 4.8% 95.9%;
   --muted-foreground: 240 3.8% 46.1%;
   --accent: 240 4.8% 95.9%;
@@ -22,8 +22,8 @@
   --card: 240 10% 5.9%;           /* #121214 - Slightly lighter for cards */
   --card-foreground: 0 0% 98%;
   --border: 240 3.7% 15.9%;       /* Semi-transparent line #27272A */
-  --primary: 243 75% 59%;
-  --primary-foreground: 0 0% 98%;
+  --primary: 251 100% 33%;
+  --primary-foreground: 0 0% 100%;
   --muted: 240 3.7% 15.9%;
   --muted-foreground: 240 5% 64.9%;
   --accent: 240 3.7% 15.9%;

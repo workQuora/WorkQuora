@@ -58,13 +58,13 @@ const RazorpayButton = ({
 
       // 2. Open Razorpay checkout
       const options = {
-        key: keyId || process.env.REACT_APP_RAZORPAY_KEY_ID || 'rzp_test_placeholder', // Fallback
+        key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder', // Fallback
         amount: orderAmount,
         currency: currency || 'INR',
         name: 'WorkQuora',
         description: 'Add Money to Wallet',
         order_id: orderId,
-        theme: { color: '#6366f1' },
+        theme: { color: '#1E00A9' },
         handler: async (response) => {
           try {
             // 3. Verify payment on backend

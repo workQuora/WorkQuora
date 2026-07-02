@@ -74,9 +74,9 @@ const KycVerificationCard = ({ hideOnComplete = true }) => {
     if (wallet) {
       if (wallet.kycVerified && wallet.bankAccounts?.length > 0 && wallet.hasWithdrawalPin) {
         setStep('done');
-      } else if (!wallet.aadharVerified) {
+      } else if (!wallet.aadhaarVerified) {
         setStep(1);
-      } else if (wallet.aadharVerified && !wallet.panVerified) {
+      } else if (wallet.aadhaarVerified && !wallet.panVerified) {
         setStep(3);
       } else if (wallet.kycVerified && (!wallet.bankAccounts?.length || !wallet.hasWithdrawalPin)) {
         setStep(4);

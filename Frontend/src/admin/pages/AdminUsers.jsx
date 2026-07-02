@@ -11,7 +11,7 @@ const AdminUsers = ({ roleProp }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', email: '', username: '', mobileNumber: '', role: '', isAvailable: true, kycVerified: false, isVerified: false });
+  const [editForm, setEditForm] = useState({ name: '', email: '', username: '', mobileNumber: '', role: '', isAvailable: true, isKycVerified: false, isEmailVerified: false });
   const [editSaving, setEditSaving] = useState(false);
 
   const fetchUsers = useCallback(async (page = 1) => {
@@ -77,8 +77,8 @@ const AdminUsers = ({ roleProp }) => {
       mobileNumber: selectedUser.mobileNumber || '',
       role: selectedUser.role || 'CLIENT',
       isAvailable: selectedUser.isAvailable !== false,
-      kycVerified: !!selectedUser.kycVerified,
-      isVerified: !!selectedUser.isVerified
+      isKycVerified:  !!selectedUser.isKycVerified,
+      isEmailVerified: !!selectedUser.isEmailVerified
     });
     setIsEditing(true);
   };
@@ -160,7 +160,7 @@ const AdminUsers = ({ roleProp }) => {
                         }`}>{u.role}</span>
                       </td>
                       <td className="px-5 py-3">
-                        {u.kycVerified || u.kyc?.aadharVerified
+                        {u.isKycVerified || u.kyc?.aadhaarVerified
                           ? <Shield className="w-4 h-4 text-emerald-400" />
                           : <ShieldX className="w-4 h-4 text-red-400" />}
                       </td>
@@ -263,7 +263,7 @@ const AdminUsers = ({ roleProp }) => {
                     </div>
                     <div className="flex flex-col gap-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <label className="text-[10px] font-bold text-gray-500 uppercase">KYC Verified</label>
-                      <select value={editForm.kycVerified} onChange={(e) => setEditForm({ ...editForm, kycVerified: e.target.value === 'true', isVerified: e.target.value === 'true' })}
+                      <select value={editForm.isKycVerified} onChange={(e) => setEditForm({ ...editForm, isKycVerified: e.target.value === 'true', isEmailVerified: e.target.value === 'true' })}
                         className="bg-[#12121e] text-xs font-semibold text-gray-200 outline-none border-b border-gray-700 focus:border-indigo-500 py-0.5">
                         <option value="true">Verified</option>
                         <option value="false">Not Verified</option>
@@ -279,7 +279,7 @@ const AdminUsers = ({ roleProp }) => {
                     {[
                       ['Name', selectedUser.name], ['Email', selectedUser.email],
                       ['Username', selectedUser.username ? `@${selectedUser.username}` : '—'], ['Mobile', selectedUser.mobileNumber || '—'],
-                      ['Role', selectedUser.role], ['KYC', selectedUser.kycVerified ? '✅ Verified' : '❌ Not Verified'],
+                      ['Role', selectedUser.role], ['KYC', selectedUser.isKycVerified ? '✅ Verified' : '❌ Not Verified'],
                       ['Joined', new Date(selectedUser.createdAt).toLocaleDateString()],
                       ['Status', selectedUser.isAvailable !== false ? '🟢 Active' : '🔴 Suspended'],
                     ].map(([k, v]) => (

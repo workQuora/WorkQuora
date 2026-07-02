@@ -35,9 +35,9 @@ const FreelancerProfile = () => {
   // Sync kycVerified from fresh profile data into Redux (so Navbar badge stays accurate)
   useEffect(() => {
     if (profile && token) {
-      const kycDone = !!(profile.kycVerified || (profile.kyc?.aadharVerified && profile.kyc?.panVerified));
-      if (kycDone !== user?.kycVerified) {
-        dispatch(loginSuccess({ user: { ...user, kycVerified: kycDone, isVerified: kycDone }, token }));
+      const kycDone = !!(profile.isKycVerified || profile.kycVerified || (profile.kyc?.aadhaarVerified && profile.kyc?.panVerified));
+      if (kycDone !== user?.isKycVerified) {
+        dispatch(loginSuccess({ user: { ...user, isKycVerified: kycDone, isEmailVerified: user?.isEmailVerified }, token }));
       }
     }
   }, [profile]);
@@ -86,7 +86,7 @@ const FreelancerProfile = () => {
 
   const kycStatus = displayProfile?.kyc?.status;
   // Compute live from kyc fields (Aadhaar + PAN = fully verified) — kycVerified is the dedicated flag
-  const isKycVerified = !!(displayProfile?.kycVerified || (displayProfile?.kyc?.aadharVerified && displayProfile?.kyc?.panVerified));
+  const isKycVerified = !!(displayProfile?.isKycVerified || displayProfile?.kycVerified || (displayProfile?.kyc?.aadhaarVerified && displayProfile?.kyc?.panVerified));
 
   if (isLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -182,10 +182,10 @@ const FreelancerProfile = () => {
                         : displayProfile.location}
                     </span>
                   )}
-                  {displayProfile?.earnings?.rating != null && (
+                  {displayProfile?.averageRating != null && (
                     <span className="flex items-center gap-1 text-amber-500">
                       <Star size={16} className="fill-current" />
-                      {displayProfile.earnings.rating} / 5
+                      {displayProfile.averageRating} / 5
                     </span>
                   )}
                   {displayProfile?.role !== 'CLIENT' && displayProfile?.hourlyRate > 0 && (
@@ -240,7 +240,7 @@ const FreelancerProfile = () => {
                 { label: 'Jobs Completed', value: displayProfile.earnings.completedJobs ?? '—' },
                 { label: 'Total Earned', value: displayProfile.earnings.allTimeIncome ? `₹${displayProfile.earnings.allTimeIncome.toLocaleString('en-IN')}` : '₹0' },
                 { label: 'Wallet Balance', value: displayProfile.earnings.walletBalance ? `₹${displayProfile.earnings.walletBalance.toLocaleString('en-IN')}` : '₹0' },
-                { label: 'Rating', value: displayProfile.earnings.rating ? `${displayProfile.earnings.rating}/5 ⭐` : 'No rating yet' },
+                { label: 'Rating', value: displayProfile.averageRating ? `${displayProfile.averageRating}/5 ⭐` : 'No rating yet' },
               ].map(({ label, value }) => (
                 <div key={label} className="bg-background rounded-2xl p-4 border border-border/60">
                   <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide mb-1">{label}</p>

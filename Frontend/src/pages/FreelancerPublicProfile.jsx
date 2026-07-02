@@ -50,7 +50,7 @@ const FreelancerPublicProfile = () => {
   const stats = profile.stats || {};
 
   // Compute KYC verification status — kycVerified = Aadhaar + PAN only (not email)
-  const isKycVerified = !!(profile.kycVerified || profile.isVerified || (profile.kyc?.aadharVerified && profile.kyc?.panVerified));
+  const isKycVerified = !!(profile.isKycVerified || profile.kycVerified || (profile.kyc?.aadhaarVerified && profile.kyc?.panVerified));
   const kycStatus = profile.kyc?.status || 'not_submitted';
 
   return (
@@ -135,10 +135,10 @@ const FreelancerPublicProfile = () => {
                 <p className="text-muted-foreground font-medium text-lg">{profile.title || profile.role || 'Freelancer'}</p>
 
                 <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  {profile.earnings?.rating > 0 && (
+                  {profile.averageRating > 0 && (
                     <span className="flex items-center gap-1 text-amber-500 font-semibold">
                       <Star className="w-4 h-4 fill-current" />
-                      {profile.earnings.rating.toFixed(1)} / 5
+                      {profile.averageRating.toFixed(1)} / 5
                     </span>
                   )}
                   {profile.hourlyRate > 0 && (

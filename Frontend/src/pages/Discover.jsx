@@ -116,7 +116,7 @@ const Discover = () => {
         address: item.location?.address || item.location?.city || 'Local',
         profilePic: item.profilePic || item.avatar,
         rating: item.averageRating || 0,
-        isVerified: !!(item.kycVerified || item.isVerified),
+        isVerified: !!(item.isKycVerified || item.kycVerified),
       };
     } else {
       return {
@@ -363,7 +363,7 @@ const Discover = () => {
                               />
                             ))}
                           </div>
-                          <span className="text-xs font-bold text-foreground/80 ml-1">{Number(item.rating || 0).toFixed(1)}</span>
+                          <span className="text-xs font-bold text-foreground/80 ml-1">{Number(item.averageRating || 0).toFixed(1)}</span>
                         </div>
 
                         {/* 5. Bio */}
@@ -423,11 +423,11 @@ const Discover = () => {
                             {item.clientInfo.name} (@{item.clientInfo.username || 'client'})
                           </button>
                           <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
-                            item.clientInfo.isVerified
+                            item.clientInfo.isKycVerified
                               ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/20'
                               : 'bg-red-500/10 text-red-500 border-red-500/20'
                           }`}>
-                            {item.clientInfo.isVerified ? 'Verified' : 'Not Verified'}
+                            {item.clientInfo.isKycVerified ? 'Verified' : 'Not Verified'}
                           </span>
                         </div>
                       )}
