@@ -1,51 +1,59 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { createBrowserRouter, RouterProvider, redirect } from 'react-router-dom';
 import { store } from './redux/store';
 import { useAppStore } from './store/appStore';
 
-// Layouts
+// ── Layouts (NOT lazy — shell must render instantly) ──────────────────────────
 import MainLayout from './Layouts/MainLayout';
+import DashboardLayout from './Layouts/DashboardLayout';
+import AdminLayout from './admin/components/AdminLayout';
 
-// Pages
-import Landing from './pages/Landing';
+// ── Auth pages (NOT lazy — entry points, must load instantly) ─────────────────
 import Auth from './pages/Auth';
-import Discover from './pages/Discover';
-import JobDetails from './pages/JobDetails';
-import SearchPage from './pages/SearchPage';
-import FreelancerPublicProfile from './pages/FreelancerPublicProfile';
 import Login from './features/auth/ui/Login';
 import SelectRole from './features/auth/ui/SelectRole';
 
-// Shared Pages
-import Messages from './pages/shared/Messages';
-import Settings from './pages/shared/Settings';
-import Wallet from './pages/shared/Wallet';
+// ── Lazy-loaded public pages ──────────────────────────────────────────────────
+const Landing               = lazy(() => import('./pages/Landing'));
+const Discover              = lazy(() => import('./pages/Discover'));
+const JobDetails            = lazy(() => import('./pages/JobDetails'));
+const SearchPage            = lazy(() => import('./pages/SearchPage'));
+const FreelancerPublicProfile = lazy(() => import('./pages/FreelancerPublicProfile'));
+const InfoPage              = lazy(() => import('./pages/shared/InfoPage'));
 
-// Client Pages
-import DashboardLayout from './Layouts/DashboardLayout';
-import PostJob from './pages/client/PostJob';
-import ClientJobs from './pages/client/ClientJobs';
+// ── Lazy-loaded shared/protected pages ───────────────────────────────────────
+const Messages              = lazy(() => import('./pages/shared/Messages'));
+const Settings              = lazy(() => import('./pages/shared/Settings'));
+const Wallet                = lazy(() => import('./pages/shared/Wallet'));
 
-// Freelancer Pages
-import FreelancerDashboard from './pages/freelancer/Dashboard';
-import Profile from './pages/freelancer/Profile';
-import Earnings from './pages/freelancer/Earnings';
-import ClientDashboard from './pages/client/Dashboard';
+// ── Lazy-loaded client pages ──────────────────────────────────────────────────
+const PostJob               = lazy(() => import('./pages/client/PostJob'));
+const ClientJobs            = lazy(() => import('./pages/client/ClientJobs'));
+const ClientDashboard       = lazy(() => import('./pages/client/Dashboard'));
 
-// Admin Portal Pages & Components
-import AdminLayout from './admin/components/AdminLayout';
-import AdminLogin from './admin/pages/AdminLogin';
-import AdminDashboard from './admin/pages/AdminDashboard';
-import AdminUsers from './admin/pages/AdminUsers';
-import AdminTasks from './admin/pages/AdminTasks';
-import AdminPayments from './admin/pages/AdminPayments';
-import AdminAnalytics from './admin/pages/AdminAnalytics';
-import AdminAuditLogs from './admin/pages/AdminAuditLogs';
-import AdminSettings from './admin/pages/AdminSettings';
-import AdminAds from './admin/pages/AdminAds';
-import InfoPage from './pages/shared/InfoPage';
-import Maintenance from './pages/Maintenance';
+// ── Lazy-loaded freelancer pages ──────────────────────────────────────────────
+const FreelancerDashboard   = lazy(() => import('./pages/freelancer/Dashboard'));
+const Profile               = lazy(() => import('./pages/freelancer/Profile'));
+const Earnings              = lazy(() => import('./pages/freelancer/Earnings'));
 
+// ── Lazy-loaded admin pages (heaviest — biggest gain) ─────────────────────────
+const AdminLogin            = lazy(() => import('./admin/pages/AdminLogin'));
+const AdminDashboard        = lazy(() => import('./admin/pages/AdminDashboard'));
+const AdminUsers            = lazy(() => import('./admin/pages/AdminUsers'));
+const AdminTasks            = lazy(() => import('./admin/pages/AdminTasks'));
+const AdminPayments         = lazy(() => import('./admin/pages/AdminPayments'));
+const AdminAnalytics        = lazy(() => import('./admin/pages/AdminAnalytics'));
+const AdminAuditLogs        = lazy(() => import('./admin/pages/AdminAuditLogs'));
+const AdminSettings         = lazy(() => import('./admin/pages/AdminSettings'));
+const AdminAds              = lazy(() => import('./admin/pages/AdminAds'));
+const Maintenance           = lazy(() => import('./pages/Maintenance'));
+
+// ── Shared Suspense fallback (full-screen spinner) ────────────────────────────
+const PageLoader = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+  </div>
+);
 
 /* ── Route Guards ─────────────────────────────────── */
 const guestLoader = () => {
@@ -114,7 +122,7 @@ const router = createBrowserRouter([
     ],
   },
 
-  // Auth routes
+  // Auth routes (eager — entry points)
   { path: '/auth',             element: <Auth />,       loader: guestLoader },
   { path: '/auth/login',       element: <Login />,      loader: guestLoader },
   { path: '/auth/select-role', element: <SelectRole />, loader: authLoader },
@@ -184,7 +192,7 @@ function App() {
   useEffect(() => {
     // Fetch maintenance configurations from JSON file
     fetchMaintenanceConfig();
-    
+
     // Bind global function for developers only in local development mode
     if (import.meta.env.DEV) {
       window.GoToMaintenance = GoToMaintenance;
@@ -193,10 +201,18 @@ function App() {
 
   // Intercept all routes if maintenance mode is active
   if (isMaintenanceMode) {
-    return <Maintenance />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Maintenance />
+      </Suspense>
+    );
   }
 
-  return <RouterProvider router={router} />;
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <RouterProvider router={router} />
+    </Suspense>
+  );
 }
 
 export default App;
