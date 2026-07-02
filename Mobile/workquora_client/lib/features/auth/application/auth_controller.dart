@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/network/core_providers.dart';
 import '../../../core/storage/hive_service.dart';
 import '../data/auth_providers.dart';
 import '../data/models/user_model.dart';
@@ -80,9 +81,26 @@ class AuthController extends AsyncNotifier<UserModel?> {
   }
 
   Future<void> logout() async {
-    final repo = ref.read(authRepositoryProvider);
-    await repo.logout();
-    await HiveService.clearAllOnLogout();
+    try {
+      final repo = ref.read(authRepositoryProvider);
+      await repo.logout();
+    } catch (e) {
+      print('Logout repo error: $e');
+    }
+
+    try {
+      await HiveService.clearAllOnLogout();
+    } catch (e) {
+      print('Logout Hive error: $e');
+    }
+
+    try {
+      final secureStorage = ref.read(secureStorageProvider);
+      await secureStorage.clear();
+    } catch (e) {
+      print('Logout secure storage error: $e');
+    }
+
     state = const AsyncData(null);
   }
 
