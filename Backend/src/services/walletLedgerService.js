@@ -9,15 +9,22 @@ class WalletLedgerService {
    */
   async postEntry({ userId, transactionId, debit = 0, credit = 0, reference, description, currency = 'INR', session = null }) {
     const txId = transactionId || crypto.randomUUID();
+    const amount = Number(credit) - Number(debit);
 
-    // 1. Get current balance using lean option (Vol 14)
-    const currentEarnings = await Earnings.findOne({ userId }).session(session).lean();
-    const previousBalance = currentEarnings?.walletBalance || 0;
+    // 1. Update Earnings atomically using $inc
+    const updatedEarnings = await Earnings.findOneAndUpdate(
+      { userId },
+      { $inc: { walletBalance: amount } },
+      { new: true, session }
+    );
 
-    // Calculate new running balance
-    const runningBalance = previousBalance + credit - debit;
+    if (!updatedEarnings) {
+      throw new Error(`Earnings wallet not found for user: ${userId}`);
+    }
 
-    // 2. Create Ledger entry
+    const runningBalance = updatedEarnings.walletBalance;
+
+    // 2. Create Ledger entry with the atomic running balance
     const ledgerEntryArr = await Ledger.create(
       [
         {
@@ -32,32 +39,6 @@ class WalletLedgerService {
         },
       ],
       { session }
-    );
-
-    // 3. Re-calculate verified balance from database ledger logs to avoid out-of-sync states
-    const aggregateResult = await Ledger.aggregate([
-      { $match: { walletId: userId } },
-      {
-        $group: {
-          _id: null,
-          totalCredits: { $sum: '$credit' },
-          totalDebits: { $sum: '$debit' },
-        },
-      },
-    ]).session(session);
-
-    let verifiedBalance = runningBalance;
-    if (aggregateResult && aggregateResult.length > 0) {
-      verifiedBalance = aggregateResult[0].totalCredits - aggregateResult[0].totalDebits;
-    }
-
-    // 4. Update the wallet balance to match verified ledger sum
-    const updatedEarnings = await Earnings.findOneAndUpdate(
-      { userId },
-      { 
-        $set: { walletBalance: Number(verifiedBalance) }
-      },
-      { upsert: true, new: true, session }
     );
 
     return { ledgerEntry: ledgerEntryArr[0], earnings: updatedEarnings };
