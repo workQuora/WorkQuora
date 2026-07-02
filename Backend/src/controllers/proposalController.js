@@ -126,63 +126,91 @@ const acceptProposal = async (req, res, next) => {
       });
     }
 
+    // Ensure proposal is still pending and job is still open before moving forward
+    if (proposal.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Proposal has already been processed' });
+    }
+    if (proposal.job.status !== 'open') {
+      return res.status(400).json({ success: false, message: 'Job is no longer open' });
+    }
+
     const { runInTransaction } = require('../utils/transactionHelper');
 
-    await runInTransaction(async (session) => {
-      // Deduct from wallet and move to escrow
-      await Earnings.findOneAndUpdate(
-        { userId: req.user.id },
-        { 
-          $inc: { 
-            walletBalance: -proposal.bidAmount,
-            escrowBalance: proposal.bidAmount
-          } 
-        },
-        { upsert: true, session }
-      );
+    try {
+      await runInTransaction(async (session) => {
+        // 1. Atomic status guard update on Proposal
+        const updatedProposal = await Proposal.findOneAndUpdate(
+          { _id: proposal._id, status: 'pending' },
+          { status: 'accepted' },
+          { new: true, session }
+        );
+        if (!updatedProposal) {
+          throw new Error('PROPOSAL_ALREADY_ACCEPTED');
+        }
 
-      // Create escrow deposit transaction record
-      const Transaction = require('../models/Transaction');
-      await Transaction.create([{
-        sender: req.user.id,
-        receiver: String(proposal.freelancer),
-        job: proposal.job._id,
-        amount: proposal.bidAmount,
-        type: 'escrow_deposit',
-        status: 'completed'
-      }], { session });
+        // 2. Atomic status guard update on Job
+        const updatedJob = await Job.findOneAndUpdate(
+          { _id: proposal.job._id, status: 'open' },
+          { status: 'in-progress', assignedTo: proposal.freelancer, budget: proposal.bidAmount },
+          { new: true, session }
+        );
+        if (!updatedJob) {
+          throw new Error('JOB_NO_LONGER_OPEN');
+        }
 
-      // Create associated Task in assigned status
-      const Task = require('../models/Task');
-      await Task.create([{
-        job: proposal.job._id,
-        client: req.user.id,
-        freelancer: proposal.freelancer,
-        status: 'assigned',
-      }], { session });
+        // 3. Deduct from wallet and move to escrow
+        await Earnings.findOneAndUpdate(
+          { userId: req.user.id },
+          { 
+            $inc: { 
+              walletBalance: -proposal.bidAmount,
+              escrowBalance: proposal.bidAmount
+            } 
+          },
+          { upsert: true, session }
+        );
 
-      proposal.status = 'accepted';
-      await proposal.save({ session });
+        // 4. Create escrow deposit transaction record
+        const Transaction = require('../models/Transaction');
+        await Transaction.create([{
+          sender: req.user.id,
+          receiver: String(proposal.freelancer),
+          job: proposal.job._id,
+          amount: proposal.bidAmount,
+          type: 'escrow_deposit',
+          status: 'completed'
+        }], { session });
 
-      // Update job status and set contract budget to proposal's bidAmount
-      await Job.findByIdAndUpdate(proposal.job._id, { 
-        status: 'in-progress', 
-        assignedTo: proposal.freelancer,
-        budget: proposal.bidAmount
-      }, { session });
+        // 5. Create associated Task in assigned status
+        const Task = require('../models/Task');
+        await Task.create([{
+          job: proposal.job._id,
+          client: req.user.id,
+          freelancer: proposal.freelancer,
+          status: 'assigned',
+        }], { session });
 
-      // Reject all other proposals
-      await Proposal.updateMany({ job: proposal.job._id, _id: { $ne: proposal._id } }, { status: 'rejected' }, { session });
+        // 6. Reject all other proposals
+        await Proposal.updateMany({ job: proposal.job._id, _id: { $ne: proposal._id } }, { status: 'rejected' }, { session });
 
-      // Initialize conversation by sending an automated welcome message
-      const Message = require('../models/Message');
-      await Message.create([{
-        sender: req.user.id,
-        receiver: proposal.freelancer,
-        job: proposal.job._id,
-        text: `Hello! I have accepted your proposal for "${proposal.job.title}". Let's collaborate!`,
-      }], { session });
-    });
+        // 7. Initialize conversation by sending an automated welcome message
+        const Message = require('../models/Message');
+        await Message.create([{
+          sender: req.user.id,
+          receiver: proposal.freelancer,
+          job: proposal.job._id,
+          text: `Hello! I have accepted your proposal for "${proposal.job.title}". Let's collaborate!`,
+        }], { session });
+      });
+    } catch (txError) {
+      if (txError.message === 'PROPOSAL_ALREADY_ACCEPTED') {
+        return res.status(409).json({ success: false, message: 'Proposal has already been accepted or processed.' });
+      }
+      if (txError.message === 'JOB_NO_LONGER_OPEN') {
+        return res.status(409).json({ success: false, message: 'Job is no longer open for accepting proposals.' });
+      }
+      throw txError;
+    }
 
     const { createAuditLog } = require('../utils/auditLogger');
     await createAuditLog(req, {
