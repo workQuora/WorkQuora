@@ -71,6 +71,10 @@ exports.createAd = async (req, res, next) => {
       platform, dailyFrequency, durationSeconds 
     } = req.body;
 
+    if (!brandName || /[^a-zA-Z0-9\s\-_]/.test(brandName)) {
+      return res.status(400).json({ success: false, message: 'Invalid brand name characters' });
+    }
+
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Ad media (image/video) is required' });
     }
@@ -124,6 +128,10 @@ exports.updateAd = async (req, res, next) => {
 
     const ad = await Ad.findById(adId);
     if (!ad) return res.status(404).json({ success: false, message: 'Ad not found' });
+
+    if (req.body.brandName && /[^a-zA-Z0-9\s\-_]/.test(req.body.brandName)) {
+      return res.status(400).json({ success: false, message: 'Invalid brand name characters' });
+    }
 
     // Handle new media upload if provided
     if (req.file) {

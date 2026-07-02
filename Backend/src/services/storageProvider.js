@@ -124,7 +124,19 @@ class StorageProvider {
   }
 
   async _uploadToLocal(fileBuffer, folder, options) {
-    const uploadDir = path.join(__dirname, '../../public/uploads', folder);
+    const safeComponents = folder
+      .split(/[/\\]/)
+      .map(comp => comp.replace(/[^a-zA-Z0-9\-_]/g, ''))
+      .filter(comp => comp.length > 0 && comp !== '.' && comp !== '..');
+
+    const safeFolder = safeComponents.join(path.sep);
+    const baseDir = path.resolve(__dirname, '../../public/uploads');
+    const uploadDir = path.resolve(baseDir, safeFolder);
+
+    if (!uploadDir.startsWith(baseDir + path.sep) && uploadDir !== baseDir) {
+      throw new Error('Invalid upload path — path traversal detected');
+    }
+
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -133,7 +145,7 @@ class StorageProvider {
     const filePath = path.join(uploadDir, filename);
     fs.writeFileSync(filePath, fileBuffer);
 
-    const relativePath = `${folder}/${filename}`;
+    const relativePath = `${safeComponents.join('/')}/${filename}`;
     return {
       url: `http://localhost:3000/uploads/${relativePath}`,
       secureUrl: `http://localhost:3000/uploads/${relativePath}`,
@@ -142,7 +154,19 @@ class StorageProvider {
   }
 
   async _deleteLocal(publicId) {
-    const filePath = path.join(__dirname, '../../public/uploads', publicId);
+    const safeComponents = publicId
+      .split(/[/\\]/)
+      .map(comp => comp.replace(/[^a-zA-Z0-9\-_\.]/g, ''))
+      .filter(comp => comp.length > 0 && comp !== '.' && comp !== '..');
+
+    const safePublicId = safeComponents.join(path.sep);
+    const baseDir = path.resolve(__dirname, '../../public/uploads');
+    const filePath = path.resolve(baseDir, safePublicId);
+
+    if (!filePath.startsWith(baseDir + path.sep)) {
+      throw new Error('Invalid delete path — path traversal detected');
+    }
+
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }

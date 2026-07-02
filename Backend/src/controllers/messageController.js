@@ -9,7 +9,15 @@ exports.uploadChatFile = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const chatId = req.body.jobId || 'direct'; // or any identifier
+    const jobId = req.body.jobId;
+    if (jobId && jobId !== 'direct') {
+      const mongoose = require('mongoose');
+      if (!mongoose.Types.ObjectId.isValid(jobId)) {
+        return res.status(400).json({ success: false, message: 'Invalid jobId' });
+      }
+    }
+
+    const chatId = jobId || 'direct'; // or any identifier
 
     // Upload to Cloudinary (resource_type auto-detects images, videos, audio, documents)
     const result = await storageService.uploadFile(req.file.buffer, `chat-media/${chatId}`, {
