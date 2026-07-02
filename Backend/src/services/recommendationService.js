@@ -53,7 +53,7 @@ class RecommendationService {
       }
 
       // 7. Verified Badge (up to 5 points)
-      if (f.isVerified) {
+      if (f.isKycVerified) {
         score += 5;
       }
 

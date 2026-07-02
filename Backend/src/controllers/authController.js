@@ -112,14 +112,14 @@ exports.registerUser = async (req, res, next) => {
     const emailLower = email.toLowerCase().trim();
 
     const emailUser = await User.findOne({ email: emailLower });
-    if (emailUser && emailUser.isVerified) {
+    if (emailUser && emailUser.isEmailVerified) {
       return res.status(400).json({ success: false, message: 'Email is already registered' });
     }
 
     if (username) {
       const cleanUsername = username.toLowerCase().trim();
       const usernameUser = await User.findOne({ username: cleanUsername });
-      if (usernameUser && (usernameUser.isVerified || usernameUser.email !== emailLower)) {
+      if (usernameUser && (usernameUser.isEmailVerified || usernameUser.email !== emailLower)) {
         return res.status(400).json({ success: false, message: 'Username is already taken' });
       }
     }
@@ -156,7 +156,7 @@ exports.registerUser = async (req, res, next) => {
         role: (role || 'CLIENT').toUpperCase(),
         gender: cleanGender,
         avatar: defaultAvatar,
-        isVerified: false,
+        isEmailVerified: false,
         resetPasswordOtp: otp,
         resetPasswordExpires: otpExpires
       });
@@ -204,7 +204,7 @@ exports.verifyRegistration = async (req, res, next) => {
     const emailLower = email.toLowerCase().trim();
     const user = await User.findOne({ email: emailLower }).select('+resetPasswordOtp +resetPasswordExpires +otpAttempts +otpLockedUntil');
 
-    if (!user || user.isVerified) {
+    if (!user || user.isEmailVerified) {
       return res.status(400).json({ success: false, message: 'User not found or already verified' });
     }
 
@@ -228,7 +228,7 @@ exports.verifyRegistration = async (req, res, next) => {
     }
 
     // Reset attempts on success
-    user.isVerified = true;
+    user.isEmailVerified = true;
     user.resetPasswordOtp = null;
     user.resetPasswordExpires = null;
     user.otpAttempts = 0;
@@ -284,7 +284,7 @@ exports.verifyMobile = async (req, res, next) => {
     const emailLower = email.toLowerCase().trim();
     const user = await User.findOne({ email: emailLower }).select('+mobileOtp +mobileOtpExpires +otpAttempts +otpLockedUntil');
 
-    if (!user || !user.isVerified) {
+    if (!user || !user.isEmailVerified) {
       return res.status(400).json({ success: false, message: 'User not found or email not verified' });
     }
 
@@ -607,7 +607,7 @@ exports.socialLogin = async (req, res, next) => {
         name: verifiedName || verifiedEmail.split('@')[0],
         email: verifiedEmail,
         password: randomPwd,
-        isVerified: true
+        isEmailVerified: true
       });
       await Earnings.create({ userId: user._id }).catch(() => {});
     }
@@ -754,7 +754,7 @@ exports.checkUsername = async (req, res, next) => {
       return res.status(200).json({ success: true, available: false, message: 'Invalid username format' });
     }
     const user = await User.findOne({ username: cleanUsername });
-    if (user && user.isVerified) {
+    if (user && user.isEmailVerified) {
       return res.status(200).json({ success: true, available: false, message: 'Username is already taken' });
     }
     res.status(200).json({ success: true, available: true, message: 'Username is available' });

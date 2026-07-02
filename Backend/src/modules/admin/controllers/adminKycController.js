@@ -12,12 +12,12 @@ const recalculateKycStatus = async (kycId, io) => {
     kyc.status = 'verified';
     kyc.verifiedAt = new Date();
     await kyc.save();
-    await User.findByIdAndUpdate(kyc.userId, { isVerified: true, kycVerified: true });
+    await User.findByIdAndUpdate(kyc.userId, { isKycVerified: true });
   } else {
     // If any step was rejected
     kyc.status = 'pending';
     await kyc.save();
-    await User.findByIdAndUpdate(kyc.userId, { isVerified: false, kycVerified: false });
+    await User.findByIdAndUpdate(kyc.userId, { isKycVerified: false });
   }
 
   // Emit socket update

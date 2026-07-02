@@ -115,12 +115,12 @@ exports.getJobs = async (req, res, next) => {
       jobs.map(async (job) => {
         try {
           const clientInfo = await User.findById(job.client)
-            .select('name username profilePic avatar email kycVerified')
+            .select('name username profilePic avatar email isKycVerified')
             .lean();
           if (clientInfo) {
             clientInfo.id = clientInfo._id;
             clientInfo.profilePic = clientInfo.profilePic || clientInfo.avatar;
-            clientInfo.isVerified = !!(clientInfo.kycVerified);
+            clientInfo.isVerified = !!(clientInfo.isKycVerified);
           }
           return { ...job.toObject(), clientInfo };
         } catch {
@@ -160,12 +160,12 @@ exports.getJobById = async (req, res, next) => {
     // Fetch clientInfo
     try {
       const clientInfo = await User.findById(job.client)
-        .select('name username profilePic avatar email kycVerified')
+        .select('name username profilePic avatar email isKycVerified')
         .lean();
       if (clientInfo) {
         clientInfo.id = clientInfo._id;
         clientInfo.profilePic = clientInfo.profilePic || clientInfo.avatar;
-        clientInfo.isVerified = !!(clientInfo.kycVerified);
+        clientInfo.isVerified = !!(clientInfo.isKycVerified);
         jobData.clientInfo = clientInfo;
       }
     } catch {}
@@ -178,7 +178,7 @@ exports.getJobById = async (req, res, next) => {
         proposals.map(async (proposal) => {
           try {
             const rawFreelancer = await User.findById(proposal.freelancer)
-              .select('name email profilePic avatar title mobileNumber isVerified kycVerified')
+              .select('name email profilePic avatar title mobileNumber isEmailVerified isKycVerified')
               .lean();
             let freelancer = null;
             if (rawFreelancer) {
@@ -187,7 +187,7 @@ exports.getJobById = async (req, res, next) => {
                 id: rawFreelancer._id,
                 phone: rawFreelancer.mobileNumber,
                 profilePic: rawFreelancer.profilePic || rawFreelancer.avatar,
-                isVerified: !!(rawFreelancer.kycVerified),
+                isVerified: !!(rawFreelancer.isKycVerified),
               };
             }
             return { ...proposal, freelancerInfo: freelancer };
@@ -271,12 +271,12 @@ exports.searchJobs = async (req, res, next) => {
       jobs.map(async (job) => {
         try {
           const clientInfo = await User.findById(job.client)
-            .select('name username profilePic avatar email kycVerified')
+            .select('name username profilePic avatar email isKycVerified')
             .lean();
           if (clientInfo) {
             clientInfo.id = clientInfo._id;
             clientInfo.profilePic = clientInfo.profilePic || clientInfo.avatar;
-            clientInfo.isVerified = !!(clientInfo.kycVerified);
+            clientInfo.isVerified = !!(clientInfo.isKycVerified);
           }
           return { ...job, clientInfo };
         } catch {

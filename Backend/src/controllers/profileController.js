@@ -17,7 +17,7 @@ exports.getProfile = async (req, res, next) => {
     user.bankDetails = await BankDetails.findOne({ userId: req.user.id }).lean();
 
     // kycVerified = dedicated KYC flag (Aadhaar + PAN) — use as truth, fallback to kyc record
-    const kycVerified = !!(user.kycVerified || (user.kyc && user.kyc.aadhaarVerified && user.kyc.panVerified));
+    const kycVerified = !!(user.isKycVerified || (user.kyc && user.kyc.aadhaarVerified && user.kyc.panVerified));
 
     res.status(200).json({
       success: true,
@@ -34,7 +34,9 @@ exports.getProfile = async (req, res, next) => {
         location:      user.location      || null,
         serviceRadius: user.serviceRadius || 25,
         isVerified:    kycVerified,
-        kycVerified,
+        kycVerified:   kycVerified,
+        isKycVerified: kycVerified,
+        isEmailVerified: user.isEmailVerified,
         kyc: user.kyc ? {
           status: user.kyc.status,
           aadhaarVerified: user.kyc.aadhaarVerified,
@@ -182,7 +184,7 @@ exports.getPublicProfile = async (req, res, next) => {
     };
 
     // kycVerified = dedicated KYC flag (Aadhaar + PAN) — use as truth, fallback to kyc record
-    const kycVerified = !!(user.kycVerified || (user.kyc && user.kyc.aadhaarVerified && user.kyc.panVerified));
+    const kycVerified = !!(user.isKycVerified || (user.kyc && user.kyc.aadhaarVerified && user.kyc.panVerified));
 
     res.status(200).json({
       success: true,
@@ -192,7 +194,9 @@ exports.getPublicProfile = async (req, res, next) => {
         profilePic: user.profilePic || user.avatar,
         createdAt: user.createdAt,
         isVerified: kycVerified,
-        kycVerified,
+        kycVerified: kycVerified,
+        isKycVerified: kycVerified,
+        isEmailVerified: user.isEmailVerified,
         kyc: user.kyc ? { status: user.kyc.status, aadhaarVerified: user.kyc.aadhaarVerified, panVerified: user.kyc.panVerified } : null,
         bankDetails: user.bankDetails ? { id: user.bankDetails._id } : null,
         earnings: user.earnings ? { completedJobs: user.earnings.completedJobs, allTimeIncome: user.earnings.allTimeIncome, rating: user.averageRating } : null,

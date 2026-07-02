@@ -55,8 +55,8 @@ const userSchema = new mongoose.Schema(
     totalJobsCompleted: { type: Number, default: 0 },
     // Bible Vol 8: Trust score (0–100) computed from ratings, KYC, job history, response time
     trustScore: { type: Number, default: 0, min: 0, max: 100 },
-    isVerified: { type: Boolean, default: false },   // Email OTP verified
-    kycVerified: { type: Boolean, default: false },  // Aadhaar + PAN both verified
+    isEmailVerified: { type: Boolean, default: false },   // Email OTP verified
+    isKycVerified: { type: Boolean, default: false },  // Aadhaar + PAN both verified
     
     // Performance Metrics (Vol 8)
     jobSuccessRate: { type: Number, default: 95, min: 0, max: 100 },
@@ -98,6 +98,14 @@ const userSchema = new mongoose.Schema(
 userSchema.virtual('id').get(function () {
   return this._id;
 });
+
+userSchema.virtual('isVerified')
+  .get(function() { return this.isEmailVerified; })
+  .set(function(val) { this.isEmailVerified = val; });
+
+userSchema.virtual('kycVerified')
+  .get(function() { return this.isKycVerified; })
+  .set(function(val) { this.isKycVerified = val; });
 
 // 2dsphere index for radius search (Geo-spatial)
 userSchema.index({ location: '2dsphere' });

@@ -290,7 +290,7 @@ exports.getUserHistory = async (req, res, next) => {
 // PUT /api/admin/users/:userId — update profile (excluding password)
 exports.updateUserProfile = async (req, res, next) => {
   try {
-    const { name, email, username, mobileNumber, role, isAvailable, kycVerified, isVerified } = req.body;
+    const { name, email, username, mobileNumber, role, isAvailable, isKycVerified, isEmailVerified } = req.body;
     const userId = req.params.userId;
 
     const user = await User.findById(userId);
@@ -317,33 +317,33 @@ exports.updateUserProfile = async (req, res, next) => {
       mobileNumber: user.mobileNumber,
       role: user.role,
       isAvailable: user.isAvailable,
-      kycVerified: user.kycVerified,
-      isVerified: user.isVerified
+      isKycVerified: user.isKycVerified,
+      isEmailVerified: user.isEmailVerified
     };
 
     if (name) user.name = name;
     if (mobileNumber !== undefined) user.mobileNumber = mobileNumber;
     if (role) user.role = role.toUpperCase();
     if (isAvailable !== undefined) user.isAvailable = isAvailable;
-    if (kycVerified !== undefined) user.kycVerified = kycVerified;
-    if (isVerified !== undefined) user.isVerified = isVerified;
+    if (isKycVerified !== undefined) user.isKycVerified = isKycVerified;
+    if (isEmailVerified !== undefined) user.isEmailVerified = isEmailVerified;
 
     await user.save({ validateBeforeSave: false });
 
-    // Sync with Kyc model if kycVerified was changed
-    if (kycVerified !== undefined) {
+    // Sync with Kyc model if isKycVerified was changed
+    if (isKycVerified !== undefined) {
       let kyc = await Kyc.findOne({ userId });
-      if (!kyc && kycVerified) {
+      if (!kyc && isKycVerified) {
         kyc = new Kyc({ userId });
       }
       if (kyc) {
-        kyc.status = kycVerified ? 'verified' : 'pending';
-        kyc.panVerified = kycVerified;
-        kyc.aadhaarVerified = kycVerified;
-        kyc.bankVerified = kycVerified;
-        kyc.selfieVerified = kycVerified;
-        kyc.mobileVerified = kycVerified;
-        if (kycVerified) kyc.verifiedAt = new Date();
+        kyc.status = isKycVerified ? 'verified' : 'pending';
+        kyc.panVerified = isKycVerified;
+        kyc.aadhaarVerified = isKycVerified;
+        kyc.bankVerified = isKycVerified;
+        kyc.selfieVerified = isKycVerified;
+        kyc.mobileVerified = isKycVerified;
+        if (isKycVerified) kyc.verifiedAt = new Date();
         await kyc.save();
       }
     }
@@ -352,7 +352,7 @@ exports.updateUserProfile = async (req, res, next) => {
       admin: req.admin, actionType: 'USER_PROFILE_MODIFY', targetType: 'USER',
       targetId: user._id, targetName: user.name,
       description: `Admin updated user profile for ${user.name} (${user.email}).`,
-      oldData, newData: { name: user.name, username: user.username, email: user.email, mobileNumber: user.mobileNumber, role: user.role, isAvailable: user.isAvailable, kycVerified: user.kycVerified, isVerified: user.isVerified },
+      oldData, newData: { name: user.name, username: user.username, email: user.email, mobileNumber: user.mobileNumber, role: user.role, isAvailable: user.isAvailable, isKycVerified: user.isKycVerified, isEmailVerified: user.isEmailVerified },
       req, severity: 'HIGH',
     });
 

@@ -19,11 +19,11 @@ const checkAndUpdateGlobalStatus = async (kycId) => {
       status: 'verified',
       verifiedAt: new Date(),
     });
-    await User.findByIdAndUpdate(kyc.userId, { isVerified: true, kycVerified: true });
+    await User.findByIdAndUpdate(kyc.userId, { isKycVerified: true });
   } else if (coreVerified && kyc.status === 'rejected') {
     // Promote back from rejected if core steps pass
     await Kyc.findByIdAndUpdate(kycId, { status: 'pending' });
-    await User.findByIdAndUpdate(kyc.userId, { kycVerified: false });
+    await User.findByIdAndUpdate(kyc.userId, { isKycVerified: false });
   }
 };
 
@@ -335,7 +335,7 @@ exports.resetKyc = async (req, res, next) => {
       bankAccount: {},
       documentUrls: {}
     });
-    await User.findByIdAndUpdate(req.user.id, { isVerified: false, kycVerified: false });
+    await User.findByIdAndUpdate(req.user.id, { isKycVerified: false });
     res.status(200).json({ success: true, message: 'KYC Reset' });
   } catch (error) {
     next(error);

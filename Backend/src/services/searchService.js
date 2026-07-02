@@ -125,12 +125,12 @@ class SearchService {
 
     // 6. Verified Badge
     if (filters.verified !== undefined) {
-      query.isVerified = filters.verified === 'true' || filters.verified === true;
+      query.isEmailVerified = filters.verified === 'true' || filters.verified === true;
     }
 
     // 7. KYC Status verified
     if (filters.kycVerified !== undefined) {
-      query.kycVerified = filters.kycVerified === 'true' || filters.kycVerified === true;
+      query.isKycVerified = filters.kycVerified === 'true' || filters.kycVerified === true;
     }
 
     // 8. Experience Years
@@ -161,7 +161,7 @@ class SearchService {
     }
 
     return User.find(query, projection)
-      .select('name username email role skills averageRating hourlyRate availabilityStatus isVerified kycVerified location experienceYears profilePicture bio')
+      .select('name username email role skills averageRating hourlyRate availabilityStatus isEmailVerified isKycVerified location experienceYears profilePicture bio')
       .sort(sort)
       .lean();
   }

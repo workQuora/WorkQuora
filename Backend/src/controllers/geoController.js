@@ -97,7 +97,7 @@ exports.getNearbyFreelancers = async (req, res, next) => {
       }
       return {
         ...obj,
-        isVerified: !!(obj.kycVerified),  // KYC badge = Aadhaar + PAN only
+        isVerified: !!(obj.isKycVerified),  // KYC badge = Aadhaar + PAN only
         distance,
       };
     });

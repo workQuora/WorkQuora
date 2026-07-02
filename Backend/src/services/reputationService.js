@@ -45,7 +45,7 @@ class ReputationService {
       }
 
       // 4. Verified Badge (up to 10 points)
-      if (user.isVerified) {
+      if (user.isKycVerified) {
         score += 10;
       }
 
