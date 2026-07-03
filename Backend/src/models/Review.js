@@ -8,11 +8,13 @@ const reviewSchema = new mongoose.Schema(
       required: true
     },
     reviewer: {
-      type: String, // MySQL Client ID
+      type: String, // User UUID (matches User._id)
+      ref: 'User',
       required: true
     },
     reviewee: {
-      type: String, // MySQL Freelancer ID
+      type: String, // User UUID (matches User._id)
+      ref: 'User',
       required: true
     },
     rating: {
