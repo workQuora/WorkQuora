@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   LayoutDashboard, Users, Briefcase, CreditCard, BarChart3, ScrollText,
-  Shield, ShieldCheck, Settings, LogOut, ChevronLeft, ChevronRight, Search, Bell, Menu, MonitorPlay
+  Shield, ShieldCheck, Scale, Settings, LogOut, ChevronLeft, ChevronRight, Search, Bell, Menu, MonitorPlay
 } from 'lucide-react';
 import { adminLogout } from '../store/adminAuthSlice';
 import adminApi from '../api/adminApi';
@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Clients', icon: Users, path: '/admin/clients' },
   { label: 'Freelancers', icon: Briefcase, path: '/admin/freelancers' },
   { label: 'KYC Queue', icon: ShieldCheck, path: '/admin/kyc' },
+  { label: 'Disputes', icon: Scale, path: '/admin/disputes' },
   { label: 'Tasks / Jobs', icon: Briefcase, path: '/admin/tasks' },
   { label: 'Advertisements', icon: MonitorPlay, path: '/admin/ads' },
   { label: 'Payments', icon: CreditCard, path: '/admin/payments' },
