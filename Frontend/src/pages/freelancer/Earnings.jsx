@@ -16,7 +16,7 @@ const Earnings = () => {
 
   const { data: txData, isLoading: txLoading } = useQuery({
     queryKey: ['transactions'],
-    queryFn: () => api.get('/payments/transactions', { params: { limit: 10 } }).then((r) => r.data?.data ?? r.data),
+    queryFn: () => api.get('/wallet/transactions', { params: { limit: 10 } }).then((r) => r.data?.data ?? r.data),
   });
 
   if (isLoading) return (
@@ -104,8 +104,8 @@ const Earnings = () => {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className={`font-extrabold text-base ${tx.type === 'CREDIT' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
-                          {tx.type === 'CREDIT' ? '+' : '-'}₹{(tx.amount || 0).toLocaleString('en-IN')}
+                        <p className={`font-extrabold text-base ${tx.type === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
+                          {tx.type === 'credit' ? '+' : '-'}₹{(tx.amount || 0).toLocaleString('en-IN')}
                         </p>
                         <span className={`text-[10px] font-bold uppercase ${tx.status === 'completed' ? 'text-muted-foreground' : 'text-amber-500'}`}>
                           {tx.status}

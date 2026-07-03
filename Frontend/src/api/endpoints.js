@@ -60,7 +60,7 @@ export const walletApi = {
   balance:      ()  => api.get('/wallet/balance'),
   withdraw:     (d) => api.post('/wallet/withdraw', d),
   verifyPin:    (d) => api.post('/wallet/verify-pin', d),
-  transactions: (p) => api.get('/payments/transactions', { params: p }),
+  transactions: (p) => api.get('/wallet/transactions', { params: p }),
 };
 
 

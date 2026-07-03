@@ -30,7 +30,7 @@ const useTransactions = (params = {}) =>
   useQuery({
     queryKey: ['transactions', params],
     queryFn: () =>
-      api.get('/payments/transactions', { params }).then((r) => r.data?.data ?? r.data),
+      api.get('/wallet/transactions', { params }).then((r) => r.data?.data ?? r.data),
   });
 
 const getTransactionBadge = (description) => {
@@ -422,8 +422,8 @@ const Wallet = () => {
                         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 hover:bg-muted/30 transition-all border-b border-border/50 last:border-0"
                       >
                         <div className="flex items-center gap-4">
-                          <div className={`p-2.5 rounded-xl shrink-0 ${tx.type === 'CREDIT' ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                            {tx.type === 'CREDIT' ? (
+                          <div className={`p-2.5 rounded-xl shrink-0 ${tx.type === 'credit' ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                            {tx.type === 'credit' ? (
                               <ArrowDownRight className="w-5 h-5 text-emerald-500" />
                             ) : (
                               <ArrowUpRight className="w-5 h-5 text-red-400" />
@@ -453,9 +453,9 @@ const Wallet = () => {
                         </div>
                         <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center shrink-0">
                           <span
-                            className={`font-extrabold text-base ${tx.type === 'CREDIT' ? 'text-emerald-500' : 'text-red-400'}`}
+                            className={`font-extrabold text-base ${tx.type === 'credit' ? 'text-emerald-500' : 'text-red-400'}`}
                           >
-                            {tx.type === 'CREDIT' ? '+' : '-'}₹{(tx.amount || 0).toLocaleString('en-IN')}
+                            {tx.type === 'credit' ? '+' : '-'}₹{(tx.amount || 0).toLocaleString('en-IN')}
                           </span>
                           {tx.status && (
                             <span className={`text-[9px] font-bold uppercase tracking-wider mt-0.5 ${
