@@ -10,7 +10,7 @@ const Logo = () => {
       >
         <span className="text-white font-black text-base tracking-tighter">W</span>
       </motion.div>
-      <span className="text-white font-extrabold text-lg tracking-tight">
+      <span className="text-foreground font-extrabold text-lg tracking-tight">
         Work<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-400">Quora</span>
       </span>
     </div>

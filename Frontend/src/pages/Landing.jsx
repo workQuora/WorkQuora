@@ -1,23 +1,65 @@
-import React, { useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { motion, useInView } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Search, Target, Zap, ShieldCheck, ArrowRight, Briefcase, Loader2, ArrowUpRight, Users, TrendingUp, X, MapPin } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { Search, Shield, Zap, Users, Briefcase, ArrowRight, ArrowUpRight, ChevronDown, X } from 'lucide-react';
 import api from '../services/api';
 import AdBanner from '../components/shared/AdBanner';
+import { GradientBlob } from '../components/ui/GradientBlob';
+import { AnimatedCard } from '../components/ui/AnimatedCard';
+import { fadeInUp, staggerContainer } from '../utils/animations';
+
+function StatCounter({ target, suffix = '', prefix = '' }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true });
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!isInView || !target) return;
+    let start = 0;
+    const duration = 1500;
+    const step = target / (duration / 16);
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) {
+        setCount(target);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(start));
+      }
+    }, 16);
+    return () => clearInterval(timer);
+  }, [isInView, target]);
+
+  return (
+    <span ref={ref} className="text-3xl font-bold text-foreground">
+      {prefix}
+      {count.toLocaleString('en-IN')}
+      {suffix}
+    </span>
+  );
+}
+
+const CATEGORIES = [
+  { label: 'Design', emoji: '🎨' },
+  { label: 'Development', emoji: '💻' },
+  { label: 'Writing', emoji: '✍️' },
+  { label: 'Marketing', emoji: '📣' },
+  { label: 'Plumbing', emoji: '🔧' },
+  { label: 'Electrical', emoji: '⚡' },
+];
 
 const Landing = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('jobs'); // 'jobs' or 'talent'
 
-  // Fetch real jobs for the platform stats + featured jobs
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['landing-jobs'],
     queryFn: () => api.get('/jobs', { params: { limit: 6, status: 'open' } }).then((r) => r.data?.data ?? r.data ?? {}),
     staleTime: 60_000,
   });
 
-  const { data: statsData, isLoading: statsLoading } = useQuery({
+  const { data: statsData } = useQuery({
     queryKey: ['landing-stats'],
     queryFn: () => api.get('/jobs/stats').then((r) => r.data?.data ?? r.data ?? {}),
     staleTime: 30_000,
@@ -30,123 +72,139 @@ const Landing = () => {
     navigate(`/discover${searchQuery.trim() ? `?keyword=${encodeURIComponent(searchQuery.trim())}` : ''}`);
   };
 
-  const CATEGORIES = [
-    { label: 'Design', emoji: '🎨' },
-    { label: 'Development', emoji: '💻' },
-    { label: 'Writing', emoji: '✍️' },
-    { label: 'Marketing', emoji: '📣' },
-    { label: 'Plumbing', emoji: '🔧' },
-    { label: 'Electrical', emoji: '⚡' },
-  ];
-
   return (
-    <div className="bg-background text-foreground transition-colors duration-300 w-full min-h-screen">
+    <div className="bg-[hsl(var(--background))] text-foreground w-full min-h-screen">
+      {/* ── Hero ── */}
+      <section className="relative min-h-screen flex items-center overflow-hidden">
+        <GradientBlob />
 
-      {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-6 lg:px-12 pt-12 pb-16 text-center">
-        <div className="max-w-2xl mx-auto mb-8">
-          <AdBanner platform="WEB" className="shadow-lg shadow-black/10" />
-        </div>
-        <div className="inline-block bg-primary/10 border border-primary/20 text-primary font-semibold px-4 py-1.5 rounded-full mb-6 text-sm animate-pulse">
-          🚀 India's #1 Geo-Based Freelance Platform
-        </div>
-        <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-tight">
-          Find talent & work<br className="hidden md:block" />
-          <span className="text-primary"> near you, instantly.</span>
-        </h1>
-        <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-          Connect with verified freelancers and high-quality jobs within your custom radius. India's smartest local marketplace.
-        </p>
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="relative z-10 w-full max-w-6xl mx-auto px-6 py-32 text-center"
+        >
+          <motion.div variants={fadeInUp} className="max-w-2xl mx-auto mb-8">
+            <AdBanner platform="WEB" className="shadow-lg shadow-black/10" />
+          </motion.div>
 
-        {/* Premium Unified Borderless Search Console */}
-        <div className="relative max-w-2xl mx-auto mb-8 mt-8 group">
-          {/* Subtle neon background glow */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 rounded-full opacity-10 blur-lg group-hover:opacity-15 transition-opacity duration-300 pointer-events-none" />
-          
-          <form onSubmit={handleSearch} className="relative flex items-center bg-slate-100 dark:bg-[#0c0c14] p-1.5 pl-4 rounded-full shadow-lg transition-all focus-within:shadow-xl">
-            <Search className="w-5 h-5 text-slate-400 mr-3 shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search jobs, skills, or freelancers..."
-              className="bg-transparent text-slate-800 dark:text-foreground w-full focus:outline-none placeholder:text-slate-400 dark:placeholder:text-muted-foreground/60 text-sm font-semibold py-3"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="p-1.5 mr-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/5 text-slate-400 dark:text-muted-foreground hover:text-slate-600 dark:hover:text-foreground transition-colors"
-              >
-                <X className="w-4 h-4" />
+          <motion.div variants={fadeInUp} className="mb-8">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium border border-primary/20">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              India's Premier Freelance Marketplace
+            </span>
+          </motion.div>
+
+          <motion.h1 variants={fadeInUp} className="text-5xl md:text-7xl font-bold tracking-tight text-foreground mb-6 leading-[1.1]">
+            Find Work.{' '}
+            <span className="bg-gradient-to-r from-[#1E00A9] via-[#6366F1] to-[#10B981] bg-clip-text text-transparent">
+              Get Hired.
+            </span>{' '}
+            Build Together.
+          </motion.h1>
+
+          <motion.p variants={fadeInUp} className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+            Connect with verified clients and skilled freelancers. Secure escrow payments, real-time chat, KYC-verified profiles.
+          </motion.p>
+
+          {/* Search — real, navigates to /discover with the query */}
+          <motion.div variants={fadeInUp} className="relative max-w-2xl mx-auto mb-6 group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-[#1E00A9] via-[#6366F1] to-[#10B981] rounded-full opacity-10 blur-lg group-hover:opacity-15 transition-opacity duration-300 pointer-events-none" />
+            <form onSubmit={handleSearch} className="relative flex items-center bg-[hsl(var(--surface))] p-1.5 pl-4 rounded-full shadow-lg transition-all focus-within:shadow-xl border border-border">
+              <Search className="w-5 h-5 text-muted-foreground mr-3 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search jobs, skills, or freelancers..."
+                className="bg-transparent text-foreground w-full focus:outline-none placeholder:text-muted-foreground/60 text-sm font-semibold py-3"
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => setSearchQuery('')} className="p-1.5 mr-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              <button type="submit" className="bg-primary hover:opacity-90 text-white font-bold py-3 px-6 rounded-full transition-all flex items-center gap-1.5 shrink-0 active:scale-95 shadow-md">
+                <span>Search</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
-            )}
-            
-            <button
-              type="submit"
-              className="bg-primary hover:bg-primary text-white font-bold py-3 px-6 rounded-full transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-98 shadow-md"
+            </form>
+          </motion.div>
+
+          <motion.div variants={fadeInUp} className="flex flex-wrap justify-center gap-2 mb-14">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.label}
+                onClick={() => navigate(`/discover?category=${cat.label.toLowerCase()}`)}
+                className="px-4 py-2 bg-[hsl(var(--surface))] border border-border hover:border-primary/50 hover:bg-primary/5 text-xs font-semibold text-muted-foreground hover:text-primary rounded-full transition-all"
+              >
+                <span className="mr-1.5">{cat.emoji}</span>
+                <span>{cat.label}</span>
+              </button>
+            ))}
+          </motion.div>
+
+          <motion.div variants={fadeInUp} className="flex flex-wrap gap-4 justify-center mb-16">
+            <motion.button
+              whileHover={{ scale: 1.02, boxShadow: '0 20px 40px rgba(30,0,169,0.25)' }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/auth')}
+              className="px-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg shadow-lg shadow-primary/20 flex items-center gap-2"
             >
-              <span>Search</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-
-        {/* Quick category pills */}
-        <div className="flex flex-wrap justify-center gap-2">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.label}
-              onClick={() => navigate(`/discover?category=${cat.label.toLowerCase()}`)}
-              className="px-4 py-2 bg-slate-100/70 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:border-primary/50 hover:bg-primary/5 text-xs font-semibold text-slate-600 dark:text-muted-foreground hover:text-primary dark:hover:text-white rounded-full transition-all cursor-pointer"
+              Start as Freelancer <ArrowRight className="w-5 h-5" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/auth')}
+              className="px-8 py-4 bg-[hsl(var(--surface))] text-primary rounded-xl font-semibold text-lg border-2 border-primary/20 hover:border-primary/50 transition-colors flex items-center gap-2"
             >
-              <span className="mr-1.5">{cat.emoji}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
-        </div>
+              Hire a Freelancer
+            </motion.button>
+          </motion.div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-16 pt-10 border-t border-border">
-          <div>
-            <h3 className="text-4xl font-extrabold text-foreground">
-              {statsLoading ? <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" /> : `${statsData?.activeJobs ?? 0}`}
-            </h3>
-            <p className="text-muted-foreground mt-1">Live Jobs</p>
-          </div>
-          <div>
-            <h3 className="text-4xl font-extrabold text-foreground">
-              {statsLoading ? <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" /> : `${statsData?.freelancers ?? 0}`}
-            </h3>
-            <p className="text-muted-foreground mt-1">Freelancers</p>
-          </div>
-          <div>
-            <h3 className="text-4xl font-extrabold text-foreground">
-              {statsLoading ? <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" /> : `${statsData?.clients ?? 0}`}
-            </h3>
-            <p className="text-muted-foreground mt-1">Active Clients</p>
-          </div>
-          <div>
-            <h3 className="text-4xl font-extrabold text-foreground">
-              {statsLoading ? <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" /> : `₹${(statsData?.totalPaidOut ?? 0).toLocaleString('en-IN')}`}
-            </h3>
-            <p className="text-muted-foreground mt-1">Total Paid Out</p>
-          </div>
-        </div>
-      </main>
+          {/* Real platform stats from /jobs/stats — not placeholder numbers */}
+          <motion.div variants={fadeInUp} className="flex flex-wrap items-center justify-center gap-8 text-muted-foreground">
+            <div className="flex flex-col items-center">
+              <StatCounter target={statsData?.activeJobs ?? 0} />
+              <span className="text-sm mt-1">Live Jobs</span>
+            </div>
+            <div className="w-px h-8 bg-border hidden sm:block" />
+            <div className="flex flex-col items-center">
+              <StatCounter target={statsData?.freelancers ?? 0} />
+              <span className="text-sm mt-1">Freelancers</span>
+            </div>
+            <div className="w-px h-8 bg-border hidden sm:block" />
+            <div className="flex flex-col items-center">
+              <StatCounter target={statsData?.clients ?? 0} />
+              <span className="text-sm mt-1">Active Clients</span>
+            </div>
+            <div className="w-px h-8 bg-border hidden sm:block" />
+            <div className="flex flex-col items-center">
+              <StatCounter target={statsData?.totalPaidOut ?? 0} prefix="₹" />
+              <span className="text-sm mt-1">Total Paid Out</span>
+            </div>
+          </motion.div>
+        </motion.div>
 
-      {/* Featured Jobs Section */}
-      <section className="border-t border-border py-20 bg-muted/20">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
+        <motion.div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-muted-foreground"
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <ChevronDown className="w-6 h-6" />
+        </motion.div>
+      </section>
+
+      {/* ── Featured Jobs — real listings from the API ── */}
+      <section className="py-24 bg-[hsl(var(--surface-2))]">
+        <div className="max-w-6xl mx-auto px-6">
           <div className="flex items-center justify-between mb-10">
             <div>
               <h2 className="text-3xl font-bold text-foreground">Latest Open Jobs</h2>
               <p className="text-muted-foreground mt-1">Real opportunities, right now</p>
             </div>
-            <button
-              onClick={() => navigate('/discover')}
-              className="flex items-center gap-1.5 text-primary font-bold text-sm hover:underline"
-            >
+            <button onClick={() => navigate('/discover')} className="flex items-center gap-1.5 text-primary font-bold text-sm hover:underline shrink-0">
               View All <ArrowUpRight className="w-4 h-4" />
             </button>
           </div>
@@ -154,7 +212,7 @@ const Landing = () => {
           {jobsLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-card border border-border rounded-2xl p-6 animate-pulse">
+                <div key={i} className="bg-[hsl(var(--surface))] border border-border rounded-2xl p-6 animate-pulse">
                   <div className="h-4 bg-muted rounded w-1/3 mb-4" />
                   <div className="h-6 bg-muted rounded w-3/4 mb-3" />
                   <div className="h-4 bg-muted rounded w-full mb-2" />
@@ -166,107 +224,165 @@ const Landing = () => {
             <div className="text-center py-16">
               <Briefcase className="w-12 h-12 mx-auto text-muted-foreground opacity-30 mb-4" />
               <p className="text-muted-foreground">No jobs posted yet. Be the first to post one!</p>
-              <button
-                onClick={() => navigate('/auth')}
-                className="mt-4 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition-all"
-              >
+              <button onClick={() => navigate('/auth')} className="mt-4 bg-primary text-primary-foreground px-6 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition-all">
                 Post a Job
               </button>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredJobs.map((job) => (
-                <div
-                  key={job._id}
-                  onClick={() => navigate(`/job/${job._id}`)}
-                  className="bg-card border border-border rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full uppercase tracking-wide">
-                      {job.category || 'General'}
-                    </span>
-                    <span className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full uppercase">
-                      Open
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-foreground text-lg leading-tight mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                    {job.title}
-                  </h3>
-                  <p className="text-muted-foreground text-sm line-clamp-2 mb-4 leading-relaxed">
-                    {job.description}
-                  </p>
-                  {job.skillsRequired?.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {job.skillsRequired.slice(0, 3).map((s) => (
-                        <span key={s} className="bg-muted text-muted-foreground text-xs px-2 py-0.5 rounded-md">{s}</span>
-                      ))}
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-40px' }} variants={staggerContainer} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredJobs.map((job, i) => (
+                <AnimatedCard key={job._id} delay={i * 0.05} className="p-6 cursor-pointer group" hover>
+                  <div onClick={() => navigate(`/job/${job._id}`)}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full uppercase tracking-wide">
+                        {job.category || 'General'}
+                      </span>
+                      <span className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full uppercase">
+                        Open
+                      </span>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/60">
-                    <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
-                      ₹{job.budgetRange?.min?.toLocaleString('en-IN') ?? '—'}
-                      {job.budgetRange?.max ? ` – ${job.budgetRange.max.toLocaleString('en-IN')}` : ''}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(job.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                    </span>
+                    <h3 className="font-bold text-foreground text-lg leading-tight mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                      {job.title}
+                    </h3>
+                    <p className="text-muted-foreground text-sm line-clamp-2 mb-4 leading-relaxed">{job.description}</p>
+                    {job.skillsRequired?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        {job.skillsRequired.slice(0, 3).map((s) => (
+                          <span key={s} className="bg-muted text-muted-foreground text-xs px-2 py-0.5 rounded-md">{s}</span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/60">
+                      <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                        ₹{job.budgetRange?.min?.toLocaleString('en-IN') ?? '—'}
+                        {job.budgetRange?.max ? ` – ${job.budgetRange.max.toLocaleString('en-IN')}` : ''}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(job.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                </AnimatedCard>
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="bg-muted/40 border-t border-border py-24">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4 text-foreground">Why WorkQuora?</h2>
-            <p className="text-muted-foreground text-lg">Built for speed, trust, and local connections.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { Icon: Target, color: 'blue', title: 'Location-Based Matching', desc: 'Find work within your custom radius — 5 km to 200 km away.' },
-              { Icon: Zap, color: 'amber', title: 'Instant Connections', desc: 'Connect with nearby clients in real-time and start working fast.' },
-              { Icon: ShieldCheck, color: 'emerald', title: 'Verified & Trusted', desc: 'KYC-verified users, secure escrow payments, and 24/7 support.' },
-            ].map(({ Icon, color, title, desc }) => (
-              <div key={title} className="bg-card border border-border p-8 rounded-2xl text-left shadow-sm hover:border-primary/30 transition-colors">
-                <div className={`bg-${color}-500/10 w-14 h-14 rounded-xl flex items-center justify-center mb-6 border border-${color}-500/20`}>
-                  <Icon className={`w-7 h-7 text-${color}-500`} />
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-foreground">{title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ── How It Works ── */}
+      <section className="py-24 bg-[hsl(var(--background))]">
+        <div className="max-w-6xl mx-auto px-6">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} variants={staggerContainer} className="text-center mb-16">
+            <motion.p variants={fadeInUp} className="text-primary font-semibold text-sm uppercase tracking-wider mb-3">
+              How It Works
+            </motion.p>
+            <motion.h2 variants={fadeInUp} className="text-4xl font-bold text-foreground">
+              Simple. Fast. Secure.
+            </motion.h2>
+          </motion.div>
 
-      {/* CTA Banner */}
-      <section className="border-t border-border py-20">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="bg-gradient-to-r from-primary/10 via-purple-500/10 to-pink-500/10 border border-primary/20 rounded-3xl p-12">
-            <h2 className="text-3xl font-extrabold text-foreground mb-4">Ready to get started?</h2>
-            <p className="text-muted-foreground mb-8 text-lg">Join thousands of professionals on India's fastest-growing freelance platform.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => navigate('/auth')}
-                className="bg-primary text-primary-foreground font-bold px-8 py-3.5 rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-              >
-                <Users className="w-5 h-5" /> Join as Freelancer
-              </button>
-              <button
-                onClick={() => navigate('/auth')}
-                className="border border-border bg-card text-foreground font-bold px-8 py-3.5 rounded-2xl hover:border-primary/50 transition-all flex items-center justify-center gap-2"
-              >
-                <TrendingUp className="w-5 h-5" /> Post a Job
-              </button>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-[#0EA5E9]/10 text-[#0EA5E9] flex items-center justify-center text-sm font-bold">C</span>
+                For Clients
+              </h3>
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer} className="space-y-4">
+                {[
+                  { step: '01', title: 'Post a Job', desc: 'Describe your project and set a budget' },
+                  { step: '02', title: 'Review Proposals', desc: 'Get bids from verified freelancers' },
+                  { step: '03', title: 'Hire & Pay Securely', desc: 'Escrow protects your payment' },
+                ].map((item) => (
+                  <AnimatedCard key={item.step} className="p-5 flex gap-4">
+                    <span className="text-2xl font-bold text-primary/20">{item.step}</span>
+                    <div>
+                      <h4 className="font-semibold text-foreground">{item.title}</h4>
+                      <p className="text-sm text-muted-foreground mt-1">{item.desc}</p>
+                    </div>
+                  </AnimatedCard>
+                ))}
+              </motion.div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-[#10B981]/10 text-[#10B981] flex items-center justify-center text-sm font-bold">F</span>
+                For Freelancers
+              </h3>
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer} className="space-y-4">
+                {[
+                  { step: '01', title: 'Browse Jobs', desc: 'Find work matching your skills' },
+                  { step: '02', title: 'Submit Proposal', desc: 'Pitch your rate and timeline' },
+                  { step: '03', title: 'Work & Get Paid', desc: 'Deliver and receive payment instantly' },
+                ].map((item) => (
+                  <AnimatedCard key={item.step} className="p-5 flex gap-4">
+                    <span className="text-2xl font-bold text-[#10B981]/30">{item.step}</span>
+                    <div>
+                      <h4 className="font-semibold text-foreground">{item.title}</h4>
+                      <p className="text-sm text-muted-foreground mt-1">{item.desc}</p>
+                    </div>
+                  </AnimatedCard>
+                ))}
+              </motion.div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* ── Trust Features ── */}
+      <section className="py-24 bg-[hsl(var(--surface-2))]">
+        <div className="max-w-6xl mx-auto px-6">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer} className="grid md:grid-cols-3 gap-6">
+            {[
+              { icon: Shield, title: 'KYC Verified', desc: 'All freelancers are identity-verified with Aadhaar and PAN', color: '#1E00A9' },
+              { icon: Zap, title: 'Instant Payments', desc: 'Razorpay-powered escrow with instant wallet transfers', color: '#10B981' },
+              { icon: Users, title: 'Real-time Chat', desc: 'Socket.io powered messaging with file sharing', color: '#6366F1' },
+            ].map((feature) => (
+              <AnimatedCard key={feature.title} className="p-6">
+                <div className="w-12 h-12 rounded-xl mb-4 flex items-center justify-center" style={{ background: `${feature.color}15` }}>
+                  <feature.icon className="w-6 h-6" style={{ color: feature.color }} />
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">{feature.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+              </AnimatedCard>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ── */}
+      <section className="py-24 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1E00A9] to-[#6366F1]" />
+        <GradientBlob className="opacity-30" />
+        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}>
+            <motion.h2 variants={fadeInUp} className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Ready to get started?
+            </motion.h2>
+            <motion.p variants={fadeInUp} className="text-white/80 text-lg mb-10">
+              Join thousands of clients and freelancers already on WorkQuora
+            </motion.p>
+            <motion.div variants={fadeInUp} className="flex flex-wrap gap-4 justify-center">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate('/auth')}
+                className="px-8 py-4 bg-white text-primary rounded-xl font-semibold text-lg hover:bg-white/90 transition-colors"
+              >
+                Post a Job
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate('/discover')}
+                className="px-8 py-4 bg-white/10 text-white rounded-xl font-semibold text-lg border border-white/20 hover:bg-white/20 transition-colors"
+              >
+                Browse Freelancers
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
     </div>
   );
 };

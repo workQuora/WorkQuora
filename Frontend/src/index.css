@@ -3,30 +3,52 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: 0 0% 100%;       /* Pure White */
+  --background: 210 40% 98%;      /* #FAFAFA crisp white — was pure 0 0% 100% */
   --foreground: 240 10% 3.9%;     /* Dark Zinc */
   --card: 0 0% 100%;
   --card-foreground: 240 10% 3.9%;
-  --border: 240 5.9% 90%;         /* Soft Light Gray Border */
+  --border: 214 32% 91%;          /* Soft Light Gray Border */
   --primary: 251 100% 33%;         /* Brand #1E00A9 */
   --primary-foreground: 0 0% 100%;
   --muted: 240 4.8% 95.9%;
   --muted-foreground: 240 3.8% 46.1%;
   --accent: 240 4.8% 95.9%;
-  --radius: 0.75rem;
+  --radius: 0.875rem;
+
+  /* Premium redesign tokens — additive, not replacing the above.
+     Existing bg-background/text-foreground/bg-card/border-border/etc.
+     utility classes are untouched; these are for new hero/marketing UI. */
+  --primary-light: 251 100% 96%;
+  --surface: 0 0% 100%;
+  --surface-2: 210 40% 96%;
+  --accent-client: 199 89% 48%;      /* #0EA5E9 sky blue */
+  --accent-freelancer: 160 84% 39%;  /* #10B981 emerald */
+  --text-primary: 222 47% 11%;
+  --text-muted: 215 16% 47%;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --card-shadow-hover: 0 8px 24px rgba(30,0,169,0.10), 0 2px 8px rgba(0,0,0,0.06);
+  --gradient-hero: linear-gradient(135deg, #1E00A9 0%, #6366F1 50%, #10B981 100%);
+  --gradient-card: linear-gradient(135deg, rgba(30,0,169,0.03) 0%, rgba(99,102,241,0.05) 100%);
 }
 
 .dark {
-  --background: 240 10% 3.9%;     /* #09090B - Deep Zinc */
+  --background: 240 10% 4%;       /* #09090B - Deep Zinc */
   --foreground: 0 0% 98%;         /* Off-white text */
   --card: 240 10% 5.9%;           /* #121214 - Slightly lighter for cards */
   --card-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;       /* Semi-transparent line #27272A */
+  --border: 240 6% 15%;           /* Semi-transparent line #27272A */
   --primary: 251 100% 33%;
   --primary-foreground: 0 0% 100%;
   --muted: 240 3.7% 15.9%;
   --muted-foreground: 240 5% 64.9%;
   --accent: 240 3.7% 15.9%;
+
+  --surface: 240 9% 8%;
+  --surface-2: 240 8% 11%;
+  --text-primary: 210 40% 96%;
+  --text-muted: 215 20% 55%;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+  --card-shadow-hover: 0 8px 24px rgba(99,102,241,0.2), 0 0 0 1px rgba(99,102,241,0.15);
 }
 
 @theme {
@@ -60,7 +82,43 @@ body {
 html, body, #root {
   background-color: hsl(var(--background)) !important;
   color: hsl(var(--foreground)) !important;
-  transition: background-color 300ms ease, border-color 300ms ease;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Global transitions — background/color only, not layout */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, box-shadow, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Premium scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--text-muted));
+}
+
+/* Hero background blobs (GradientBlob.jsx) */
+@keyframes blob1 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(40px, -30px) scale(1.1); }
+}
+@keyframes blob2 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-30px, 40px) scale(1.15); }
+}
+@keyframes blob3 {
+  from { transform: translate(-50%, -50%) scale(1); }
+  to   { transform: translate(-50%, -50%) scale(1.2) rotate(20deg); }
 }
 
 /* ─── Skills Marquee (Right → Left ticker) ─── */
