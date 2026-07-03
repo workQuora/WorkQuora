@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
-import 'core/storage/hive_service.dart';
-import 'core/theme/app_colors.dart';
+import 'core/providers/auth_provider.dart';
+import 'core/providers/jobs_provider.dart';
+import 'core/providers/wallet_provider.dart';
+import 'core/network/dio_client.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Offline-first cache ready before first frame — avoids a loading flash
-  // on cold start for returning users.
-  await HiveService.init();
-
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: AppColors.surface,
-      systemNavigationBarIconBrightness: Brightness.dark,
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
+  DioClient.instance.init();
+  final prefs = await SharedPreferences.getInstance();
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider(prefs)),
+        ChangeNotifierProvider(create: (_) => JobsProvider()),
+        ChangeNotifierProvider(create: (_) => WalletProvider()),
+      ],
+      child: const WorkQuoraClientApp(),
     ),
   );
-
-  runApp(const ProviderScope(child: WorkQuoraApp()));
 }

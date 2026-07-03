@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { Briefcase, User, MapPin, Loader2, ShieldCheck, Zap, Globe, Check } from 'lucide-react';
+import { Briefcase, User, MapPin, Loader2, ShieldCheck, Zap, Globe, Check, CheckCircle, XCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import Logo from '../components/Logo';
@@ -29,6 +29,29 @@ const registerSchema = z.object({
   password: z.string().min(6, 'Min 6 characters'),
   gender:   z.enum(['MALE', 'FEMALE', 'OTHER'], { required_error: 'Gender is required' }),
 });
+
+/* ---- Live-feedback regexes (additive UI layer on top of the zod schemas above) ---- */
+const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const phoneRegex = /^[6-9]\d{9}$/;
+const nameRegex = /^[a-zA-Z\s]{2,50}$/;
+
+const STRENGTH_LEVELS = [
+  { score: 0, label: '',       barColor: 'hsl(var(--border))', textColor: '' },
+  { score: 1, label: 'Weak',   barColor: '#EF4444', textColor: 'text-red-500' },
+  { score: 2, label: 'Fair',   barColor: '#F59E0B', textColor: 'text-amber-500' },
+  { score: 3, label: 'Good',   barColor: '#3B82F6', textColor: 'text-blue-500' },
+  { score: 4, label: 'Strong', barColor: '#10B981', textColor: 'text-emerald-500' },
+];
+
+const getPasswordStrength = (password) => {
+  if (!password) return STRENGTH_LEVELS[0];
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  return STRENGTH_LEVELS[score];
+};
 
 /* ---- Google SDK loader ---- */
 const loadGoogleSDK = () =>
@@ -87,7 +110,7 @@ const Auth = () => {
     confetti({ particleCount: 60, spread: 70, colors: ['#1E00A9', '#6366F1', '#10B981'], origin: { y: 0.6 } });
   }, [isVerifyMobileSuccess]);
 
-  const { register: formReg, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
+  const { register: formReg, handleSubmit, reset, watch, setValue, formState: { errors, touchedFields } } = useForm({
     resolver: zodResolver(isLogin ? loginSchema : registerSchema),
     defaultValues: { gender: 'MALE' }
   });
@@ -95,6 +118,33 @@ const Auth = () => {
   const usernameValue = watch('username');
   const [usernameStatus, setUsernameStatus] = useState(null); // 'checking', 'available', 'taken', 'invalid', null
   const [selectedGender, setSelectedGender] = useState('MALE');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Live-feedback validity — layered on top of the zod schemas, doesn't change submit-time validation.
+  const emailValue = watch('email');
+  const nameValue = watch('name');
+  const mobileValue = watch('mobileNumber');
+  const passwordValue = watch('password');
+
+  // The shared "email" field doubles as email-or-username on Login, so its live-valid
+  // check must accept both there — a strict email-only regex would wrongly red-X a valid username.
+  const emailValid = isLogin
+    ? (z.string().email().safeParse(emailValue || '').success || /^[a-zA-Z0-9_]{3,}$/.test(emailValue || ''))
+    : emailRegex.test(emailValue || '');
+  const emailTouched = !!touchedFields.email;
+
+  const nameValid = nameRegex.test(nameValue || '');
+  const nameTouched = !!touchedFields.name;
+
+  const phoneValid = phoneRegex.test(mobileValue || '');
+  const phoneTouched = !!touchedFields.mobileNumber;
+
+  const passwordStrength = getPasswordStrength(passwordValue || '');
+  const hasUpper = /[A-Z]/.test(passwordValue || '');
+  const hasNumber = /[0-9]/.test(passwordValue || '');
+  const hasSpecial = /[^A-Za-z0-9]/.test(passwordValue || '');
+
+  const isSubmitBlocked = !isLogin && (!emailValid || passwordStrength.score < 2 || !phoneValid);
 
   useEffect(() => {
     if (isLogin || !usernameValue || usernameValue.length < 3) {
@@ -427,8 +477,30 @@ const Auth = () => {
               <>
                 <div>
                   <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Full Name</label>
-                  <input {...formReg('name')} placeholder="John Doe"
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary transition-colors" />
+                  <div className="relative">
+                    <input {...formReg('name')} placeholder="John Doe"
+                      className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-10 text-foreground text-sm focus:outline-none focus:border-primary transition-colors" />
+                    <AnimatePresence>
+                      {nameTouched && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2"
+                        >
+                          {nameValid
+                            ? <CheckCircle className="w-4 h-4 text-emerald-500" />
+                            : <XCircle className="w-4 h-4 text-red-500" />
+                          }
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  {nameTouched && !nameValid && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" /> Letters and spaces only, min 2 characters
+                    </p>
+                  )}
                   {errors.name && <p className="text-red-500 text-xs mt-1 font-medium">{errors.name.message}</p>}
                 </div>
                 <div className="relative">
@@ -452,8 +524,30 @@ const Auth = () => {
                 
                 <div>
                   <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Mobile Number</label>
-                  <input type="tel" {...formReg('mobileNumber')} placeholder="9999999999" maxLength={10}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary transition-colors" />
+                  <div className="relative">
+                    <input type="tel" {...formReg('mobileNumber')} placeholder="9999999999" maxLength={10}
+                      className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-10 text-foreground text-sm focus:outline-none focus:border-primary transition-colors" />
+                    <AnimatePresence>
+                      {phoneTouched && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2"
+                        >
+                          {phoneValid
+                            ? <CheckCircle className="w-4 h-4 text-emerald-500" />
+                            : <XCircle className="w-4 h-4 text-red-500" />
+                          }
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  {phoneTouched && !phoneValid && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" /> Must be a valid 10-digit Indian mobile number
+                    </p>
+                  )}
                   {errors.mobileNumber && <p className="text-red-500 text-xs mt-1 font-medium">{errors.mobileNumber.message}</p>}
                 </div>
 
@@ -489,8 +583,48 @@ const Auth = () => {
 
             <div>
               <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Email or Username</label>
-              <input type="text" {...formReg('email')} placeholder="you@example.com or username"
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary transition-colors" />
+              <div className="relative">
+                <input type="text" {...formReg('email')} placeholder="you@example.com or username"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-10 text-foreground text-sm focus:outline-none focus:border-primary transition-colors" />
+                <AnimatePresence>
+                  {emailTouched && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                    >
+                      {emailValid
+                        ? <CheckCircle className="w-4 h-4 text-emerald-500" />
+                        : <XCircle className="w-4 h-4 text-red-500" />
+                      }
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <AnimatePresence>
+                {emailTouched && !emailValid && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="text-xs text-red-500 mt-1 flex items-center gap-1 overflow-hidden"
+                  >
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {isLogin ? 'Please enter a valid email or username' : 'Please enter a valid email address'}
+                  </motion.p>
+                )}
+                {emailTouched && emailValid && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="text-xs text-emerald-500 mt-1 overflow-hidden"
+                  >
+                    ✓ Looks good!
+                  </motion.p>
+                )}
+              </AnimatePresence>
               {errors.email && <p className="text-red-500 text-xs mt-1 font-medium">{errors.email.message}</p>}
             </div>
 
@@ -499,15 +633,66 @@ const Auth = () => {
                 <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Password</label>
                 {isLogin && <button type="button" onClick={() => setIsForgotPassword(true)} className="text-xs text-primary font-bold hover:underline">Forgot?</button>}
               </div>
-              <input type="password" {...formReg('password')} placeholder="••••••••"
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary transition-colors" />
+              <div className="relative">
+                <input type={showPassword ? 'text' : 'password'} {...formReg('password')} placeholder="••••••••"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 pr-10 text-foreground text-sm focus:outline-none focus:border-primary transition-colors" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((p) => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               {errors.password && <p className="text-red-500 text-xs mt-1 font-medium">{errors.password.message}</p>}
+
+              {!isLogin && passwordValue && (
+                <div className="mt-2 space-y-1">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map((i) => (
+                      <motion.div
+                        key={i}
+                        className="h-1 flex-1 rounded-full"
+                        animate={{
+                          backgroundColor: i <= passwordStrength.score ? passwordStrength.barColor : 'hsl(var(--border))',
+                        }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    ))}
+                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={passwordStrength.label}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-xs text-muted-foreground"
+                    >
+                      {passwordStrength.label && (
+                        <>
+                          Password strength:{' '}
+                          <span className={passwordStrength.textColor}>{passwordStrength.label}</span>
+                        </>
+                      )}
+                      {passwordStrength.score < 3 && (
+                        <span className="text-muted-foreground ml-1">
+                          — add {!hasUpper && 'uppercase, '}
+                          {!hasNumber && 'numbers, '}
+                          {!hasSpecial && 'symbols'}
+                        </span>
+                      )}
+                    </motion.p>
+                  </AnimatePresence>
+                </div>
+              )}
             </div>
 
-            <button type="submit" disabled={isLoggingIn || isRegistering || isLoginSuccess}
+            <motion.button type="submit" disabled={isLoggingIn || isRegistering || isLoginSuccess || isSubmitBlocked}
+              whileHover={!isSubmitBlocked ? { scale: 1.02 } : {}}
               className={`w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
-                isLoginSuccess ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground shadow-primary/20'
-              }`}>
+                isLoginSuccess ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-primary hover:opacity-90 text-primary-foreground shadow-primary/20'
+              } ${isSubmitBlocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
               {isLoginSuccess ? (
                 <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 15 }} className="flex items-center gap-2">
                   <Check className="w-5 h-5" /> Welcome back!
@@ -519,7 +704,7 @@ const Auth = () => {
               ) : (
                 'Create Account →'
               )}
-            </button>
+            </motion.button>
           </motion.form>
 
           {/* Social Auth */}
