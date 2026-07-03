@@ -13,7 +13,15 @@ exports.getAllDisputes = async (req, res, next) => {
     const disputes = await Dispute.find(filter)
       .populate('openedBy', 'name email role')
       .populate('againstUser', 'name email role')
-      .populate('escrowId', 'totalAmount currency jobId')
+      .populate({
+        path: 'escrowId',
+        select: 'totalAmount currency jobId clientId freelancerId',
+        populate: [
+          { path: 'jobId', select: 'title' },
+          { path: 'clientId', select: 'name' },
+          { path: 'freelancerId', select: 'name' },
+        ],
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit));
@@ -36,7 +44,15 @@ exports.getDisputeById = async (req, res, next) => {
     const dispute = await Dispute.findById(req.params.disputeId)
       .populate('openedBy', 'name email role')
       .populate('againstUser', 'name email role')
-      .populate('escrowId', 'totalAmount currency jobId milestones');
+      .populate({
+        path: 'escrowId',
+        select: 'totalAmount currency jobId clientId freelancerId milestones',
+        populate: [
+          { path: 'jobId', select: 'title' },
+          { path: 'clientId', select: 'name email' },
+          { path: 'freelancerId', select: 'name email' },
+        ],
+      });
 
     if (!dispute) {
       return res.status(404).json({ success: false, message: 'Dispute not found' });
