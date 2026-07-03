@@ -29,8 +29,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
     final ok = await context.read<JobsProvider>().postJob({
       'title': _titleCtrl.text, 'description': _descCtrl.text,
       'category': _category, 'budgetType': _budgetType,
-      if (_budgetType == 'fixed') 'budgetFixed': double.tryParse(_budgetCtrl.text) ?? 0,
-      if (_budgetType == 'hourly') 'budgetMin': double.tryParse(_budgetCtrl.text) ?? 0,
+      if (_budgetType == 'fixed') 'budget': double.tryParse(_budgetCtrl.text) ?? 0,
+      if (_budgetType == 'hourly') 'minBudget': double.tryParse(_budgetCtrl.text) ?? 0,
+      'location': {
+        'type': 'Point',
+        'coordinates': [77.2090, 28.6139],
+      },
     });
     if (!mounted) return;
     setState(() => _loading = false);

@@ -74,7 +74,7 @@ class _WalletScreenState extends State<WalletScreen> {
             ]))
           else
             ...w.transactions.map((tx) {
-              final isCredit = (tx['type'] ?? '') == 'CREDIT';
+              final isCredit = (tx['type'] ?? '') == 'credit';
               final amt = ((tx['amount'] ?? 0) / 100).toStringAsFixed(2);
               return Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),

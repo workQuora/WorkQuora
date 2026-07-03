@@ -63,7 +63,7 @@ class AuthProvider extends ChangeNotifier {
     if (token == null) return false;
     try {
       final res = await DioClient.instance.dio.get(ApiConstants.me);
-      _user = res.data['user'];
+      _user = res.data['data'];
       await _prefs.setString('user', jsonEncode(_user));
       notifyListeners();
       return true;

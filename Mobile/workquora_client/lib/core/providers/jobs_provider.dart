@@ -23,7 +23,7 @@ class JobsProvider extends ChangeNotifier {
 
   Future<void> fetchMyJobs() async {
     try {
-      final res = await DioClient.instance.dio.get(ApiConstants.jobs);
+      final res = await DioClient.instance.dio.get(ApiConstants.myJobs);
       _myJobs = res.data['data'] ?? res.data ?? [];
     } catch (_) { _myJobs = []; }
     notifyListeners();

@@ -20,7 +20,7 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final res = await DioClient.instance.dio.get('${ApiConstants.freelancers}/${widget.workerId}');
+      final res = await DioClient.instance.dio.get('${ApiConstants.workerProfile}/${widget.workerId}');
       _worker = res.data['data'] ?? res.data;
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
@@ -39,7 +39,7 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
     final skills  = List<String>.from(_worker!['skills'] ?? []);
     final kyc     = _worker!['isKycVerified'] == true;
     final avail   = _worker!['isAvailable'] == true;
-    final pic     = _worker!['profilePic'] ?? '';
+    final pic     = _worker!['profilePic'] ?? _worker!['avatar'] ?? '';
 
     return Scaffold(
       backgroundColor: AppColors.bg,

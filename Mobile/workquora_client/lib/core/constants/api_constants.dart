@@ -17,11 +17,12 @@ class ApiConstants {
   static const String kycStatus        = '/kyc/status';
 
   static const String jobs             = '/jobs';
+  static const String myJobs           = '/jobs/my-jobs';
   static const String nearbyJobs       = '/jobs/nearby';
-  static const String nearbyFreelancers= '/freelancers/nearby';
-  static const String freelancers      = '/freelancers';
+  static const String nearbyFreelancers= '/geo/nearby-freelancers';
+  static const String workerProfile    = '/profile/user';
 
-  static const String wallet           = '/wallet';
+  static const String wallet           = '/wallet/balance';
   static const String topupOrder       = '/wallet/topup/order';
   static const String topupVerify      = '/wallet/topup/verify';
   static const String withdraw         = '/wallet/withdraw';
