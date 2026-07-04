@@ -14,6 +14,8 @@ import 'screens/client/post_job_screen.dart';
 import 'screens/client/wallet_screen.dart';
 import 'screens/client/profile_screen.dart';
 import 'screens/client/worker_detail_screen.dart';
+import 'screens/client/notifications_screen.dart';
+import 'screens/client/settings_screen.dart';
 
 class WorkQuoraClientApp extends StatelessWidget {
   const WorkQuoraClientApp({super.key});
@@ -64,6 +66,8 @@ class WorkQuoraClientApp extends StatelessWidget {
               path: '/worker/:id',
               builder: (context, state) => WorkerDetailScreen(workerId: state.pathParameters['id']!),
             ),
+            GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+            GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
           ],
         );
 

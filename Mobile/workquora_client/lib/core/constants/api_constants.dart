@@ -36,7 +36,9 @@ class ApiConstants {
   static const String sendMessage      = '/messages/send';
 
   static const String notifications    = '/notifications';
-  static const String markAllRead      = '/notifications/mark-all-read';
+  static const String markAllRead      = '/notifications/read-all';
+
+  static const String privacySettings  = '/settings/privacy';
 
   static const String myTasks          = '/tasks/my-tasks';
   static const String postJob          = '/jobs';

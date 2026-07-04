@@ -117,6 +117,22 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // PUT /profile/update — only returns {success, message}, no updated user
+  // object, so the submitted fields are merged into local state directly.
+  Future<bool> updateProfile(Map<String, dynamic> data) async {
+    _isLoading = true; _error = null; notifyListeners();
+    try {
+      await DioClient.instance.dio.put('/profile/update', data: data);
+      _user = {...?_user, ...data};
+      await _prefs.setString('user', jsonEncode(_user));
+      _isLoading = false; notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _parseError(e); _isLoading = false; notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> validateToken() async {
     final token = await DioClient.instance.getToken();
     if (token == null) return false;

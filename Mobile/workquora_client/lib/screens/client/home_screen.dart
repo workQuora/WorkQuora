@@ -56,6 +56,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 2),
                   Text('Hi $name 👋', style: const TextStyle(color: AppColors.text, fontSize: 22, fontWeight: FontWeight.w900)),
                 ])),
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, color: AppColors.text),
+                  onPressed: () => context.push('/notifications'),
+                ),
+                const SizedBox(width: 4),
                 GestureDetector(
                   onTap: () => context.go('/profile'),
                   child: Container(width: 44, height: 44,
