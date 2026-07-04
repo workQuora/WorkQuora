@@ -180,7 +180,20 @@ class ClientShell extends StatefulWidget {
 
 class _ClientShellState extends State<ClientShell> {
   int _currentIndex = 0;
-  final _tabs = ['/home', '/discover', '/post-job', '/wallet', '/profile'];
+  // Chat (index 1) isn't a shell route — /conversations lives outside the
+  // ShellRoute (same as /notifications and /my-jobs), so it's pushed rather
+  // than switched to like the other persistent tabs. null marks that slot.
+  final _tabs = ['/home', null, '/post-job', '/wallet', '/profile'];
+
+  void _onTap(int i) {
+    final path = _tabs[i];
+    if (path == null) {
+      context.push('/conversations');
+      return;
+    }
+    setState(() => _currentIndex = i);
+    context.go(path);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -193,10 +206,7 @@ class _ClientShellState extends State<ClientShell> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (i) {
-            setState(() => _currentIndex = i);
-            context.go(_tabs[i]);
-          },
+          onTap: _onTap,
           backgroundColor: AppColors.surface,
           selectedItemColor: AppColors.primary,
           unselectedItemColor: AppColors.textMuted,
@@ -208,7 +218,7 @@ class _ClientShellState extends State<ClientShell> {
             BottomNavigationBarItem(
                 icon: Icon(Icons.home_rounded), label: 'Home'),
             BottomNavigationBarItem(
-                icon: Icon(Icons.explore_rounded), label: 'Discover'),
+                icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
             BottomNavigationBarItem(
                 icon: Icon(Icons.add_circle_rounded), label: 'Post Job'),
             BottomNavigationBarItem(

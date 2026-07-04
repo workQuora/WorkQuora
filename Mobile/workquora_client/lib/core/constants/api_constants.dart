@@ -21,6 +21,7 @@ class ApiConstants {
   static const String myJobs           = '/jobs/my-jobs';
   static const String nearbyJobs       = '/geo/nearby-jobs';
   static const String nearbyFreelancers= '/geo/nearby-freelancers';
+  static const String geoSearch        = '/geo/search';
   static const String workerProfile    = '/profile/user';
 
   static const String wallet           = '/wallet/balance';

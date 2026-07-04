@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/jobs_provider.dart';
+import '../../core/utils/location_picker.dart';
 import '../../widgets/worker_card.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -27,7 +30,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<JobsProvider>().fetchNearbyWorkers());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      context.read<JobsProvider>().fetchNearbyWorkers();
+
+      // If GPS permission was already granted in a previous session, resume
+      // background tracking immediately without re-prompting.
+      if (!kIsWeb) {
+        final permission = await Geolocator.checkPermission();
+        if (!mounted) return;
+        if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+          context.read<JobsProvider>().startLocationTracking();
+        }
+      }
+    });
   }
 
   @override
@@ -48,13 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   GestureDetector(
-                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Location-based discovery uses your device region. Precise location coming soon.'),
-                    )),
+                    onTap: () => showLocationPicker(context),
                     child: Row(children: [
                       const Icon(Icons.location_on, color: AppColors.primary, size: 16),
                       const SizedBox(width: 4),
-                      const Text('Near You', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                      Text(jobs.locationLabel, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
                       const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted, size: 18),
                     ]),
                   ),
@@ -64,10 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.work_outline, color: AppColors.text),
                   onPressed: () => context.push('/my-jobs'),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chat_outlined, color: AppColors.text),
-                  onPressed: () => context.push('/conversations'),
                 ),
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined, color: AppColors.text),
@@ -124,10 +134,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Text('Categories', style: TextStyle(color: AppColors.text, fontSize: 16, fontWeight: FontWeight.bold)),
             )),
             SliverToBoxAdapter(child: SizedBox(
-              height: 90,
+              height: 96,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 itemCount: _categories.length,
                 itemBuilder: (_, i) {
                   final cat = _categories[i];
@@ -135,12 +145,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () => context.go('/discover'),
                     child: Container(
                       margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
                         Text(cat['icon']!, style: const TextStyle(fontSize: 22)),
                         const SizedBox(height: 4),
-                        Text(cat['label']!, style: const TextStyle(color: AppColors.text, fontSize: 11, fontWeight: FontWeight.w600)),
+                        Text(
+                          cat['label']!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppColors.text, fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
                       ]),
                     ),
                   );
