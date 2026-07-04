@@ -33,7 +33,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
     if (!mounted) return;
     if (ok) {
-      context.go('/home');
+      context.push('/otp', extra: {
+        'title': 'Verify Email',
+        'subtitle': 'Enter the OTP sent to your email',
+        'isMobileOtp': false,
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(auth.error ?? 'Registration failed'), backgroundColor: AppColors.error));
     }

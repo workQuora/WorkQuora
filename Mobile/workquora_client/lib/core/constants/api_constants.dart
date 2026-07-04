@@ -3,6 +3,9 @@ class ApiConstants {
 
   static const String login            = '/auth/login';
   static const String register         = '/auth/register';
+  static const String verifyRegistration = '/auth/verify-registration';
+  static const String verifyMobile     = '/auth/verify-mobile';
+  static const String sendMobileOtp    = '/auth/send-mobile-otp';
   static const String sendOtp          = '/auth/send-otp';
   static const String verifyOtp        = '/auth/verify-otp';
   static const String me               = '/auth/me';

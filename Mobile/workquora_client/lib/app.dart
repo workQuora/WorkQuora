@@ -6,6 +6,7 @@ import 'core/providers/auth_provider.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/auth/otp_screen.dart';
 import 'screens/client/home_screen.dart';
 import 'screens/client/discover_screen.dart';
 import 'screens/client/post_job_screen.dart';
@@ -23,7 +24,7 @@ class WorkQuoraClientApp extends StatelessWidget {
         final router = GoRouter(
           initialLocation: '/',
           redirect: (context, state) {
-            final loggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/register';
+            final loggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/register' || state.matchedLocation == '/otp';
             if (state.matchedLocation == '/') return null;
             if (!auth.isAuthenticated && !loggingIn) {
               return '/login';
@@ -37,6 +38,17 @@ class WorkQuoraClientApp extends StatelessWidget {
             GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
             GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
             GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+            GoRoute(
+              path: '/otp',
+              builder: (context, state) {
+                final extra = state.extra as Map<String, dynamic>;
+                return OtpScreen(
+                  title: extra['title'] as String,
+                  subtitle: extra['subtitle'] as String,
+                  isMobileOtp: extra['isMobileOtp'] as bool,
+                );
+              },
+            ),
             ShellRoute(
               builder: (context, state, child) => ClientShell(child: child),
               routes: [
