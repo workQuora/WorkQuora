@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/jobs_provider.dart';
@@ -26,7 +27,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all required fields'), backgroundColor: AppColors.error)); return;
     }
     setState(() => _loading = true);
-    final ok = await context.read<JobsProvider>().postJob({
+    final newJobId = await context.read<JobsProvider>().postJob({
       'title': _titleCtrl.text, 'description': _descCtrl.text,
       'category': _category, 'budgetType': _budgetType,
       if (_budgetType == 'fixed') 'budget': double.tryParse(_budgetCtrl.text) ?? 0,
@@ -38,8 +39,23 @@ class _PostJobScreenState extends State<PostJobScreen> {
     });
     if (!mounted) return;
     setState(() => _loading = false);
-    if (ok) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Job posted successfully! ✅'), backgroundColor: AppColors.success)); _titleCtrl.clear(); _descCtrl.clear(); _budgetCtrl.clear(); }
-    else     { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to post job'), backgroundColor: AppColors.error)); }
+    if (newJobId != null) {
+      _titleCtrl.clear(); _descCtrl.clear(); _budgetCtrl.clear();
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Job Posted! ✅', style: TextStyle(color: AppColors.text)),
+          content: const Text('Your job is live — nearby workers can now submit proposals.', style: TextStyle(color: AppColors.textMuted)),
+          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)))],
+        ),
+      );
+      if (!mounted) return;
+      context.push('/job/$newJobId');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to post job'), backgroundColor: AppColors.error));
+    }
   }
 
   @override

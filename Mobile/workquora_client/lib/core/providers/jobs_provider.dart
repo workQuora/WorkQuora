@@ -29,11 +29,13 @@ class JobsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> postJob(Map<String, dynamic> data) async {
+  // Returns the newly-created job's _id on success, or null on failure —
+  // POST /jobs responds with { success, data: <full created job> }.
+  Future<String?> postJob(Map<String, dynamic> data) async {
     try {
-      await DioClient.instance.dio.post(ApiConstants.postJob, data: data);
+      final res = await DioClient.instance.dio.post(ApiConstants.postJob, data: data);
       await fetchMyJobs();
-      return true;
-    } catch (_) { return false; }
+      return res.data['data']?['_id']?.toString();
+    } catch (_) { return null; }
   }
 }

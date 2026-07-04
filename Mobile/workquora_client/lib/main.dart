@@ -7,6 +7,7 @@ import 'core/providers/auth_provider.dart';
 import 'core/providers/jobs_provider.dart';
 import 'core/providers/wallet_provider.dart';
 import 'core/providers/kyc_provider.dart';
+import 'core/providers/job_detail_provider.dart';
 import 'core/network/dio_client.dart';
 
 void main() async {
@@ -25,6 +26,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => JobsProvider()),
         ChangeNotifierProvider(create: (_) => WalletProvider()),
         ChangeNotifierProvider(create: (_) => KycProvider()),
+        ChangeNotifierProvider(create: (_) => JobDetailProvider()),
       ],
       child: const WorkQuoraClientApp(),
     ),

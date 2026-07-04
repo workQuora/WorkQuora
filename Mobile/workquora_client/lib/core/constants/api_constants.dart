@@ -39,4 +39,8 @@ class ApiConstants {
 
   static const String myTasks          = '/tasks/my-tasks';
   static const String postJob          = '/jobs';
+  static const String proposals        = '/proposals';
+  // acceptProposal: '${ApiConstants.proposals}/$proposalId/accept'
+  // rejectProposal: '${ApiConstants.proposals}/$proposalId/reject'
+  // cancelJob:      '${ApiConstants.jobs}/$jobId/cancel'
 }
