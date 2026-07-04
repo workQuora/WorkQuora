@@ -22,4 +22,25 @@ class WalletProvider extends ChangeNotifier {
     } catch (_) {}
     _isLoading = false; notifyListeners();
   }
+
+  Future<Map<String, dynamic>?> createAddMoneyOrder(int amountPaise) async {
+    final res = await DioClient.instance.dio.post(
+      '/wallet/add-money/create-order',
+      data: {'amount': amountPaise},
+    );
+    return res.data['data'];
+  }
+
+  Future<bool> withdraw(int amountPaise, String pin) async {
+    try {
+      await DioClient.instance.dio.post(
+        '/wallet/withdraw',
+        data: {'amount': amountPaise, 'pin': pin},
+      );
+      await fetchWallet();
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:dio/dio.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/wallet_provider.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/app_text_field.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -40,11 +43,13 @@ class _WalletScreenState extends State<WalletScreen> {
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(child: GestureDetector(
+                  onTap: () => showDialog(context: context, builder: (_) => const AddMoneyDialog()),
                   child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                     child: const Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add, color: AppColors.primary, size: 16), SizedBox(width: 6), Text('Add Money', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13))]))),
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: GestureDetector(
+                  onTap: () => showDialog(context: context, builder: (_) => const WithdrawDialog()),
                   child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.3))),
                     child: const Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.arrow_upward, color: Colors.white, size: 16), SizedBox(width: 6), Text('Withdraw', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))]))),
                 )),
@@ -92,6 +97,116 @@ class _WalletScreenState extends State<WalletScreen> {
             }).toList(),
         ])),
       ),
+    );
+  }
+}
+
+class AddMoneyDialog extends StatefulWidget {
+  const AddMoneyDialog({super.key});
+  @override State<AddMoneyDialog> createState() => _AddMoneyDialogState();
+}
+
+class _AddMoneyDialogState extends State<AddMoneyDialog> {
+  final _amountCtrl = TextEditingController();
+  bool _loading = false;
+
+  @override void dispose() { _amountCtrl.dispose(); super.dispose(); }
+
+  Future<void> _proceed() async {
+    final rupees = double.tryParse(_amountCtrl.text);
+    if (rupees == null || rupees <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount'), backgroundColor: AppColors.error));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final order = await context.read<WalletProvider>().createAddMoneyOrder((rupees * 100).round());
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Order created (ID: ${order?['orderId'] ?? '—'}). In-app payment is coming soon — complete this top-up from the WorkQuora web app for now.'),
+        backgroundColor: AppColors.primary,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final msg = e is DioException ? (e.response?.data?['message'] ?? 'Failed to create order') : 'Failed to create order';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Add Money', style: TextStyle(color: AppColors.text)),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Enter amount to add to your wallet', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+        const SizedBox(height: 14),
+        AppTextField(controller: _amountCtrl, hint: 'e.g. 500', icon: Icons.currency_rupee, keyboardType: TextInputType.number),
+      ]),
+      actions: [
+        TextButton(onPressed: _loading ? null : () => Navigator.of(context).pop(), child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
+        SizedBox(width: 140, child: AppButton(label: 'Proceed to Payment', loading: _loading, onPressed: _proceed)),
+      ],
+    );
+  }
+}
+
+class WithdrawDialog extends StatefulWidget {
+  const WithdrawDialog({super.key});
+  @override State<WithdrawDialog> createState() => _WithdrawDialogState();
+}
+
+class _WithdrawDialogState extends State<WithdrawDialog> {
+  final _amountCtrl = TextEditingController();
+  final _pinCtrl = TextEditingController();
+  bool _loading = false;
+
+  @override void dispose() { _amountCtrl.dispose(); _pinCtrl.dispose(); super.dispose(); }
+
+  Future<void> _withdraw() async {
+    final rupees = double.tryParse(_amountCtrl.text);
+    if (rupees == null || rupees <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount'), backgroundColor: AppColors.error));
+      return;
+    }
+    if (_pinCtrl.text.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter your 4-digit withdrawal PIN'), backgroundColor: AppColors.error));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await context.read<WalletProvider>().withdraw((rupees * 100).round(), _pinCtrl.text);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Withdrawal initiated'), backgroundColor: AppColors.success));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final msg = e is DioException ? (e.response?.data?['message'] ?? 'Withdrawal failed') : 'Withdrawal failed';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Withdraw', style: TextStyle(color: AppColors.text)),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Enter amount and your withdrawal PIN', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+        const SizedBox(height: 14),
+        AppTextField(controller: _amountCtrl, hint: 'e.g. 500', icon: Icons.currency_rupee, keyboardType: TextInputType.number),
+        const SizedBox(height: 12),
+        AppTextField(controller: _pinCtrl, hint: '4-digit PIN', icon: Icons.lock_outline, obscure: true, keyboardType: TextInputType.number),
+      ]),
+      actions: [
+        TextButton(onPressed: _loading ? null : () => Navigator.of(context).pop(), child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
+        SizedBox(width: 100, child: AppButton(label: 'Withdraw', loading: _loading, onPressed: _withdraw)),
+      ],
     );
   }
 }

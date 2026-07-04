@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/network/dio_client.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -65,6 +66,11 @@ class WorkQuoraClientApp extends StatelessWidget {
             ),
           ],
         );
+
+        DioClient.instance.onSessionExpired = () {
+          auth.logout();
+          router.go('/login');
+        };
 
         return MaterialApp.router(
           title: 'WorkQuora Client',

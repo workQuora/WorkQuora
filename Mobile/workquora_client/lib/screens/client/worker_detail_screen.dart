@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/constants/api_constants.dart';
@@ -88,7 +89,7 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
               child: Text(s, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600)))).toList()),
             const SizedBox(height: 24),
           ],
-          AppButton(label: 'Hire ${name.split(' ').first}', onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Posting job for this worker...')))),
+          AppButton(label: 'Post a Job for ${name.split(' ').first} →', onPressed: () => context.push('/post-job')),
           const SizedBox(height: 12),
           AppButton(label: '💬 Send Message', onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chat coming soon!'))), outlined: true),
           const SizedBox(height: 30),
