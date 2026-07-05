@@ -23,12 +23,19 @@ class ApiConstants {
   static const String nearbyFreelancers= '/geo/nearby-freelancers';
   static const String geoSearch        = '/geo/search';
   static const String workerProfile    = '/profile/user';
+  static const String profilePhoto     = '/profile/photo';
 
   static const String wallet           = '/wallet/balance';
   static const String topupOrder       = '/wallet/topup/order';
   static const String topupVerify      = '/wallet/topup/verify';
   static const String withdraw         = '/wallet/withdraw';
   static const String transactions     = '/wallet/transactions';
+  static const String setWithdrawalPin = '/wallet/set-pin';
+
+  static const String logoutAll        = '/auth/logout-all';
+  static const String deleteAccount    = '/auth/account';
+  static const String forgotPassword   = '/auth/forgot-password';
+  static const String resetPassword    = '/auth/reset-password';
 
   static const String conversations    = '/messages/conversations';
   static const String sendMessage      = '/messages';
@@ -40,6 +47,7 @@ class ApiConstants {
 
   static const String myTasks          = '/tasks/my-tasks';
   static const String postJob          = '/jobs';
+  static const String uploadJobPhoto   = '/jobs/upload-photo';
   static const String proposals        = '/proposals';
   // acceptProposal: '${ApiConstants.proposals}/$proposalId/accept'
   // rejectProposal: '${ApiConstants.proposals}/$proposalId/reject'
