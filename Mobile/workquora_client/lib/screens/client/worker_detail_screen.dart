@@ -54,7 +54,20 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
               Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const SizedBox(height: 30),
                 Container(width: 90, height: 90, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)),
-                  child: ClipOval(child: pic.isNotEmpty ? CachedNetworkImage(imageUrl: pic, fit: BoxFit.cover) : Container(color: AppColors.primaryDark, child: Center(child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)))))),
+                  child: ClipOval(child: pic.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: pic,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: AppColors.surfaceAlt,
+                          child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: AppColors.primaryDark,
+                          child: Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold))),
+                        ),
+                      )
+                    : Container(color: AppColors.primaryDark, child: Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)))))),
                 const SizedBox(height: 10),
                 Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
                 Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13)),

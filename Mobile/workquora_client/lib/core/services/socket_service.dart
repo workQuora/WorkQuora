@@ -1,5 +1,6 @@
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:flutter/foundation.dart';
+import '../constants/api_constants.dart';
 
 class SocketService {
   static final SocketService _instance = SocketService._internal();
@@ -12,8 +13,12 @@ class SocketService {
   void connect(String token) {
     if (_socket?.connected == true) return;
 
+    // Socket connects to the base server URL (no /api/v1 path) — derived from
+    // ApiConstants.baseUrl so REST and socket always target the same backend.
+    final socketUrl = ApiConstants.baseUrl.replaceAll('/api/v1', '').replaceAll('/api', '');
+
     _socket = IO.io(
-      'https://workquora.onrender.com',
+      socketUrl,
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .setAuth({'token': token})
