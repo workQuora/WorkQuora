@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -51,9 +51,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
               ),
               const SizedBox(height: 28),
-              const Text('Welcome back 👋', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.text)),
+               Text('Welcome back 👋', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
               const SizedBox(height: 6),
-              const Text('Sign in to hire trusted workers', style: TextStyle(color: AppColors.textMuted, fontSize: 15)),
+               Text('Sign in to hire trusted workers', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
               const SizedBox(height: 36),
               AppTextField(controller: _emailCtrl, hint: 'Email address', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 14),
@@ -61,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _passCtrl, hint: 'Password', icon: Icons.lock_outline,
                 obscure: _obscure,
                 suffix: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.textMuted, size: 20),
+                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.textSecondary, size: 20),
                   onPressed: () => setState(() => _obscure = !_obscure)
                 ),
               ),
@@ -69,14 +69,14 @@ class _LoginScreenState extends State<LoginScreen> {
               AppButton(label: 'Sign In', onPressed: _login, loading: auth.isLoading),
               const SizedBox(height: 20),
               Row(children: [
-                const Expanded(child: Divider(color: AppColors.border)),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or', style: TextStyle(color: AppColors.textMuted, fontSize: 13))),
-                const Expanded(child: Divider(color: AppColors.border)),
+                 Expanded(child: Divider(color: AppColors.border)),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or', style: TextStyle(color: AppColors.textSecondary, fontSize: 13))),
+                 Expanded(child: Divider(color: AppColors.border)),
               ]),
               const SizedBox(height: 20),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Text("Don't have an account? ", style: TextStyle(color: AppColors.textMuted)),
-                GestureDetector(onTap: () => context.go('/register'), child: const Text('Register', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))),
+                 Text("Don't have an account? ", style: TextStyle(color: AppColors.textSecondary)),
+                GestureDetector(onTap: () => context.go('/register'), child:  Text('Register', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))),
               ]),
               const SizedBox(height: 32),
             ],

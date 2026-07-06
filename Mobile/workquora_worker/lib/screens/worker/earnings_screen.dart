@@ -16,16 +16,16 @@ class _EarningsScreenState extends State<EarningsScreen> {
   Widget build(BuildContext context) {
     final w = context.watch<WalletProvider>();
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(title: const Text('Earnings'), backgroundColor: AppColors.bg, elevation: 0,
-        actions: [IconButton(icon: const Icon(Icons.refresh, color: AppColors.textMuted), onPressed: () => context.read<WalletProvider>().fetchWallet())]),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Earnings'), backgroundColor: AppColors.background, elevation: 0,
+        actions: [IconButton(icon:  Icon(Icons.refresh, color: AppColors.textSecondary), onPressed: () => context.read<WalletProvider>().fetchWallet())]),
       body: RefreshIndicator(color: AppColors.primary, backgroundColor: AppColors.surface, onRefresh: () => context.read<WalletProvider>().fetchWallet(),
         child: SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), child: Column(children: [
           Container(width: double.infinity, padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [const Color(0xFF065F46), AppColors.emerald.withOpacity(0.8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              gradient: LinearGradient(colors: [const Color(0xFF065F46), AppColors.primary.withOpacity(0.8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(24),
-              boxShadow: [BoxShadow(color: AppColors.emerald.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 8))],
+              boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 8))],
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Total Earned', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
@@ -42,25 +42,25 @@ class _EarningsScreenState extends State<EarningsScreen> {
           Row(children: [
             Expanded(child: _summaryCard('This Month', '₹${(w.balance * 0.7).toStringAsFixed(0)}', AppColors.primary)),
             const SizedBox(width: 12),
-            Expanded(child: _summaryCard('All Time', '₹${(w.balance * 1.4).toStringAsFixed(0)}', AppColors.emerald)),
+            Expanded(child: _summaryCard('All Time', '₹${(w.balance * 1.4).toStringAsFixed(0)}', AppColors.primary)),
           ]),
           const SizedBox(height: 28),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Payment History', style: TextStyle(color: AppColors.text, fontSize: 16, fontWeight: FontWeight.bold)),
-            if (w.isLoading) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textMuted)),
+             Text('Payment History', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+            if (w.isLoading)  SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary)),
           ]),
           const SizedBox(height: 14),
           if (w.isLoading)
             Column(children: List.generate(5, (_) => Padding(padding: const EdgeInsets.only(bottom: 10),
-              child: Shimmer.fromColors(baseColor: AppColors.surface, highlightColor: AppColors.surfaceAlt,
+              child: Shimmer.fromColors(baseColor: AppColors.surface, highlightColor: AppColors.surface2,
                 child: Container(height: 64, decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12)))))))
           else if (w.transactions.isEmpty)
-            Container(padding: const EdgeInsets.all(40), child: const Column(children: [
-              Icon(Icons.currency_rupee, color: AppColors.textMuted, size: 56),
+            Container(padding: const EdgeInsets.all(40), child:  Column(children: [
+              Icon(Icons.currency_rupee, color: AppColors.textSecondary, size: 56),
               SizedBox(height: 12),
-              Text('No earnings yet', style: TextStyle(color: AppColors.textMuted)),
+              Text('No earnings yet', style: TextStyle(color: AppColors.textSecondary)),
               SizedBox(height: 6),
-              Text('Complete jobs to earn money', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              Text('Complete jobs to earn money', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             ]))
           else
             ...w.transactions.map((tx) {
@@ -69,15 +69,15 @@ class _EarningsScreenState extends State<EarningsScreen> {
               return Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
                 child: Row(children: [
-                  Container(width: 42, height: 42, decoration: BoxDecoration(color: (isCredit ? AppColors.emerald : AppColors.error).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                    child: Icon(isCredit ? Icons.arrow_downward : Icons.arrow_upward, color: isCredit ? AppColors.emerald : AppColors.error, size: 20)),
+                  Container(width: 42, height: 42, decoration: BoxDecoration(color: (isCredit ? AppColors.primary : AppColors.error).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Icon(isCredit ? Icons.arrow_downward : Icons.arrow_upward, color: isCredit ? AppColors.primary : AppColors.error, size: 20)),
                   const SizedBox(width: 12),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(tx['description'] ?? (isCredit ? 'Job Payment' : 'Withdrawal'), style: const TextStyle(color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text(tx['description'] ?? (isCredit ? 'Job Payment' : 'Withdrawal'), style:  TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
-                    Text(tx['createdAt']?.toString().substring(0, 10) ?? '', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                    Text(tx['createdAt']?.toString().substring(0, 10) ?? '', style:  TextStyle(color: AppColors.textSecondary, fontSize: 11)),
                   ])),
-                  Text('${isCredit ? '+' : '-'}₹$amt', style: TextStyle(color: isCredit ? AppColors.emerald : AppColors.error, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text('${isCredit ? '+' : '-'}₹$amt', style: TextStyle(color: isCredit ? AppColors.primary : AppColors.error, fontWeight: FontWeight.bold, fontSize: 15)),
                 ]));
             }).toList(),
         ])),
@@ -88,7 +88,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
   Widget _summaryCard(String label, String val, Color color) => Container(padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+      Text(label, style:  TextStyle(color: AppColors.textSecondary, fontSize: 12)),
       const SizedBox(height: 8),
       Text(val, style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.w900)),
     ]));

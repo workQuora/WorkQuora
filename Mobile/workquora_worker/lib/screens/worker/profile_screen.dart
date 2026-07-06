@@ -20,13 +20,13 @@ class WorkerProfileScreen extends StatelessWidget {
     final skills= List<String>.from(user['skills'] ?? []);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.background,
       body: CustomScrollView(slivers: [
         SliverAppBar(
-          backgroundColor: AppColors.bg, expandedHeight: 220, pinned: true,
+          backgroundColor: AppColors.background, expandedHeight: 220, pinned: true,
           flexibleSpace: FlexibleSpaceBar(
             background: Container(
-              decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF065F46), AppColors.emerald, Color(0xFF06B6D4)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+              decoration:  BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF065F46), AppColors.primary, Color(0xFF06B6D4)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const SizedBox(height: 50),
                 Container(width: 80, height: 80, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.4), width: 2)),
@@ -37,7 +37,7 @@ class WorkerProfileScreen extends StatelessWidget {
                   Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13)),
                   if (rating > 0) ...[
                     const SizedBox(width: 8),
-                    const Icon(Icons.star_rounded, color: AppColors.amber, size: 14),
+                     Icon(Icons.star_rounded, color: AppColors.warning, size: 14),
                     Text(' ${rating.toStringAsFixed(1)}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                   ],
                 ]),
@@ -47,7 +47,7 @@ class WorkerProfileScreen extends StatelessWidget {
         ),
         SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _badge(isKyc ? '✓ KYC Verified' : '! KYC Pending', isKyc ? AppColors.emerald : AppColors.warning),
+            _badge(isKyc ? '✓ KYC Verified' : '! KYC Pending', isKyc ? AppColors.primary : AppColors.warning),
           ]),
           const SizedBox(height: 24),
           _tile(Icons.email_outlined, 'Email', email),
@@ -56,11 +56,11 @@ class WorkerProfileScreen extends StatelessWidget {
           _tile(Icons.work_outline, 'Profession', title),
           if (skills.isNotEmpty) ...[
             const SizedBox(height: 20),
-            const Align(alignment: Alignment.centerLeft, child: Text('Skills', style: TextStyle(color: AppColors.text, fontSize: 15, fontWeight: FontWeight.bold))),
+             Align(alignment: Alignment.centerLeft, child: Text('Skills', style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold))),
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 8, children: skills.map((s) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.primary.withOpacity(0.3))),
-              child: Text(s, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600)))).toList()),
+              child: Text(s, style:  TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600)))).toList()),
           ],
           const SizedBox(height: 28),
           if (!isKyc)
@@ -81,10 +81,10 @@ class WorkerProfileScreen extends StatelessWidget {
   Widget _tile(IconData icon, String label, String value) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
     child: Row(children: [
-      Icon(icon, color: AppColors.textMuted, size: 18), const SizedBox(width: 14),
+      Icon(icon, color: AppColors.textSecondary, size: 18), const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
-        Text(value, style: const TextStyle(color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w600)),
+        Text(label, style:  TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+        Text(value, style:  TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
       ])),
     ]));
 }

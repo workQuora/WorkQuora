@@ -33,7 +33,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     final avail  = user['isAvailable'] == true;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.background,
       body: SafeArea(child: RefreshIndicator(
         color: AppColors.primary, backgroundColor: AppColors.surface,
         onRefresh: () async {
@@ -44,44 +44,44 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
           SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 0), child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                const Icon(Icons.location_on, color: AppColors.primary, size: 16),
-                const Text(' New Delhi', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                 Icon(Icons.location_on, color: AppColors.primary, size: 16),
+                 Text(' New Delhi', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
               ]),
-              Text('Hi $name 🔧', style: const TextStyle(color: AppColors.text, fontSize: 22, fontWeight: FontWeight.w900)),
+              Text('Hi $name 🔧', style:  TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.w900)),
             ])),
             GestureDetector(
               onTap: () => auth.updateAvailability(!avail),
               child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: avail ? AppColors.emerald.withOpacity(0.15) : AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: avail ? AppColors.emerald : AppColors.border)),
+                decoration: BoxDecoration(color: avail ? AppColors.primary.withOpacity(0.15) : AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: avail ? AppColors.primary : AppColors.border)),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(width: 7, height: 7, decoration: BoxDecoration(color: avail ? AppColors.emerald : AppColors.textMuted, shape: BoxShape.circle)),
+                  Container(width: 7, height: 7, decoration: BoxDecoration(color: avail ? AppColors.primary : AppColors.textSecondary, shape: BoxShape.circle)),
                   const SizedBox(width: 6),
-                  Text(avail ? 'Online' : 'Offline', style: TextStyle(color: avail ? AppColors.emerald : AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(avail ? 'Online' : 'Offline', style: TextStyle(color: avail ? AppColors.primary : AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
                 ])),
             ),
           ]))),
           SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 0), child: Row(children: [
-            Expanded(child: _statCard('Today\'s Earn', '₹${wallet.balance.toStringAsFixed(0)}', Icons.currency_rupee, AppColors.emerald)),
+            Expanded(child: _statCard('Today\'s Earn', '₹${wallet.balance.toStringAsFixed(0)}', Icons.currency_rupee, AppColors.primary)),
             const SizedBox(width: 12),
             Expanded(child: _statCard('Active Jobs', '${tasks.activeTasks.length}', Icons.work, AppColors.primary)),
             const SizedBox(width: 12),
-            Expanded(child: _statCard('Completed', '${tasks.completedTasks.length}', Icons.check_circle, AppColors.amber)),
+            Expanded(child: _statCard('Completed', '${tasks.completedTasks.length}', Icons.check_circle, AppColors.warning)),
           ]))),
           SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 24, 20, 12), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Nearby Job Requests', style: TextStyle(color: AppColors.text, fontSize: 16, fontWeight: FontWeight.bold)),
-            GestureDetector(onTap: () => context.go('/jobs'), child: const Text('See all', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w600))),
+             Text('Nearby Job Requests', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+            GestureDetector(onTap: () => context.go('/jobs'), child:  Text('See all', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w600))),
           ]))),
           tasks.isLoading
             ? SliverList(delegate: SliverChildBuilderDelegate((_, i) => Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: Shimmer.fromColors(baseColor: AppColors.surface, highlightColor: AppColors.surfaceAlt,
+                child: Shimmer.fromColors(baseColor: AppColors.surface, highlightColor: AppColors.surface2,
                   child: Container(height: 100, decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18))))), childCount: 3))
             : tasks.nearbyJobs.isEmpty
               ? SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20), child: Container(padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
-                  child: Column(children: [const Icon(Icons.search_off, color: AppColors.textMuted, size: 40), const SizedBox(height: 10), const Text('No nearby jobs right now', style: TextStyle(color: AppColors.textMuted)), Text(avail ? 'Check back soon!' : 'Go Online to receive jobs', style: TextStyle(color: AppColors.textMuted.withOpacity(0.6), fontSize: 12))]))))
+                  child: Column(children: [ Icon(Icons.search_off, color: AppColors.textSecondary, size: 40), const SizedBox(height: 10),  Text('No nearby jobs right now', style: TextStyle(color: AppColors.textSecondary)), Text(avail ? 'Check back soon!' : 'Go Online to receive jobs', style: TextStyle(color: AppColors.textSecondary.withOpacity(0.6), fontSize: 12))]))))
               : SliverPadding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 8), sliver: SliverList(delegate: SliverChildBuilderDelegate((_, i) => _jobRequestCard(context, tasks.nearbyJobs[i]), childCount: tasks.nearbyJobs.take(5).length))),
           if (tasks.activeTasks.isNotEmpty) ...[
-            SliverToBoxAdapter(child: const Padding(padding: EdgeInsets.fromLTRB(20, 16, 20, 12), child: Text('My Active Jobs', style: TextStyle(color: AppColors.text, fontSize: 16, fontWeight: FontWeight.bold)))),
+            SliverToBoxAdapter(child:  Padding(padding: EdgeInsets.fromLTRB(20, 16, 20, 12), child: Text('My Active Jobs', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)))),
             SliverPadding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), sliver: SliverList(delegate: SliverChildBuilderDelegate((_, i) => _activeTaskCard(context, tasks.activeTasks[i], tasks), childCount: tasks.activeTasks.length))),
           ],
         ]),
@@ -96,7 +96,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       const SizedBox(height: 8),
       Text(val, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w900)),
       const SizedBox(height: 2),
-      Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+      Text(label, style:  TextStyle(color: AppColors.textSecondary, fontSize: 10)),
     ]));
 
   Widget _jobRequestCard(BuildContext context, Map<String, dynamic> job) {
@@ -109,21 +109,21 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text('🆕 $cat', style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text('🆕 $cat', style:  TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold))),
           const Spacer(),
-          Text('₹$budget', style: const TextStyle(color: AppColors.emerald, fontWeight: FontWeight.w900, fontSize: 16)),
+          Text('₹$budget', style:  TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16)),
         ]),
         const SizedBox(height: 8),
-        Text(title, style: const TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 15)),
+        Text(title, style:  TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 4),
-        Text('by $client', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        Text('by $client', style:  TextStyle(color: AppColors.textSecondary, fontSize: 12)),
         const SizedBox(height: 14),
         Row(children: [
           Expanded(child: OutlinedButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Job declined'))),
-            style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.border), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(vertical: 10)),
-            child: const Text('Decline', style: TextStyle(color: AppColors.textMuted, fontSize: 13)))),
+            style: OutlinedButton.styleFrom(side:  BorderSide(color: AppColors.border), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(vertical: 10)),
+            child:  Text('Decline', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)))),
           const SizedBox(width: 10),
-          Expanded(child: ElevatedButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Job accepted! ✅'), backgroundColor: AppColors.success)),
+          Expanded(child: ElevatedButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Job accepted! ✅'), backgroundColor: AppColors.success)),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(vertical: 10), elevation: 0),
             child: const Text('Accept ✓', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)))),
         ]),
@@ -140,14 +140,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.primary.withOpacity(0.3))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.bolt, color: AppColors.primary, size: 16),
+           Icon(Icons.bolt, color: AppColors.primary, size: 16),
           const SizedBox(width: 6),
-          const Text('In Progress', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
+           Text('In Progress', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
           const Spacer(),
-          Text('₹$amount in escrow', style: const TextStyle(color: AppColors.emerald, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text('₹$amount in escrow', style:  TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 8),
-        Text(title, style: const TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 15)),
+        Text(title, style:  TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 12),
         SizedBox(width: double.infinity, child: ElevatedButton(
           onPressed: () async {

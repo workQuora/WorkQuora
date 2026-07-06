@@ -15,9 +15,9 @@ class WalletProvider extends ChangeNotifier {
   Future<void> fetchWallet() async {
     _isLoading = true; notifyListeners();
     try {
-      final res = await DioClient.instance.dio.get(ApiConstants.wallet);
+      final res = await DioClient.instance.dio.get(ApiConstants.walletBalance);
       _wallet = res.data['data'] ?? res.data;
-      final txRes = await DioClient.instance.dio.get(ApiConstants.transactions);
+      final txRes = await DioClient.instance.dio.get(ApiConstants.walletTransactions);
       _transactions = txRes.data['data']?['transactions'] ?? txRes.data['transactions'] ?? [];
     } catch (_) {}
     _isLoading = false; notifyListeners();

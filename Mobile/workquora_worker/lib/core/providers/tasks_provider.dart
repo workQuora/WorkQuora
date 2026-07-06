@@ -17,7 +17,7 @@ class TasksProvider extends ChangeNotifier {
   Future<void> fetchMyTasks() async {
     _isLoading = true; notifyListeners();
     try {
-      final res = await DioClient.instance.dio.get(ApiConstants.myTasks);
+      final res = await DioClient.instance.dio.get('/tasks/my-tasks');
       _tasks = res.data['data'] ?? res.data ?? [];
     } catch (_) { _tasks = []; }
     _isLoading = false; notifyListeners();

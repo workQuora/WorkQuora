@@ -30,5 +30,5 @@ flutter:
     - assets/logo.png
 
 dependency_overrides:
-  smart_auth: ^3.2.0
+  smart_auth: 2.0.0
 

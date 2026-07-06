@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.workquora.workquora_client"
+    namespace = "com.workquora.workquora_worker"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -14,8 +14,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.workquora.workquora_client"
-        minSdk = 21
+        applicationId = "com.workquora.workquora_worker"
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

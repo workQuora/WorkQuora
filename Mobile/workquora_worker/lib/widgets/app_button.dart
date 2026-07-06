@@ -16,9 +16,9 @@ class AppButton extends StatelessWidget {
       child: outlined
         ? OutlinedButton(
             onPressed: loading ? null : onPressed,
-            style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.primary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-            child: loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
-                : Text(label, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 15)),
+            style: OutlinedButton.styleFrom(side:  BorderSide(color: AppColors.primary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            child: loading ?  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+                : Text(label, style:  TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 15)),
           )
         : ElevatedButton(
             onPressed: loading ? null : onPressed,
