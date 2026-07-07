@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -19,13 +20,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passCtrl  = TextEditingController();
   final _titleCtrl = TextEditingController();
   bool _obscure = true;
+  bool _showColdStartMessage = false;
+  Timer? _coldStartTimer;
 
-  @override void dispose() { _nameCtrl.dispose(); _emailCtrl.dispose(); _userCtrl.dispose(); _phoneCtrl.dispose(); _passCtrl.dispose(); _titleCtrl.dispose(); super.dispose(); }
+  @override void dispose() { _nameCtrl.dispose(); _emailCtrl.dispose(); _userCtrl.dispose(); _phoneCtrl.dispose(); _passCtrl.dispose(); _titleCtrl.dispose(); _coldStartTimer?.cancel(); super.dispose(); }
 
   Future<void> _register() async {
     final auth = context.read<AuthProvider>();
+
+    // Render's free tier spins the backend down when idle — the first
+    // request after a while can take 30-60s to wake it back up. Let the
+    // worker know what's happening instead of it looking hung.
+    setState(() => _showColdStartMessage = false);
+    _coldStartTimer?.cancel();
+    _coldStartTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _showColdStartMessage = true);
+    });
+
     final ok = await auth.register({'name': _nameCtrl.text.trim(), 'email': _emailCtrl.text.trim(), 'username': _userCtrl.text.trim(), 'mobileNumber': _phoneCtrl.text.trim(), 'password': _passCtrl.text, 'title': _titleCtrl.text.trim(), 'role': 'FREELANCER'});
+    _coldStartTimer?.cancel();
     if (!mounted) return;
+    setState(() => _showColdStartMessage = false);
     if (ok) {
       context.push('/otp', extra: {
         'title': 'Verify Email',
@@ -62,6 +77,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         AppTextField(controller: _passCtrl, hint: 'Password', icon: Icons.lock_outline, obscure: _obscure, suffix: IconButton(icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.textSecondary, size: 20), onPressed: () => setState(() => _obscure = !_obscure))),
         const SizedBox(height: 28),
         AppButton(label: 'Start Earning', onPressed: _register, loading: auth.isLoading),
+        if (_showColdStartMessage) ...[
+          const SizedBox(height: 12),
+          Text('Server is starting up, please wait...', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+        ],
         const SizedBox(height: 20),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
            Text('Already have an account? ', style: TextStyle(color: AppColors.textSecondary)),
