@@ -64,6 +64,25 @@ exports.getFreelancerDashboard = async (req, res, next) => {
       .populate('job', 'title status budget budgetRange category')
       .sort({ createdAt: -1 });
 
+    // Task.client is a String field (not a true ObjectId ref), so it can't be
+    // populated directly — fetch each client's display info separately, same
+    // pattern already used for `freelancer` in getClientDashboard above.
+    const recentTasks = await Promise.all(
+      myTasks.slice(0, 5).map(async (task) => {
+        const taskObj = task.toObject();
+        try {
+          const client = await User.findById(task.client).select('name avatar profilePic');
+          taskObj.clientInfo = {
+            name: client?.name || 'Client',
+            avatar: client?.avatar || client?.profilePic || null,
+          };
+        } catch (_) {
+          taskObj.clientInfo = { name: 'Client', avatar: null };
+        }
+        return taskObj;
+      })
+    );
+
     res.status(200).json({
       success: true,
       data: {
@@ -77,7 +96,7 @@ exports.getFreelancerDashboard = async (req, res, next) => {
           pendingTasks: myTasks.filter((t) => t.status !== 'completed').length,
           completedTasks: myTasks.filter((t) => t.status === 'completed').length,
         },
-        recentTasks: myTasks.slice(0, 5),
+        recentTasks,
       },
     });
   } catch (error) {

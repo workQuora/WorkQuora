@@ -274,4 +274,19 @@ const rejectProposal = async (req, res, next) => {
   }
 };
 
-module.exports = { submitProposal, getJobProposals, acceptProposal, rejectProposal };
+// @desc    Get all proposals submitted by the logged-in freelancer
+// @route   GET /api/v1/proposals/my-proposals
+// @access  Private (Freelancer)
+const getMyProposals = async (req, res, next) => {
+  try {
+    const proposals = await Proposal.find({ freelancer: req.user._id })
+      .populate('job', 'title budget budgetRange status category')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: proposals });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { submitProposal, getJobProposals, acceptProposal, rejectProposal, getMyProposals };
