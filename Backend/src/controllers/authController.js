@@ -128,7 +128,7 @@ exports.registerUser = async (req, res, next) => {
 
     let user = await User.findOne({ email: emailLower });
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry (Module 4)
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry, matches email template (Module 4)
 
     const cleanGender = (gender || 'OTHER').toUpperCase();
     const defaultAvatar = (cleanGender === 'MALE')
@@ -183,7 +183,7 @@ exports.registerUser = async (req, res, next) => {
       await sendEmail({
         email: user.email,
         subject: 'Verify your WorkQuora Account 🚀',
-        message: `Hi ${user.name},\n\nYour registration OTP is: ${otp}\n\nIt expires in 5 minutes.\n\nWorkQuora Team`,
+        message: `Hi ${user.name},\n\nYour registration OTP is: ${otp}\n\nIt expires in 10 minutes.\n\nWorkQuora Team`,
         otp,
       });
       emailSent = true;
@@ -291,21 +291,6 @@ exports.verifyRegistration = async (req, res, next) => {
     user.resetPasswordExpires = null;
     user.otpAttempts = 0;
     user.otpLockedUntil = null;
-
-    // Resend Rate Limiting (Module 4)
-    const now = new Date();
-    if (user.mobileOtpLastSent && (now - user.mobileOtpLastSent) < 60 * 1000) {
-      return res.status(429).json({ success: false, message: 'Please wait 60 seconds before requesting another OTP.' });
-    }
-
-    const mobileOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const salt = await bcrypt.genSalt(10);
-    const hashedOtp = await bcrypt.hash(mobileOtp, salt);
-
-    user.mobileOtp = hashedOtp;
-    user.mobileOtpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins expiry (Module 4)
-    user.mobileOtpCount = (user.mobileOtpCount || 0) + 1;
-    user.mobileOtpLastSent = now;
     await user.save();
 
     await createAuditLog(req, {
@@ -315,22 +300,9 @@ exports.verifyRegistration = async (req, res, next) => {
       entityId: user.id
     });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`📱 [DEVELOPER ONLY] Mobile OTP for ${user.mobileNumber} is: ${mobileOtp}`);
-    }
-
-    try {
-      await smsService.sendOtp(user.mobileNumber, mobileOtp);
-    } catch (err) {
-      console.error('❌ Mobile OTP SMS sending failed:', err.message);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send OTP SMS. Please try again.',
-        debug: process.env.NODE_ENV === 'development' ? err.message : undefined
-      });
-    }
-
-    res.status(200).json({ success: true, message: 'Email verified. Mobile OTP sent via SMS.' });
+    // Email OTP is now the sole registration gate — no mandatory mobile SMS
+    // step. Log the user in immediately.
+    return sendTokenResponse(user, 201, req, res);
   } catch (error) {
     next(error);
   }
@@ -673,6 +645,8 @@ exports.socialLogin = async (req, res, next) => {
         isEmailVerified: true
       });
       await Earnings.create({ userId: user._id }).catch(() => {});
+      const Wallet = require('../models/Wallet');
+      await Wallet.create({ user: user._id, userId: user._id }).catch(() => {});
     }
 
     await sendTokenResponse(user, 200, req, res);

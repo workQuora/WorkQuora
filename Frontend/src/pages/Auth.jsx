@@ -89,26 +89,23 @@ const Auth = () => {
   
   // Registration Flow State
   const [isRegistrationOtpSent, setIsRegistrationOtpSent] = useState(false);
-  const [isMobileOtpSent, setIsMobileOtpSent] = useState(false);
   const [registrationEmail, setRegistrationEmail] = useState('');
-  
+
   const [regOtp, setRegOtp] = useState('');
-  const [mobileOtp, setMobileOtp] = useState('');
   const [shake, setShake] = useState(false);
 
   const {
     login, isLoggingIn, isLoginSuccess,
     register, isRegistering,
-    verifyRegistration, isVerifyingRegistration,
-    verifyMobile, isVerifyingMobile, isVerifyMobileSuccess,
+    verifyRegistration, isVerifyingRegistration, isVerifyRegistrationSuccess,
     socialLogin, isSocialLoading,
   } = useAuth();
 
-  // Full registration completes here (mobile OTP verified) — celebrate once.
+  // Registration completes here (email OTP verified) — celebrate once.
   useEffect(() => {
-    if (!isVerifyMobileSuccess) return;
+    if (!isVerifyRegistrationSuccess) return;
     confetti({ particleCount: 60, spread: 70, colors: ['#1E00A9', '#6366F1', '#10B981'], origin: { y: 0.6 } });
-  }, [isVerifyMobileSuccess]);
+  }, [isVerifyRegistrationSuccess]);
 
   const { register: formReg, handleSubmit, reset, watch, setValue, formState: { errors, touchedFields } } = useForm({
     resolver: zodResolver(isLogin ? loginSchema : registerSchema),
@@ -201,17 +198,7 @@ const Auth = () => {
 
   const handleVerifyRegistration = (e) => {
     e.preventDefault();
-    verifyRegistration({ email: registrationEmail, otp: regOtp }, {
-      onSuccess: () => {
-        setIsRegistrationOtpSent(false);
-        setIsMobileOtpSent(true);
-      }
-    });
-  };
-
-  const handleVerifyMobile = (e) => {
-    e.preventDefault();
-    verifyMobile({ email: registrationEmail, otp: mobileOtp });
+    verifyRegistration({ email: registrationEmail, otp: regOtp });
   };
 
   const handleForgotPassword = async (e) => {
@@ -275,8 +262,7 @@ const Auth = () => {
     setIsLogin(toLogin); 
     setIsForgotPassword(false);
     setIsRegistrationOtpSent(false);
-    setIsMobileOtpSent(false);
-    reset(); 
+    reset();
   };
 
   return (
@@ -405,40 +391,23 @@ const Auth = () => {
                 <input type="text" value={regOtp} onChange={e => setRegOtp(e.target.value)} placeholder="6-digit OTP"
                   className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary transition-colors tracking-widest font-mono" required />
               </div>
-              <button type="submit" disabled={isVerifyingRegistration}
-                className="w-full bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20">
-                {isVerifyingRegistration ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Create Account'}
+              <button type="submit" disabled={isVerifyingRegistration || isVerifyRegistrationSuccess}
+                className={`w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  isVerifyRegistrationSuccess ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground shadow-primary/20'
+                }`}>
+                {isVerifyRegistrationSuccess ? (
+                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 15 }} className="flex items-center gap-2">
+                    <Check className="w-5 h-5" /> Welcome to WorkQuora!
+                  </motion.span>
+                ) : isVerifyingRegistration ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'Verify & Create Account'
+                )}
               </button>
               <button type="button" onClick={() => setIsRegistrationOtpSent(false)}
                 className="w-full text-sm font-bold text-muted-foreground hover:text-foreground transition-colors mt-2">
                 Back to Registration
-              </button>
-            </form>
-          ) : isMobileOtpSent ? (
-            <form onSubmit={handleVerifyMobile} className="space-y-5">
-              <div className="mb-4">
-                <p className="text-sm font-medium text-foreground bg-primary/10 border border-primary/20 rounded-xl p-4">
-                  We've sent a 6-digit OTP to your <span className="font-bold">Mobile Number</span>. It will expire in 10 minutes.
-                </p>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Enter Mobile OTP</label>
-                <input type="text" value={mobileOtp} onChange={e => setMobileOtp(e.target.value)} placeholder="6-digit Mobile OTP"
-                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary transition-colors tracking-widest font-mono" required />
-              </div>
-              <button type="submit" disabled={isVerifyingMobile || isVerifyMobileSuccess}
-                className={`w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
-                  isVerifyMobileSuccess ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground shadow-primary/20'
-                }`}>
-                {isVerifyMobileSuccess ? (
-                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 15 }} className="flex items-center gap-2">
-                    <Check className="w-5 h-5" /> Welcome to WorkQuora!
-                  </motion.span>
-                ) : isVerifyingMobile ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  'Verify Mobile & Login'
-                )}
               </button>
             </form>
           ) : (

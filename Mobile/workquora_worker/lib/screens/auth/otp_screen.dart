@@ -62,15 +62,9 @@ class _OtpScreenState extends State<OtpScreen> {
     setState(() => _verifying = false);
 
     if (ok) {
-      if (widget.isMobileOtp) {
-        context.go('/home');
-      } else {
-        context.pushReplacement('/otp', extra: {
-          'title': 'Verify Mobile',
-          'subtitle': 'Enter the OTP sent to your mobile number',
-          'isMobileOtp': true,
-        });
-      }
+      // Email OTP is the sole registration gate now — it issues the token
+      // directly, so there's no follow-up mobile-OTP screen to push to.
+      context.go('/home');
     } else {
       _pinCtrl.clear();
       ScaffoldMessenger.of(context).showSnackBar(

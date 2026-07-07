@@ -46,8 +46,14 @@ export const useAuth = () => {
   const verifyRegistrationMutation = useMutation({
     mutationFn: authApi.verifyRegistration,
     onSuccess: (res) => {
-      // Step 1 done (Email verified, Mobile OTP sent)
-      toast.success(res.data?.message || 'Email verified! Please enter Mobile OTP.');
+      // Email OTP is the sole registration gate now — this is the token-issuing step.
+      const u = afterAuth(res);
+      if (!u) return;
+      toast.success('Account verified and created successfully!');
+      setTimeout(() => {
+        if (!u.role) navigate('/auth/select-role', { state: { userId: u.id } });
+        else navigate(u.role.toLowerCase() === 'client' ? '/client/dashboard' : '/freelancer/dashboard');
+      }, 600);
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Verification failed.'),
   });
@@ -100,6 +106,7 @@ export const useAuth = () => {
     isRegistering: registerMutation.isPending,
     verifyRegistration: verifyRegistrationMutation.mutate,
     isVerifyingRegistration: verifyRegistrationMutation.isPending,
+    isVerifyRegistrationSuccess: verifyRegistrationMutation.isSuccess,
     verifyMobile: verifyMobileMutation.mutate,
     isVerifyingMobile: verifyMobileMutation.isPending,
     isVerifyMobileSuccess: verifyMobileMutation.isSuccess,

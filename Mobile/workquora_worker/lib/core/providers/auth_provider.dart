@@ -117,18 +117,33 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // STEP 2 — verifies the email OTP. Backend auto-sends the mobile OTP on
-  // success. Still no token.
+  // Email OTP is now the sole registration gate — this step issues the token
+  // directly (backend no longer requires a follow-up mobile OTP step).
   Future<bool> verifyEmailOtp(String otp) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await DioClient.instance.dio.post(
+      final res = await DioClient.instance.dio.post(
         ApiConstants.verifyRegistration,
         data: {'email': _pendingEmail, 'otp': otp},
       );
+
+      final token = res.data['token']?.toString();
+      final user = res.data['user'] as Map<String, dynamic>?;
+      if (token == null || user == null) {
+        throw Exception('Invalid response from server');
+      }
+
+      _token = token;
+      _user = user;
+      await _persistSession(token, user);
+      DioClient.instance.setToken(token);
+      SocketService().connect(token);
+
+      _pendingEmail = null;
+      _pendingRegistrationData = null;
       _isLoading = false;
       notifyListeners();
       return true;
