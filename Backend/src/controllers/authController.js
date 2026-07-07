@@ -178,6 +178,7 @@ exports.registerUser = async (req, res, next) => {
       console.log(`🔑 [DEVELOPER ONLY] Registration OTP for ${user.email} is: ${otp}`);
     }
 
+    let emailSent = false;
     try {
       await sendEmail({
         email: user.email,
@@ -185,18 +186,68 @@ exports.registerUser = async (req, res, next) => {
         message: `Hi ${user.name},\n\nYour registration OTP is: ${otp}\n\nIt expires in 5 minutes.\n\nWorkQuora Team`,
         otp,
       });
+      emailSent = true;
     } catch (err) {
       console.error('❌ Registration Email sending failed:', err.message);
-      return res.status(500).json({
+      // Don't return an error — the user account already exists. Let them
+      // reach the OTP screen regardless and use resend-otp once email
+      // delivery recovers, instead of being stuck on a "Registration
+      // failed" message for an account that was actually created.
+    }
+
+    // Always return success — user can request resend if email didn't arrive.
+    return res.status(200).json({
+      success: true,
+      message: emailSent
+        ? 'OTP sent to your email. Please verify.'
+        : 'Account created. Email delivery delayed — use the resend OTP option.',
+      emailSent,
+      // In dev mode, include the OTP directly so testing isn't blocked by
+      // real email delivery.
+      ...(process.env.NODE_ENV === 'development' && { otp })
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /auth/resend-otp
+exports.resendOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email, isEmailVerified: false });
+
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: 'Failed to send OTP email. Please try again.',
-        debug: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: 'No pending verification found for this email'
       });
     }
 
-    res.status(200).json({ success: true, message: 'OTP sent to your email. Please verify.' });
-  } catch (error) {
-    next(error);
+    // Generate new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetPasswordOtp = otp;
+    user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    // Send email
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'WorkQuora — Resend OTP',
+        message: `Your new OTP is: ${otp}. Valid for 10 minutes.`,
+        otp,
+      });
+      res.json({ success: true, message: 'OTP resent successfully' });
+    } catch (err) {
+      console.error('Resend email failed:', err.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send email. Please check your email address and try again.'
+      });
+    }
+  } catch (err) {
+    next(err);
   }
 };
 

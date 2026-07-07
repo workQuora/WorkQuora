@@ -1,11 +1,12 @@
 const express = require('express');
 const router  = express.Router();
-const { registerUser, verifyRegistration, verifyMobile, sendMobileOtp, loginUser, logoutUser, getMe, socialLogin, assignRole, forgotPassword, resetPassword, checkUsername, refreshSession, logoutAllDevices, deleteAccount } = require('../controllers/authController');
+const { registerUser, resendOtp, verifyRegistration, verifyMobile, sendMobileOtp, loginUser, logoutUser, getMe, socialLogin, assignRole, forgotPassword, resetPassword, checkUsername, refreshSession, logoutAllDevices, deleteAccount } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 
 const { enforceStringParams } = require('../middlewares/securityMiddleware');
 
 router.post('/register',          enforceStringParams(['name', 'email', 'username', 'mobileNumber', 'password', 'gender', 'role']), registerUser);
+router.post('/resend-otp',        enforceStringParams(['email']), resendOtp);
 router.post('/verify-registration', enforceStringParams(['email', 'otp']), verifyRegistration);
 router.post('/verify-mobile',       enforceStringParams(['email', 'otp']), verifyMobile);
 router.post('/send-mobile-otp',     sendMobileOtp); // optional auth middleware checks handled in controller
