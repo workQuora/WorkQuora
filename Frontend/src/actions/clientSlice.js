@@ -3,8 +3,8 @@ import api from '../services/api';
 
 export const fetchClientProfile = createAsyncThunk('client/fetchProfile', async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get('/client/profile');
-    return res.data;
+    const res = await api.get('/profile/me');
+    return res.data.data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch client profile');
   }
@@ -12,8 +12,8 @@ export const fetchClientProfile = createAsyncThunk('client/fetchProfile', async 
 
 export const createNewJob = createAsyncThunk('client/createJob', async (jobData, { rejectWithValue }) => {
   try {
-    const res = await api.post('/jobs/create', jobData);
-    return res.data.job;
+    const res = await api.post('/jobs', jobData);
+    return res.data.data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Job creation failed');
   }
@@ -58,7 +58,7 @@ const clientSlice = createSlice({
       .addCase(fetchClientProfile.pending, (state) => { state.isLoading = true; state.error = null; })
       .addCase(fetchClientProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.details = { ...state.details, ...action.payload.clientData };
+        state.details = { ...state.details, ...action.payload };
       })
       .addCase(fetchClientProfile.rejected, (state, action) => { state.isLoading = false; state.error = action.payload; })
       .addCase(createNewJob.pending, (state) => { state.isLoading = true; })
