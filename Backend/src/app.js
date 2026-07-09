@@ -43,7 +43,7 @@ const app = express();
 
 // CORS must be at the very top to handle preflight OPTIONS requests before
 // other middleware (helmet, tracing, version managers) intercept or modify headers.
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(','), credentials: true }));
 
 const compression = require('compression');
 app.use(compression());

@@ -17,7 +17,7 @@ const server = http.createServer(app);
 // 3. Socket.io Engine Initialize kiya
 const io = new Server(server, {
   cors: {
-    origin: "*", // Jab frontend banega tab yahan frontend ka URL daalenge (e.g. http://localhost:5173)
+    origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(','),
     methods: ["GET", "POST"]
   }
 });
