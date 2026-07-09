@@ -78,8 +78,23 @@ const Settings = () => {
         hourlyRate: profile.hourlyRate || '',
       });
       setTwoFactorEnabled(profile.twoFactorEnabled || false);
+
+      // Sync fresh profile state to Redux
+      const kycDone = !!(profile.isKycVerified || profile.kycVerified || (profile.kyc?.aadhaarVerified && profile.kyc?.panVerified));
+      const hasPicChanged = profile.profilePic !== user?.profilePic || profile.avatar !== user?.avatar;
+      if (kycDone !== user?.isKycVerified || hasPicChanged) {
+        dispatch(loginSuccess({ 
+          user: { 
+            ...user, 
+            isKycVerified: kycDone, 
+            profilePic: profile.profilePic, 
+            avatar: profile.avatar 
+          }, 
+          token 
+        }));
+      }
     }
-  }, [profile, reset]);
+  }, [profile, reset, user, token, dispatch]);
 
   const onProfileSubmit = (data) => {
     updateProfile(
@@ -460,7 +475,7 @@ const Settings = () => {
                 )}
 
                 {/* KYC */}
-                {activeSection === 'kyc' && <KycVerificationCard hideOnComplete={false} />}
+                {activeSection === 'kyc' && <KycVerificationCard hideOnComplete={false} onRedirectToAccount={() => setActiveSection('account')} />}
 
                 {/* SECURITY */}
                 {activeSection === 'security' && (

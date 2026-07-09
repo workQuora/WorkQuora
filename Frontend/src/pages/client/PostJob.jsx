@@ -22,6 +22,7 @@ const jobSchema = z.object({
   category: z.string().min(1, 'Please select a category'),
   description: z.string().min(20, 'Description must be at least 20 characters'),
   skills: z.string().optional(),
+  locationAddress: z.string().min(3, 'Location must be at least 3 characters'),
   minBudget: z.coerce.number().min(500, 'Minimum budget is ₹500'),
   maxBudget: z.coerce.number().min(1000, 'Maximum budget is ₹1000'),
   radius: z.coerce.number().min(5).max(200),
@@ -66,7 +67,31 @@ const PostJob = () => {
     defaultValues: { radius: 25 },
   });
 
+  // Sync city name to field
+  React.useEffect(() => {
+    if (geo.city && geo.city !== 'Detecting…' && geo.city !== 'Location Denied') {
+      setValue('locationAddress', geo.city);
+    }
+  }, [geo.city, setValue]);
+
   const onSubmit = async (data) => {
+    let coords = [geo.longitude ?? 77.209, geo.latitude ?? 28.6139];
+    let address = data.locationAddress || geo.city || 'Location not specified';
+
+    // Geocode custom location if provided and different from detected city
+    if (data.locationAddress && data.locationAddress !== geo.city) {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(data.locationAddress)}&format=json&limit=1`);
+        const result = await response.json();
+        if (result && result.length > 0) {
+          coords = [parseFloat(result[0].lon), parseFloat(result[0].lat)];
+          address = result[0].display_name || data.locationAddress;
+        }
+      } catch (err) {
+        console.warn('Geocoding failed, using fallback coordinates:', err);
+      }
+    }
+
     await postJob({
       title: data.title,
       category: data.category,
@@ -76,8 +101,8 @@ const PostJob = () => {
       maxBudget: data.maxBudget,
       location: {
         type: 'Point',
-        coordinates: [geo.longitude ?? 77.209, geo.latitude ?? 28.6139],
-        address: geo.city || 'Location not specified',
+        coordinates: coords,
+        address: address,
       },
       radius: data.radius,
     });
@@ -235,6 +260,20 @@ const PostJob = () => {
                 placeholder="e.g. Figma, React, Node.js"
                 className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-all"
               />
+            </div>
+
+            {/* Location input */}
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" /> Job Location / City
+              </label>
+              <input
+                {...register('locationAddress')}
+                type="text"
+                placeholder="e.g. Bhopal, MP or Lalghati, Bhopal"
+                className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-all text-sm font-medium"
+              />
+              {errors.locationAddress && <p className="text-red-500 text-xs mt-1.5 font-semibold">{errors.locationAddress.message}</p>}
             </div>
 
             {/* Budget + Radius */}

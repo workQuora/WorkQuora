@@ -43,15 +43,25 @@ const FreelancerProfile = () => {
     }
   }, [profile, isEditing, reset]);
 
-  // Sync kycVerified from fresh profile data into Redux (so Navbar badge stays accurate)
+  // Sync kycVerified and profile picture from fresh profile data into Redux (so Navbar stays accurate)
   useEffect(() => {
     if (profile && token) {
       const kycDone = !!(profile.isKycVerified || profile.kycVerified || (profile.kyc?.aadhaarVerified && profile.kyc?.panVerified));
-      if (kycDone !== user?.isKycVerified) {
-        dispatch(loginSuccess({ user: { ...user, isKycVerified: kycDone, isEmailVerified: user?.isEmailVerified }, token }));
+      const hasPicChanged = profile.profilePic !== user?.profilePic || profile.avatar !== user?.avatar;
+      if (kycDone !== user?.isKycVerified || hasPicChanged) {
+        dispatch(loginSuccess({ 
+          user: { 
+            ...user, 
+            isKycVerified: kycDone, 
+            isEmailVerified: user?.isEmailVerified,
+            profilePic: profile.profilePic,
+            avatar: profile.avatar
+          }, 
+          token 
+        }));
       }
     }
-  }, [profile]);
+  }, [profile, token, user, dispatch]);
 
   const handlePhotoChange = async (e) => {
     let file = e.target.files?.[0];

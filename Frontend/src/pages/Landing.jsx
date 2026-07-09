@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Shield, Zap, Users, Briefcase, ArrowRight, ArrowUpRight, ChevronDown, X } from 'lucide-react';
+import { 
+  Search, Shield, Zap, Users, Briefcase, ArrowRight, ArrowUpRight, 
+  ChevronDown, X, Megaphone, ExternalLink, Sparkles 
+} from 'lucide-react';
 import api from '../services/api';
 import AdBanner from '../components/shared/AdBanner';
 import { GradientBlob } from '../components/ui/GradientBlob';
@@ -25,15 +28,71 @@ const Landing = () => {
   const { isAuthenticated, role } = useSelector((s) => s.auth);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // ── Ads Logic for Logged-In Users ──
+  const { data: activeAds, isLoading: adsLoading } = useQuery({
+    queryKey: ['active-ads-landing'],
+    queryFn: () => api.get('/ads/active', { params: { platform: 'WEB' } }).then((r) => r.data?.data ?? r.data ?? []),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+
+  const [initialImpressions] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('ad-impressions') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const visibleAds = (activeAds || []).filter((ad) => {
+    const cap = ad.dailyFrequency ?? 3;
+    const currentImpressions = initialImpressions[ad._id]?.date === todayStr 
+      ? initialImpressions[ad._id].count 
+      : 0;
+    return currentImpressions < cap;
+  });
+
+  useEffect(() => {
+    if (isAuthenticated && visibleAds.length > 0) {
+      visibleAds.forEach((ad) => {
+        // Track impression on server
+        api.post('/ads/track', { adId: ad._id, event: 'impression' }).catch(console.error);
+
+        // Update local frequency cap in localStorage
+        try {
+          const impressions = JSON.parse(localStorage.getItem('ad-impressions') || '{}');
+          if (!impressions[ad._id] || impressions[ad._id].date !== todayStr) {
+            impressions[ad._id] = { date: todayStr, count: 1 };
+          } else {
+            impressions[ad._id].count += 1;
+          }
+          localStorage.setItem('ad-impressions', JSON.stringify(impressions));
+        } catch (e) {
+          console.error('Failed to update ad impressions:', e);
+        }
+      });
+    }
+  }, [visibleAds.length, isAuthenticated]);
+
+  const handleAdClick = (ad) => {
+    api.post('/ads/track', { adId: ad._id, event: 'click' }).catch(console.error);
+    window.open(ad.targetLink, '_blank', 'noopener,noreferrer');
+  };
+
+  // ── Normal Landing Page Queries (for public view) ──
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['landing-jobs'],
     queryFn: () => api.get('/jobs', { params: { limit: 6, status: 'open' } }).then((r) => r.data?.data ?? r.data ?? {}),
+    enabled: !isAuthenticated,
     staleTime: 60_000,
   });
 
   const { data: statsData } = useQuery({
     queryKey: ['landing-stats'],
     queryFn: () => api.get('/jobs/stats').then((r) => r.data?.data ?? r.data ?? {}),
+    enabled: !isAuthenticated,
     staleTime: 30_000,
   });
 
@@ -44,15 +103,138 @@ const Landing = () => {
     navigate(`/discover${searchQuery.trim() ? `?keyword=${encodeURIComponent(searchQuery.trim())}` : ''}`);
   };
 
+  // ── Render Logged-In Ads Feed ──
   if (isAuthenticated) {
-    const r = role?.toLowerCase();
-    if (r === 'client') return <Navigate to="/client/dashboard" replace />;
-    if (r === 'freelancer') return <Navigate to="/freelancer/dashboard" replace />;
+    return (
+      <div className="bg-[hsl(var(--background))] text-foreground w-full min-h-screen py-16 px-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-border pb-6 mb-8 gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-foreground flex items-center gap-2">
+                <Megaphone className="w-6 h-6 text-primary" /> Promoted Campaigns
+              </h1>
+              <p className="text-muted-foreground text-xs mt-1 font-medium">
+                Sponsored offers, campaigns, and updates verified by WorkQuora
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button 
+                onClick={() => navigate(role === 'CLIENT' ? '/client/dashboard' : '/freelancer/dashboard')}
+                className="px-4 py-2 bg-[hsl(var(--surface))] border border-border hover:border-primary/50 text-xs font-bold text-muted-foreground hover:text-primary rounded-xl transition-all cursor-pointer"
+              >
+                Go to Dashboard
+              </button>
+              <button 
+                onClick={() => navigate('/discover')}
+                className="px-4 py-2 bg-primary hover:opacity-90 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Browse Jobs
+              </button>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {adsLoading ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-[hsl(var(--surface))] border border-border rounded-2xl p-6 animate-pulse h-80" />
+              ))}
+            </div>
+          ) : visibleAds.length === 0 ? (
+            /* Empty State */
+            <div className="text-center py-20 bg-[hsl(var(--surface-2))] border border-border/60 rounded-3xl p-8 max-w-2xl mx-auto shadow-sm">
+              <Sparkles className="w-12 h-12 mx-auto text-primary opacity-40 mb-4" />
+              <h3 className="text-lg font-bold text-foreground mb-2">You're All Caught Up!</h3>
+              <p className="text-muted-foreground text-xs leading-relaxed max-w-md mx-auto mb-6">
+                There are no active sponsored campaigns for you right now. Advertisements adhere to daily frequency caps.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button onClick={() => navigate('/discover')} className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer">
+                  Explore Jobs & Talents
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Ads Grid */
+            <motion.div 
+              initial="hidden" 
+              animate="visible" 
+              variants={staggerContainer} 
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {visibleAds.map((ad, i) => (
+                <motion.div
+                  key={ad._id}
+                  variants={fadeInUp}
+                  whileHover={{ y: -6, transition: { duration: 0.2 } }}
+                  className="bg-[hsl(var(--surface))] border border-border/80 hover:border-primary/30 rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
+                >
+                  {/* Media Display */}
+                  <div className="relative aspect-video w-full bg-black/20 overflow-hidden border-b border-border/40">
+                    {ad.mediaType === 'VIDEO' ? (
+                      <video
+                        src={ad.mediaUrl}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={ad.mediaUrl}
+                        alt={ad.title}
+                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                        loading="lazy"
+                      />
+                    )}
+                    <span className="absolute top-3 right-3 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-black/60 text-white/90 backdrop-blur-sm tracking-wide">
+                      Sponsored
+                    </span>
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
+                          {ad.brandName}
+                        </span>
+                        <span className="text-[9px] text-muted-foreground/80 font-medium">
+                          Duration: {ad.durationSeconds || 5}s
+                        </span>
+                      </div>
+                      <h3 className="text-base font-bold text-foreground leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-1">
+                        {ad.title}
+                      </h3>
+                      <p className="text-muted-foreground text-xs leading-relaxed line-clamp-3">
+                        {ad.description || 'No description provided.'}
+                      </p>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-border/40 flex items-center justify-between">
+                      <button
+                        onClick={() => handleAdClick(ad)}
+                        className="w-full py-2.5 px-4 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        Visit Brand <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </div>
+      </div>
+    );
   }
 
+  // ── Public Landing Page View (When NOT Logged-in) ──
   return (
     <div className="bg-[hsl(var(--background))] text-foreground w-full min-h-screen">
-      {/* ── Hero ── */}
+      {/* Hero */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
         <GradientBlob />
 
@@ -85,7 +267,7 @@ const Landing = () => {
             Connect with verified clients and skilled freelancers. Secure escrow payments, real-time chat, KYC-verified profiles.
           </motion.p>
 
-          {/* Search — real, navigates to /discover with the query */}
+          {/* Search */}
           <motion.div variants={fadeInUp} className="relative max-w-2xl mx-auto mb-6 group">
             <div className="absolute -inset-1 bg-gradient-to-r from-[#1E00A9] via-[#6366F1] to-[#10B981] rounded-full opacity-10 blur-lg group-hover:opacity-15 transition-opacity duration-300 pointer-events-none" />
             <form onSubmit={handleSearch} className="relative flex items-center bg-[hsl(var(--surface))] p-1.5 pl-4 rounded-full shadow-lg transition-all focus-within:shadow-xl border border-border">
@@ -141,7 +323,6 @@ const Landing = () => {
             </motion.button>
           </motion.div>
 
-          {/* Real platform stats from /jobs/stats — not placeholder numbers */}
           <motion.div variants={fadeInUp} className="flex flex-wrap items-center justify-center gap-8 text-muted-foreground">
             <div className="flex flex-col items-center">
               <span className="text-3xl font-bold text-foreground">
@@ -182,7 +363,7 @@ const Landing = () => {
         </motion.div>
       </section>
 
-      {/* ── Featured Jobs — real listings from the API ── */}
+      {/* Featured Jobs */}
       <section className="py-24 bg-[hsl(var(--surface-2))]">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex items-center justify-between mb-10">
@@ -255,7 +436,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* ── How It Works ── */}
+      {/* How It Works */}
       <section className="py-24 bg-[hsl(var(--background))]">
         <div className="max-w-6xl mx-auto px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} variants={staggerContainer} className="text-center mb-16">
@@ -315,7 +496,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* ── Trust Features ── */}
+      {/* Trust Features */}
       <section className="py-24 bg-[hsl(var(--surface-2))]">
         <div className="max-w-6xl mx-auto px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer} className="grid md:grid-cols-3 gap-6">
@@ -336,19 +517,19 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* ── Final CTA ── */}
+      {/* Final CTA */}
       <section className="py-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#1E00A9] to-[#6366F1]" />
         <GradientBlob className="opacity-30" />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}>
-            <motion.h2 variants={fadeInUp} className="text-4xl md:text-5xl font-bold text-white mb-6">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
               Ready to get started?
-            </motion.h2>
-            <motion.p variants={fadeInUp} className="text-white/80 text-lg mb-10">
+            </h2>
+            <p className="text-white/80 text-lg mb-10">
               Join thousands of clients and freelancers already on WorkQuora
-            </motion.p>
-            <motion.div variants={fadeInUp} className="flex flex-wrap gap-4 justify-center">
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center">
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -365,7 +546,7 @@ const Landing = () => {
               >
                 Browse Freelancers
               </motion.button>
-            </motion.div>
+            </div>
           </motion.div>
         </div>
       </section>

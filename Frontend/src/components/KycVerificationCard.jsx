@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import imageCompression from 'browser-image-compression';
 import { termsAndConditions } from '../data/termsAndConditions';
 
-const KycVerificationCard = ({ hideOnComplete = true }) => {
+const KycVerificationCard = ({ hideOnComplete = true, onRedirectToAccount }) => {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { user } = useSelector((s) => s.auth);
@@ -215,7 +215,10 @@ const KycVerificationCard = ({ hideOnComplete = true }) => {
           You must verify your mobile number before you can proceed with KYC verification.
         </p>
         <button
-          onClick={() => navigate('/settings')}
+          onClick={() => {
+            if (onRedirectToAccount) onRedirectToAccount();
+            else navigate('/shared/settings');
+          }}
           className="px-6 py-2.5 bg-amber-500 hover:opacity-90 text-white font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer"
         >
           Go to Settings

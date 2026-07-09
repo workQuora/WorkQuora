@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { useDispatch, useSelector } from 'react-redux';
+import { loginSuccess } from '../actions/authSlice';
 import { profileApi } from '../api/endpoints';
 
 export const useProfile = () => {
   const qc = useQueryClient();
+  const dispatch = useDispatch();
+  const { user, token } = useSelector((s) => s.auth);
 
   const useGetProfile = () => useQuery({
     queryKey: ['profile'],
@@ -18,7 +22,14 @@ export const useProfile = () => {
 
   const { mutate: uploadPhoto, isPending: isUploading } = useMutation({
     mutationFn: profileApi.uploadPhoto,
-    onSuccess: () => { toast.success('Photo updated!'); qc.invalidateQueries({ queryKey: ['profile'] }); },
+    onSuccess: (res) => {
+      toast.success('Photo updated!');
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      const newPhoto = res?.data?.profilePic ?? res?.profilePic;
+      if (newPhoto && token) {
+        dispatch(loginSuccess({ user: { ...user, profilePic: newPhoto }, token }));
+      }
+    },
     onError: () => toast.error('Photo upload failed.'),
   });
 
