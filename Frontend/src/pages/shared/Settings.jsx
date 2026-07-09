@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Save, User, Lock, Bell, Loader2, Camera, ShieldCheck,
   AlertTriangle, CheckCircle2, ChevronRight, HelpCircle,
-  Mail, MessageSquare, Home, Shield,
+  Mail, MessageSquare, Home, Shield, CreditCard, Plus,
+  Trash2, Edit2, X, CheckCircle, MapPin, Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useProfile } from '../../hooks/useProfile';
@@ -15,7 +16,6 @@ import { loginSuccess, logout } from '../../actions/authSlice';
 import api from '../../services/api';
 import imageCompression from 'browser-image-compression';
 import AdBanner from '../../components/shared/AdBanner';
-import KycVerificationCard from '../../components/KycVerificationCard';
 
 const SECTIONS = [
   { id: 'account', label: 'Account', icon: User, desc: 'Manage your personal and professional details.' },
@@ -55,7 +55,24 @@ const Settings = () => {
   const dispatch = useDispatch();
   const qc = useQueryClient();
   const { user, token } = useSelector((s) => s.auth);
+  const navbarCity = useSelector((s) => s.client?.details?.currentLocation?.city);
   const [activeSection, setActiveSection] = useState('account');
+
+  // Modals / Edit states
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
+  const [isAadhaarModalOpen, setIsAadhaarModalOpen] = useState(false);
+  const [isPanModalOpen, setIsPanModalOpen] = useState(false);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
+
+  const [inputEmail, setInputEmail] = useState('');
+  const [inputMobile, setInputMobile] = useState('');
+  const [inputAadhaar, setInputAadhaar] = useState('');
+  const [inputPan, setInputPan] = useState('');
+  const [inputSkill, setInputSkill] = useState('');
+
+  const [newBank, setNewBank] = useState({ bankName: '', accountNumber: '', ifscCode: '', isPrimary: false });
 
   const { useGetProfile, updateProfile, isUpdating, uploadPhoto, isUploading } = useProfile();
   const { data: profile, isLoading, refetch } = useGetProfile();
@@ -67,34 +84,50 @@ const Settings = () => {
 
   const kycStatus = profile?.kyc?.status;
 
-  useEffect(() => {
-    if (profile) {
-      reset({
-        name: profile.name || '',
-        username: profile.username || '',
-        title: profile.title || '',
-        bio: profile.bio || '',
-        skills: Array.isArray(profile.skills) ? profile.skills.join(', ') : (profile.skills || ''),
-        hourlyRate: profile.hourlyRate || '',
-      });
-      setTwoFactorEnabled(profile.twoFactorEnabled || false);
+  // Fetch Wallet bank accounts
+  const { data: walletData, refetch: refetchWallet } = useQuery({
+    queryKey: ['wallet-details'],
+    queryFn: () => api.get('/wallet/balance').then((r) => r.data?.data ?? {}),
+  });
 
-      // Sync fresh profile state to Redux
-      const kycDone = !!(profile.isKycVerified || profile.kycVerified || (profile.kyc?.aadhaarVerified && profile.kyc?.panVerified));
-      const hasPicChanged = profile.profilePic !== user?.profilePic || profile.avatar !== user?.avatar;
-      if (kycDone !== user?.isKycVerified || hasPicChanged) {
-        dispatch(loginSuccess({ 
-          user: { 
-            ...user, 
-            isKycVerified: kycDone, 
-            profilePic: profile.profilePic, 
-            avatar: profile.avatar 
-          }, 
-          token 
-        }));
+  const bankAccounts = walletData?.bankAccounts || [];
+
+  useEffect(() => {
+    const source = profile || user;
+    if (source) {
+      reset({
+        name: source.name || '',
+        username: source.username || '',
+        title: source.title || '',
+        bio: source.bio || '',
+        skills: Array.isArray(source.skills) ? source.skills.join(', ') : (source.skills || ''),
+        hourlyRate: source.hourlyRate || '',
+        locationCity: source.location?.city || '',
+        locationAddress: source.location?.address || '',
+      });
+      setTwoFactorEnabled(source.twoFactorEnabled || false);
+
+      // Sync fresh profile state to Redux only when profile API returns
+      if (profile) {
+        const kycDone = !!(profile.isKycVerified || profile.kycVerified || (profile.kyc?.aadhaarVerified && profile.kyc?.panVerified));
+        const hasPicChanged = profile.profilePic !== user?.profilePic || profile.avatar !== user?.avatar;
+        if (kycDone !== user?.isKycVerified || hasPicChanged || profile.email !== user?.email || profile.mobileNumber !== user?.mobileNumber) {
+          dispatch(loginSuccess({ 
+            user: { 
+              ...user, 
+              isKycVerified: kycDone, 
+              profilePic: profile.profilePic, 
+              avatar: profile.avatar,
+              email: profile.email,
+              mobileNumber: profile.mobileNumber,
+              title: profile.title,
+            }, 
+            token 
+          }));
+        }
       }
     }
-  }, [profile, reset, user, token, dispatch]);
+  }, [profile, user?.id]); // eslint-disable-line
 
   const onProfileSubmit = (data) => {
     updateProfile(
@@ -105,56 +138,121 @@ const Settings = () => {
         bio: data.bio,
         skills: data.skills ? data.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
         hourlyRate: Number(data.hourlyRate) || 0,
-        mobileNumber: data.mobileNumber || undefined,
+        city: data.locationCity || undefined,
+        address: data.locationAddress || undefined,
       },
       {
         onSuccess: (res) => {
           const updatedUser = res?.data?.data ?? res?.data;
           if (updatedUser && token) dispatch(loginSuccess({ user: { ...user, ...updatedUser }, token }));
-          navigate('/profile');
+          refetch();
+          toast.success('Basic profile updated!');
         },
       }
     );
   };
 
-  const [isSendingMobileOtp, setIsSendingMobileOtp] = useState(false);
-  const [isVerifyingMobile, setIsVerifyingMobile] = useState(false);
-  const [mobileOtp, setMobileOtp] = useState('');
-  const [showMobileOtpInput, setShowMobileOtpInput] = useState(false);
-
-  const handleSendMobileOtp = async () => {
+  const handleUpdateEmail = async () => {
+    if (!inputEmail || !inputEmail.includes('@')) return toast.error('Enter a valid email address');
     try {
-      setIsSendingMobileOtp(true);
-      await api.post('/auth/send-mobile-otp', { email: profile?.email });
-      setShowMobileOtpInput(true);
-      toast.success('Mobile OTP sent via SMS.');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send OTP.');
-    } finally {
-      setIsSendingMobileOtp(false);
-    }
-  };
-
-  const handleVerifyMobile = async () => {
-    if (!mobileOtp) return toast.error('Enter OTP');
-    try {
-      setIsVerifyingMobile(true);
-      await api.post('/auth/verify-mobile', { email: profile?.email, otp: mobileOtp });
-      toast.success('Mobile Verified Successfully!');
-      setShowMobileOtpInput(false);
-      if (token) dispatch(loginSuccess({ user: { ...user, isMobileVerified: true }, token }));
+      await api.put('/profile/update', { email: inputEmail });
+      toast.success('Email updated successfully!');
+      setIsEmailModalOpen(false);
       refetch();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid OTP.');
-    } finally {
-      setIsVerifyingMobile(false);
+      toast.error(err.response?.data?.message || 'Failed to update email.');
     }
   };
 
-  const toggle2FA = () => {
-    const newVal = !twoFactorEnabled;
-    setTwoFactorEnabled(newVal);
-    updateProfile({ twoFactorEnabled: newVal });
+  const handleUpdateMobile = async () => {
+    if (!inputMobile || inputMobile.length < 10) return toast.error('Enter a valid 10-digit mobile number');
+    try {
+      await api.put('/profile/update', { mobileNumber: inputMobile });
+      toast.success('Mobile number updated successfully!');
+      setIsMobileModalOpen(false);
+      refetch();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update mobile number.');
+    }
+  };
+
+  const handleUpdateAadhaar = async () => {
+    if (!inputAadhaar || !/^\d{12}$/.test(inputAadhaar)) return toast.error('Enter a valid 12-digit Aadhaar number');
+    try {
+      await api.post('/kyc/aadhaar/submit', { aadhaarNumber: inputAadhaar });
+      toast.success('Aadhaar submitted & auto-verified!');
+      setIsAadhaarModalOpen(false);
+      refetch();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update Aadhaar.');
+    }
+  };
+
+  const handleUpdatePan = async () => {
+    const regex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!inputPan || !regex.test(inputPan.toUpperCase())) return toast.error('Enter a valid 10-character PAN card number');
+    try {
+      await api.post('/kyc/pan/submit', { panNumber: inputPan.toUpperCase() });
+      toast.success('PAN card submitted & auto-verified!');
+      setIsPanModalOpen(false);
+      refetch();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update PAN.');
+    }
+  };
+
+  const handleAddBankAccount = async () => {
+    const { bankName, accountNumber, ifscCode, isPrimary } = newBank;
+    if (!bankName || !accountNumber || !ifscCode) return toast.error('Please fill in all bank details');
+    try {
+      await api.post('/wallet/bank-account', { bankName, accountNumber, ifscCode, isPrimary });
+      toast.success('Bank account linked successfully!');
+      setIsBankModalOpen(false);
+      setNewBank({ bankName: '', accountNumber: '', ifscCode: '', isPrimary: false });
+      refetchWallet();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add bank account.');
+    }
+  };
+
+  const handleRemoveBankAccount = async (bankId) => {
+    if (!window.confirm('Are you sure you want to remove this bank account?')) return;
+    try {
+      await api.delete(`/wallet/bank-account/${bankId}`);
+      toast.success('Bank account removed successfully!');
+      refetchWallet();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove bank account.');
+    }
+  };
+
+  const handleAddSkill = () => {
+    if (!inputSkill) return;
+    const currentSkills = profile?.skills || user?.skills || [];
+    if (currentSkills.includes(inputSkill.trim())) {
+      toast.error('Skill already exists!');
+      return;
+    }
+    const updatedSkills = [...currentSkills, inputSkill.trim()];
+    updateProfile(
+      { skills: updatedSkills },
+      {
+        onSuccess: () => {
+          setInputSkill('');
+          setIsSkillModalOpen(false);
+          refetch();
+        }
+      }
+    );
+  };
+
+  const handleRemoveSkill = (skillToRemove) => {
+    const currentSkills = profile?.skills || user?.skills || [];
+    const updatedSkills = currentSkills.filter(s => s !== skillToRemove);
+    updateProfile(
+      { skills: updatedSkills },
+      { onSuccess: () => refetch() }
+    );
   };
 
   const handlePhotoChange = async (e) => {
@@ -175,7 +273,7 @@ const Settings = () => {
   const handleRequestPasswordReset = async () => {
     try {
       setResettingPwd(true);
-      await api.post('/auth/forgot-password', { email: profile?.email });
+      await api.post('/auth/forgot-password', { email: profile?.email || user?.email });
       setOtpSent(true);
       toast.success('OTP sent to your email to reset password.');
     } catch {
@@ -185,7 +283,7 @@ const Settings = () => {
     }
   };
 
-  // ── Privacy — GET/PUT /settings/privacy, real backend endpoints ──
+  // ── Privacy — GET/PUT /settings/privacy ──
   const { data: privacyData, isLoading: privacyLoading } = useQuery({
     queryKey: ['privacy-settings'],
     queryFn: () => api.get('/settings/privacy').then((r) => r.data?.data ?? {}),
@@ -206,7 +304,7 @@ const Settings = () => {
     updatePrivacyMutation.mutate({ [field]: !current });
   };
 
-  // ── Notifications — no backend endpoint exists yet, persist locally ──
+  // ── Notifications — persisted locally ──
   const [notifPrefs, setNotifPrefs] = useState(DEFAULT_NOTIF_PREFS);
   useEffect(() => {
     try {
@@ -220,7 +318,7 @@ const Settings = () => {
     toast.success('Preferences saved locally');
   };
 
-  // ── Danger zone — DELETE /auth/account, real backend endpoint ──
+  // ── Danger zone — DELETE /auth/account ──
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -246,34 +344,15 @@ const Settings = () => {
   );
 
   const active = SECTIONS.find((s) => s.id === activeSection) || SECTIONS[0];
+  const activeUser = profile || user;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 bg-background transition-colors duration-300">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Account Settings</h1>
-          <p className="text-muted-foreground mt-2 text-sm max-w-2xl">Manage your account settings, verify your identity, and set up your security preferences.</p>
+          <p className="text-muted-foreground mt-2 text-sm max-w-2xl">Manage your professional profile and security preferences.</p>
         </div>
-        <button onClick={() => navigate('/')}
-          className="self-start sm:self-center flex items-center gap-2 bg-accent/40 border border-border hover:bg-accent px-4 py-2.5 rounded-xl text-sm font-semibold transition-all">
-          <Home className="w-4 h-4 text-primary" />
-          <span>Home</span>
-        </button>
-      </div>
-
-      {!kycStatus && activeSection !== 'kyc' && (
-        <div onClick={() => setActiveSection('kyc')} className="mb-8 flex items-center gap-4 bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/50 cursor-pointer rounded-2xl p-5 transition-all shadow-sm">
-          <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
-          <div className="flex-1">
-            <p className="font-bold text-amber-700 dark:text-amber-400">KYC Verification Required</p>
-            <p className="text-sm text-amber-700/80 dark:text-amber-400/80 mt-0.5">Please verify your identity to access full platform features and withdrawals.</p>
-          </div>
-          <ChevronRight className="w-5 h-5 text-amber-500" />
-        </div>
-      )}
-
-      <div className="mb-8">
-        <AdBanner platform="WEB" className="shadow-lg shadow-black/10" />
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -291,8 +370,8 @@ const Settings = () => {
               >
                 <s.icon className="w-4 h-4 shrink-0" />
                 <span className="flex-1">{s.label}</span>
-                {s.id === 'kyc' && kycStatus === 'verified' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
-                {s.id === 'kyc' && !kycStatus && <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />}
+                {s.id === 'kyc' && activeUser?.isKycVerified && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                {s.id === 'kyc' && !activeUser?.isKycVerified && <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />}
               </motion.button>
             ))}
           </div>
@@ -316,109 +395,281 @@ const Settings = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
               >
-                {/* ACCOUNT */}
+                {/* ACCOUNT SECTION OVERHAUL */}
                 {activeSection === 'account' && (
-                  <form onSubmit={handleSubmit(onProfileSubmit)} className="space-y-8">
-                    <div className="flex flex-col sm:flex-row items-center gap-6">
-                      <div className="relative group">
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-3xl font-bold overflow-hidden text-white shadow-inner">
-                          {profile?.profilePic || profile?.avatar
-                            ? <img src={profile.profilePic || profile.avatar} alt="avatar" className="w-full h-full object-cover" />
-                            : (profile?.name?.[0]?.toUpperCase() || 'U')}
-                        </div>
-                        <label className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-white backdrop-blur-sm">
-                          {isUploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
-                          <span className="text-[10px] font-bold mt-1">Upload</span>
-                          <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={isUploading} />
-                        </label>
+                  <div className="space-y-8">
+                    
+                    {/* Card 1: Personal Details */}
+                    <div className="bg-slate-900/30 dark:bg-[#07070c] border border-border rounded-3xl p-6 sm:p-8 space-y-6">
+                      <div className="flex items-center gap-2 mb-4 border-b border-border/40 pb-3">
+                        <User className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-bold text-foreground">Personal Details</h3>
                       </div>
-                      <div className="text-center sm:text-left">
-                        <p className="font-extrabold text-xl text-foreground">{profile?.name || 'Your Name'}</p>
-                        <p className="text-muted-foreground text-sm font-medium">{profile?.email || ''}</p>
-                        {profile?.role && (
-                          <span className="text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full uppercase mt-2 inline-block tracking-wider">
-                            {profile.role} Account
-                          </span>
-                        )}
-                      </div>
-                    </div>
 
-                    <div className="grid sm:grid-cols-2 gap-6">
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Full Name</label>
-                        <input {...register('name')} placeholder="John Doe" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Unique Username</label>
-                        <input {...register('username')} placeholder="john_doe_99" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
-                      </div>
-                    </div>
-
-                    <div className="p-5 bg-background border border-border rounded-2xl">
-                      <div className="flex flex-col sm:flex-row gap-4 items-end">
-                        <div className="w-full space-y-1.5">
-                          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Mobile Number</label>
-                          <input {...register('mobileNumber')} placeholder="9999999999" maxLength={10} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
-                        </div>
-                        {user?.isMobileVerified ? (
-                          <div className="shrink-0 px-4 py-3 bg-emerald-500/10 text-emerald-500 font-bold text-sm rounded-xl border border-emerald-500/20 flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4" /> Verified
+                      <div className="flex flex-col md:flex-row items-center gap-8 justify-between">
+                        {/* Left: Profile Pic & Info */}
+                        <div className="flex items-center gap-4">
+                          <div className="relative group cursor-pointer">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-3xl font-bold overflow-hidden text-white shadow-inner border-2 border-primary">
+                              {activeUser?.profilePic || activeUser?.avatar ? (
+                                <img src={activeUser.profilePic || activeUser.avatar} alt="avatar" className="w-full h-full object-cover" />
+                              ) : (
+                                activeUser?.name?.[0]?.toUpperCase() || 'U'
+                              )}
+                            </div>
+                            <label className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-white backdrop-blur-sm">
+                              {isUploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Edit2 className="w-5 h-5" />}
+                              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={isUploading} />
+                            </label>
                           </div>
-                        ) : (
-                          <button type="button" onClick={handleSendMobileOtp} disabled={isSendingMobileOtp} className="shrink-0 px-4 py-3 bg-amber-500 hover:opacity-90 text-white font-bold text-sm rounded-xl flex items-center gap-2 transition-all">
-                            {isSendingMobileOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify Mobile'}
-                          </button>
-                        )}
+                          <div>
+                            <h4 className="font-extrabold text-xl text-foreground">{activeUser?.name || 'Your Name'}</h4>
+                            <p className="text-primary font-semibold text-sm mt-0.5">{activeUser?.title || 'Expert Developer'}</p>
+                            <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1.5 font-medium">
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span>{navbarCity || activeUser?.location?.city || activeUser?.location?.address || 'Bhopal, MP'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: Email & Phone */}
+                        <div className="w-full md:w-auto flex-1 max-w-md space-y-4">
+                          {/* Email Box */}
+                          <div className="border border-border/80 bg-background/50 rounded-2xl p-4 flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Email Address</span>
+                              <p className="text-sm font-semibold text-foreground truncate mt-0.5">{activeUser?.email || 'Not verified'}</p>
+                            </div>
+                            <button
+                              onClick={() => { setInputEmail(activeUser?.email || ''); setIsEmailModalOpen(true); }}
+                              className="px-3.5 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-lg text-xs font-bold transition-all border-none cursor-pointer"
+                            >
+                              Update
+                            </button>
+                          </div>
+
+                          {/* Mobile Box */}
+                          <div className="border border-border/80 bg-background/50 rounded-2xl p-4 flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mobile Number</span>
+                              <p className="text-sm font-semibold text-foreground truncate mt-0.5">{activeUser?.mobileNumber ? `+91 ${activeUser.mobileNumber}` : 'Not set'}</p>
+                            </div>
+                            <button
+                              onClick={() => { setInputMobile(activeUser?.mobileNumber || ''); setIsMobileModalOpen(true); }}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
+                                activeUser?.isMobileVerified
+                                  ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'
+                                  : 'bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white'
+                              }`}
+                            >
+                              {activeUser?.isMobileVerified ? 'Verified' : 'Verify'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
-                      {showMobileOtpInput && (
-                        <div className="mt-4 flex gap-3 items-end p-4 bg-muted/50 rounded-xl border border-border">
-                          <div className="flex-1 space-y-1.5">
-                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Enter OTP</label>
-                            <input value={mobileOtp} onChange={(e) => setMobileOtp(e.target.value)} placeholder="6-digit OTP" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm tracking-widest font-mono" />
+                      {/* Skills section */}
+                      {activeUser?.role !== 'CLIENT' && (
+                        <div className="pt-4 border-t border-border/40">
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-[11px] font-extrabold text-muted-foreground uppercase tracking-widest">Expertise & Skills</span>
+                            <button
+                              onClick={() => { setInputSkill(''); setIsSkillModalOpen(true); }}
+                              className="flex items-center gap-1 text-xs text-primary font-bold hover:underline cursor-pointer border-none bg-transparent"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Add Skill
+                            </button>
                           </div>
-                          <button type="button" onClick={handleVerifyMobile} disabled={isVerifyingMobile} className="px-6 py-3 bg-primary hover:opacity-90 text-white font-bold text-sm rounded-xl">
-                            {isVerifyingMobile ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
-                          </button>
+
+                          <div className="flex flex-wrap gap-2">
+                            {(activeUser?.skills || []).map((skill) => (
+                              <div
+                                key={skill}
+                                onClick={() => handleRemoveSkill(skill)}
+                                className="group flex items-center gap-1.5 px-3 py-1.5 bg-accent/40 border border-border hover:border-red-500/30 hover:bg-red-500/10 rounded-full text-xs font-semibold text-foreground hover:text-red-500 transition-all cursor-pointer"
+                                title="Click to remove skill"
+                              >
+                                <span>{skill}</span>
+                                <X className="w-3 h-3 text-muted-foreground group-hover:text-red-500 transition-colors" />
+                              </div>
+                            ))}
+                            {(activeUser?.skills || []).length === 0 && (
+                              <p className="text-xs text-muted-foreground">No skills added yet.</p>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    {user?.role !== 'CLIENT' && (
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Professional Title</label>
-                        <input {...register('title')} placeholder="e.g. Senior Frontend Developer" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                    {/* Card 2: Identity Verification */}
+                    <div className="bg-slate-900/30 dark:bg-[#07070c] border border-border rounded-3xl p-6 sm:p-8 space-y-6">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-5 h-5 text-primary" />
+                          <h3 className="text-lg font-bold text-foreground">Identity Verification</h3>
+                        </div>
+                        <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+                          activeUser?.isKycVerified
+                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                        }`}>
+                          {activeUser?.isKycVerified ? 'Verified Profile' : 'Pending Verification'}
+                        </span>
                       </div>
-                    )}
 
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">About You</label>
-                      <textarea {...register('bio')} rows="4" placeholder="Briefly describe your experience or business..." className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary resize-none transition-colors text-sm" />
-                    </div>
-
-                    {user?.role !== 'CLIENT' && (
                       <div className="grid sm:grid-cols-2 gap-6">
-                        <div className="space-y-1.5">
-                          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Skills (Comma-separated)</label>
-                          <input {...register('skills')} placeholder="React, Node.js, Design" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                        {/* Aadhaar card */}
+                        <div className="bg-background/50 border border-border/80 rounded-2xl p-5 flex items-start gap-4">
+                          <div className="p-3 bg-primary/10 text-primary rounded-xl shrink-0">
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Aadhaar Number</span>
+                            <p className="text-sm font-bold text-foreground mt-0.5 truncate">{activeUser?.maskedAadhaar || '**** **** ****'}</p>
+                            <button
+                              onClick={() => { setInputAadhaar(''); setIsAadhaarModalOpen(true); }}
+                              className="mt-3 text-xs text-primary font-bold hover:underline cursor-pointer border-none bg-transparent"
+                            >
+                              Update
+                            </button>
+                          </div>
                         </div>
-                        <div className="space-y-1.5">
-                          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Hourly Rate (₹)</label>
-                          <input {...register('hourlyRate')} type="number" placeholder="500" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+
+                        {/* PAN card */}
+                        <div className="bg-background/50 border border-border/80 rounded-2xl p-5 flex items-start gap-4">
+                          <div className="p-3 bg-primary/10 text-primary rounded-xl shrink-0">
+                            <Shield className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">PAN Card</span>
+                            <p className="text-sm font-bold text-foreground mt-0.5 truncate">{activeUser?.maskedPan || '**********'}</p>
+                            <button
+                              onClick={() => { setInputPan(''); setIsPanModalOpen(true); }}
+                              className="mt-3 text-xs text-primary font-bold hover:underline cursor-pointer border-none bg-transparent"
+                            >
+                              Update
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    )}
 
-                    <div className="pt-4 border-t border-border flex justify-end">
-                      <button type="submit" disabled={isUpdating} className="bg-primary hover:opacity-90 text-primary-foreground px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 transition-all shadow-lg shadow-primary/20">
-                        {isUpdating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        {isUpdating ? 'Saving...' : 'Save Profile'}
-                      </button>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground/80 font-medium pt-2">
+                        <AlertTriangle className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span>Your identity details are encrypted and stored securely according to our Privacy Policy.</span>
+                      </div>
                     </div>
-                  </form>
+
+                    {/* Card 3: Linked Bank Accounts */}
+                    <div className="bg-slate-900/30 dark:bg-[#07070c] border border-border rounded-3xl p-6 sm:p-8 space-y-6">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-primary" />
+                          <h3 className="text-lg font-bold text-foreground">Linked Bank Accounts</h3>
+                        </div>
+                        <button
+                          onClick={() => { setIsBankModalOpen(true); }}
+                          className="flex items-center gap-1 text-xs text-primary font-bold hover:underline cursor-pointer border-none bg-transparent"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Link Bank Account
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        {bankAccounts.map((account) => (
+                          <div key={account._id} className="bg-background/50 border border-border/80 rounded-2xl p-4 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl shrink-0">
+                                <CreditCard className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-sm font-bold text-foreground">{account.bankName}</h4>
+                                  <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                                    account.isPrimary ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                                  }`}>
+                                    {account.isPrimary ? 'Primary' : 'Secondary'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Account: <span className="text-foreground font-semibold">{account.accountEnding}</span> • IFSC: <span className="text-foreground font-semibold">{account.ifscCode || 'N/A'}</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => handleRemoveBankAccount(account._id)}
+                              className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all border-none cursor-pointer shrink-0"
+                              title="Remove Bank Account"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+
+                        {bankAccounts.length === 0 && (
+                          <div className="text-center py-8">
+                            <CreditCard className="w-8 h-8 text-muted-foreground opacity-30 mx-auto mb-2" />
+                            <p className="text-xs text-muted-foreground font-medium">No bank accounts linked yet.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Standard Profile Fields Update Form (Below) */}
+                    <div className="bg-slate-900/30 dark:bg-[#07070c] border border-border rounded-3xl p-6 sm:p-8 space-y-6">
+                      <div className="flex items-center gap-2 mb-4 border-b border-border/40 pb-3">
+                        <Edit2 className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-bold text-foreground">General Info</h3>
+                      </div>
+
+                      <form onSubmit={handleSubmit(onProfileSubmit)} className="space-y-6">
+                        <div className="grid sm:grid-cols-2 gap-6">
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Full Name</label>
+                            <input {...register('name')} placeholder="John Doe" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Unique Username</label>
+                            <input {...register('username')} placeholder="john_doe_99" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                          </div>
+                        </div>
+
+                        {activeUser?.role !== 'CLIENT' && (
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Professional Title</label>
+                            <input {...register('title')} placeholder="e.g. Senior Frontend Developer" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                          </div>
+                        )}
+
+                        <div className="grid sm:grid-cols-2 gap-6">
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">City</label>
+                            <input {...register('locationCity')} placeholder="Bangalore" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">Hourly Rate (₹)</label>
+                            <input {...register('hourlyRate')} type="number" placeholder="500" className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">About You</label>
+                          <textarea {...register('bio')} rows="4" placeholder="Briefly describe your experience or business..." className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary resize-none transition-colors text-sm" />
+                        </div>
+
+                        <div className="flex justify-end pt-4">
+                          <button type="submit" disabled={isUpdating} className="bg-primary hover:opacity-90 text-primary-foreground px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 transition-all shadow-lg shadow-primary/20 cursor-pointer border-none">
+                            {isUpdating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            {isUpdating ? 'Saving...' : 'Save Profile'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                  </div>
                 )}
 
-                {/* PRIVACY — real backend endpoint */}
+                {/* PRIVACY */}
                 {activeSection === 'privacy' && (
                   <div className="max-w-xl">
                     {privacyLoading ? (
@@ -475,8 +726,12 @@ const Settings = () => {
                   </div>
                 )}
 
-                {/* KYC */}
-                {activeSection === 'kyc' && <KycVerificationCard hideOnComplete={false} onRedirectToAccount={() => setActiveSection('account')} />}
+                {/* KYC (Standard card fallback) */}
+                {activeSection === 'kyc' && (
+                  <div className="bg-slate-900/10 dark:bg-[#0d0d15] border border-border rounded-2xl p-6">
+                    <p className="text-sm text-muted-foreground">Verification state linked in Account section. Proceed to verify details there.</p>
+                  </div>
+                )}
 
                 {/* SECURITY */}
                 {activeSection === 'security' && (
@@ -489,12 +744,12 @@ const Settings = () => {
                         <div className="bg-primary/5 border border-primary/20 p-5 rounded-2xl">
                           <p className="text-sm font-medium text-foreground mb-4">We've sent a password reset OTP to your email. Please check your inbox.</p>
                           <button onClick={() => { dispatch(logout()); navigate('/auth'); }}
-                            className="bg-primary hover:opacity-90 text-primary-foreground font-bold px-6 py-2.5 rounded-xl text-sm transition-all">
+                            className="bg-primary hover:opacity-90 text-primary-foreground font-bold px-6 py-2.5 rounded-xl text-sm transition-all border-none cursor-pointer">
                             Proceed to Login to Reset
                           </button>
                         </div>
                       ) : (
-                        <button onClick={handleRequestPasswordReset} disabled={resettingPwd} className="border border-border bg-background hover:bg-muted text-foreground font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all">
+                        <button onClick={handleRequestPasswordReset} disabled={resettingPwd} className="border border-border bg-background hover:bg-muted text-foreground font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all cursor-pointer">
                           {resettingPwd ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lock className="w-5 h-5" />}
                           Request Password Reset
                         </button>
@@ -508,14 +763,18 @@ const Settings = () => {
                           label="Require OTP on Login"
                           description="Add an extra layer of security to your account."
                           value={twoFactorEnabled}
-                          onChange={toggle2FA}
+                          onChange={() => {
+                            const newVal = !twoFactorEnabled;
+                            setTwoFactorEnabled(newVal);
+                            updateProfile({ twoFactorEnabled: newVal });
+                          }}
                         />
                       </div>
                     </section>
                   </div>
                 )}
 
-                {/* NOTIFICATIONS — no backend endpoint yet, persisted locally */}
+                {/* NOTIFICATIONS */}
                 {activeSection === 'notifications' && (
                   <div className="max-w-xl">
                     <div className="bg-background border border-border rounded-2xl px-5 mb-4">
@@ -525,7 +784,7 @@ const Settings = () => {
                       <Toggle label="Direct Messages" description="When someone sends you a chat message" value={notifPrefs.directMessages} onChange={() => toggleNotifPref('directMessages')} />
                     </div>
                     <p className="text-xs text-muted-foreground mb-4">These preferences are saved on this device only — there's no server-side notification delivery filter yet.</p>
-                    <button onClick={saveNotifPrefs} className="bg-primary hover:opacity-90 text-primary-foreground px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md">
+                    <button onClick={saveNotifPrefs} className="bg-primary hover:opacity-90 text-primary-foreground px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all border-none cursor-pointer shadow-md">
                       <Save className="w-5 h-5" /> Save Preferences
                     </button>
                   </div>
@@ -561,7 +820,7 @@ const Settings = () => {
                         <div className="flex-1">
                           <h3 className="text-xl font-bold text-foreground">Still need help?</h3>
                           <p className="text-muted-foreground text-sm mt-1 mb-4">Our support team is available 24/7 to assist you with any issues.</p>
-                          <a href="mailto:support@workquora.com" className="bg-foreground text-background font-bold px-6 py-2.5 rounded-xl text-sm transition-all hover:opacity-90 inline-flex items-center gap-2">
+                          <a href="mailto:support@workquora.com" className="bg-foreground text-background font-bold px-6 py-2.5 rounded-xl text-sm transition-all hover:opacity-90 inline-flex items-center gap-2 no-underline">
                             <Mail className="w-4 h-4" /> Contact Support
                           </a>
                         </div>
@@ -570,7 +829,7 @@ const Settings = () => {
                   </div>
                 )}
 
-                {/* DANGER ZONE — real backend endpoint (DELETE /auth/account) */}
+                {/* DANGER ZONE */}
                 {activeSection === 'danger' && (
                   <div className="border border-red-200 dark:border-red-900/40 rounded-xl p-6 bg-red-50/50 dark:bg-red-950/20 max-w-xl">
                     <h3 className="text-red-600 dark:text-red-400 font-semibold mb-2">Delete Account</h3>
@@ -583,7 +842,7 @@ const Settings = () => {
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium"
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium border-none cursor-pointer"
                       >
                         Delete My Account
                       </motion.button>
@@ -601,14 +860,14 @@ const Settings = () => {
                             whileTap={{ scale: 0.98 }}
                             disabled={deleteConfirmText !== 'DELETE' || isDeleting}
                             onClick={handleDeleteAccount}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed border-none cursor-pointer"
                           >
                             {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
                             Confirm Delete
                           </motion.button>
                           <button
                             onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
-                            className="px-4 py-2 border border-border rounded-lg text-sm text-foreground"
+                            className="px-4 py-2 border border-border rounded-lg text-sm text-foreground bg-transparent cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -622,6 +881,200 @@ const Settings = () => {
           </div>
         </div>
       </div>
+
+      {/* ── MODALS CONTAINER ── */}
+
+      {/* Email Modal */}
+      {isEmailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setIsEmailModalOpen(false)} className="absolute top-4 right-4 p-1.5 hover:bg-muted rounded-full border-none bg-transparent cursor-pointer">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-1">Update Email Address</h3>
+            <p className="text-xs text-muted-foreground mb-4">Enter your new email address. Changes will sync immediately.</p>
+            <input
+              type="email"
+              value={inputEmail}
+              onChange={(e) => setInputEmail(e.target.value)}
+              placeholder="e.g. name@example.com"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary mb-4"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setIsEmailModalOpen(false)} className="px-4 py-2.5 border border-border rounded-xl text-xs font-bold bg-transparent cursor-pointer">Cancel</button>
+              <button onClick={handleUpdateEmail} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold border-none cursor-pointer">Save Email</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Modal */}
+      {isMobileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setIsMobileModalOpen(false)} className="absolute top-4 right-4 p-1.5 hover:bg-muted rounded-full border-none bg-transparent cursor-pointer">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-1">Update Mobile Number</h3>
+            <p className="text-xs text-muted-foreground mb-4">Enter your new 10-digit mobile number.</p>
+            <div className="flex gap-2 mb-4">
+              <span className="flex items-center px-3.5 bg-muted border border-border rounded-xl text-sm font-semibold text-muted-foreground">+91</span>
+              <input
+                type="tel"
+                maxLength={10}
+                value={inputMobile}
+                onChange={(e) => setInputMobile(e.target.value.replace(/\D/g, ''))}
+                placeholder="99999 99999"
+                className="flex-1 bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setIsMobileModalOpen(false)} className="px-4 py-2.5 border border-border rounded-xl text-xs font-bold bg-transparent cursor-pointer">Cancel</button>
+              <button onClick={handleUpdateMobile} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold border-none cursor-pointer">Save Number</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Aadhaar Modal */}
+      {isAadhaarModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setIsAadhaarModalOpen(false)} className="absolute top-4 right-4 p-1.5 hover:bg-muted rounded-full border-none bg-transparent cursor-pointer">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-1">Link Aadhaar Number</h3>
+            <p className="text-xs text-muted-foreground mb-4">Enter your 12-digit Aadhaar card number. Verified instantly.</p>
+            <input
+              type="text"
+              maxLength={12}
+              value={inputAadhaar}
+              onChange={(e) => setInputAadhaar(e.target.value.replace(/\D/g, ''))}
+              placeholder="e.g. 123456789012"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary mb-4"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setIsAadhaarModalOpen(false)} className="px-4 py-2.5 border border-border rounded-xl text-xs font-bold bg-transparent cursor-pointer">Cancel</button>
+              <button onClick={handleUpdateAadhaar} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold border-none cursor-pointer">Verify Aadhaar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAN Modal */}
+      {isPanModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setIsPanModalOpen(false)} className="absolute top-4 right-4 p-1.5 hover:bg-muted rounded-full border-none bg-transparent cursor-pointer">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-1">Link PAN Card</h3>
+            <p className="text-xs text-muted-foreground mb-4">Enter your 10-character alphanumeric PAN Card number.</p>
+            <input
+              type="text"
+              maxLength={10}
+              value={inputPan}
+              onChange={(e) => setInputPan(e.target.value.toUpperCase())}
+              placeholder="e.g. ABCDE1234F"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary mb-4 tracking-widest font-mono uppercase"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setIsPanModalOpen(false)} className="px-4 py-2.5 border border-border rounded-xl text-xs font-bold bg-transparent cursor-pointer">Cancel</button>
+              <button onClick={handleUpdatePan} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold border-none cursor-pointer">Verify PAN</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Skill Add Modal */}
+      {isSkillModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setIsSkillModalOpen(false)} className="absolute top-4 right-4 p-1.5 hover:bg-muted rounded-full border-none bg-transparent cursor-pointer">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-1">Add New Skill</h3>
+            <p className="text-xs text-muted-foreground mb-4">Add a professional skill tag to showcase on your profile.</p>
+            <input
+              type="text"
+              value={inputSkill}
+              onChange={(e) => setInputSkill(e.target.value)}
+              placeholder="e.g. React Native, Go, Python"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary mb-4"
+              onKeyDown={(e) => e.key === 'Enter' && handleAddSkill()}
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setIsSkillModalOpen(false)} className="px-4 py-2.5 border border-border rounded-xl text-xs font-bold bg-transparent cursor-pointer">Cancel</button>
+              <button onClick={handleAddSkill} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold border-none cursor-pointer">Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link Bank Modal */}
+      {isBankModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setIsBankModalOpen(false)} className="absolute top-4 right-4 p-1.5 hover:bg-muted rounded-full border-none bg-transparent cursor-pointer">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <h3 className="text-lg font-bold text-foreground mb-1">Link Bank Account</h3>
+            <p className="text-xs text-muted-foreground mb-6">Enter bank details to verify and connect to your payouts.</p>
+            
+            <div className="space-y-4 mb-6">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Bank Name</label>
+                <input
+                  type="text"
+                  value={newBank.bankName}
+                  onChange={(e) => setNewBank({ ...newBank, bankName: e.target.value })}
+                  placeholder="e.g. State Bank of India"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Account Number</label>
+                <input
+                  type="text"
+                  value={newBank.accountNumber}
+                  onChange={(e) => setNewBank({ ...newBank, accountNumber: e.target.value.replace(/\D/g, '') })}
+                  placeholder="e.g. 501002345678"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">IFSC Code</label>
+                <input
+                  type="text"
+                  maxLength={11}
+                  value={newBank.ifscCode}
+                  onChange={(e) => setNewBank({ ...newBank, ifscCode: e.target.value.toUpperCase() })}
+                  placeholder="e.g. SBIN0001234"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-primary uppercase font-mono"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer mt-2">
+                <input
+                  type="checkbox"
+                  checked={newBank.isPrimary}
+                  onChange={(e) => setNewBank({ ...newBank, isPrimary: e.target.checked })}
+                  className="accent-primary"
+                />
+                <span className="text-xs font-semibold text-foreground">Make this account primary</span>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setIsBankModalOpen(false)} className="px-4 py-2.5 border border-border rounded-xl text-xs font-bold bg-transparent cursor-pointer">Cancel</button>
+              <button onClick={handleAddBankAccount} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold border-none cursor-pointer">Link Account</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

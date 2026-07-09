@@ -4,6 +4,7 @@ const BankDetails = require('../models/BankDetails');
 const Earnings = require('../models/Earnings');
 const cloudinary = require('../config/cloudinary');
 const Job = require('../models/Job');
+const encryption = require('../utils/encryption');
 
 // GET /profile/me
 exports.getProfile = async (req, res, next) => {
@@ -37,6 +38,24 @@ exports.getProfile = async (req, res, next) => {
         kycVerified:   kycVerified,
         isKycVerified: kycVerified,
         isEmailVerified: user.isEmailVerified,
+        maskedAadhaar: (() => {
+          if (!user.kyc?.aadhaarNumber) return '';
+          try {
+            const dec = encryption.decrypt(user.kyc.aadhaarNumber);
+            return dec ? `**** **** ${dec.slice(-4)}` : '';
+          } catch (e) {
+            return '';
+          }
+        })(),
+        maskedPan: (() => {
+          if (!user.kyc?.panNumber) return '';
+          try {
+            const dec = encryption.decrypt(user.kyc.panNumber);
+            return dec ? `${dec.slice(0, 5)}****${dec.slice(-1)}` : '';
+          } catch (e) {
+            return '';
+          }
+        })(),
         kyc: user.kyc ? {
           status: user.kyc.status,
           aadhaarVerified: user.kyc.aadhaarVerified,
@@ -50,7 +69,7 @@ exports.getProfile = async (req, res, next) => {
 // PUT /profile/update
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, bio, title, skills, hourlyRate, isAvailable, serviceRadius, username, twoFactorEnabled, address, city, coordinates } = req.body;
+    const { name, bio, title, skills, hourlyRate, isAvailable, serviceRadius, username, twoFactorEnabled, address, city, coordinates, email, mobileNumber } = req.body;
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
@@ -71,6 +90,19 @@ exports.updateProfile = async (req, res, next) => {
     }
     if (coordinates !== undefined) {
       user.location.coordinates = coordinates;
+    }
+
+    if (email) {
+      const emailLower = email.toLowerCase().trim();
+      const existing = await User.findOne({ email: emailLower, _id: { $ne: req.user.id } });
+      if (existing) return res.status(400).json({ success: false, message: 'Email is already in use by another account' });
+      user.email = emailLower;
+    }
+
+    if (mobileNumber) {
+      user.mobileNumber = mobileNumber;
+      // Also update Kyc record if it exists
+      await Kyc.findOneAndUpdate({ userId: req.user.id }, { mobileNumber });
     }
 
     if (username) {

@@ -27,12 +27,21 @@ exports.getBalance = async (req, res, next) => {
         balance: wallet.balance, // in paise
         formattedBalance: wallet.balance / 100,
         currency: 'INR',
-        bankAccounts: wallet.bankAccounts.map(b => ({
-          _id: b._id,
-          bankName: b.bankName,
-          accountEnding: b.accountNumber ? 'XXXX' + b.accountNumber.slice(-4) : '', // Assuming it might not be decrypted yet
-          isPrimary: b.isPrimary
-        }))
+        bankAccounts: wallet.bankAccounts.map(b => {
+          let dec = '';
+          try {
+            dec = decrypt(b.accountNumber);
+          } catch (e) {
+            dec = b.accountNumber;
+          }
+          return {
+            _id: b._id,
+            bankName: b.bankName,
+            accountEnding: dec ? 'XXXX' + dec.slice(-4) : '',
+            isPrimary: b.isPrimary,
+            ifscCode: b.ifscCode
+          };
+        })
       },
     });
   } catch (error) {
@@ -406,3 +415,33 @@ exports.setWithdrawalPin = async (req, res, next) => {
     res.status(200).json({ success: true, message: 'PIN set successfully' });
   } catch (e) { next(e); }
 };
+
+// @desc    Delete a bank account
+// @route   DELETE /api/v1/wallet/bank-account/:id
+// @access  Private
+exports.deleteBankAccount = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const wallet = await Wallet.findOne({ userId: req.user.id });
+    if (!wallet) return res.status(404).json({ success: false, message: 'Wallet not found' });
+
+    const initialLength = wallet.bankAccounts.length;
+    wallet.bankAccounts = wallet.bankAccounts.filter(b => b._id.toString() !== id);
+
+    if (wallet.bankAccounts.length === initialLength) {
+      return res.status(404).json({ success: false, message: 'Bank account not found' });
+    }
+
+    // Adjust primary account
+    const hasPrimary = wallet.bankAccounts.some(b => b.isPrimary);
+    if (!hasPrimary && wallet.bankAccounts.length > 0) {
+      wallet.bankAccounts[0].isPrimary = true;
+    }
+
+    await wallet.save();
+    res.status(200).json({ success: true, message: 'Bank account removed successfully', bankAccounts: wallet.bankAccounts });
+  } catch (error) {
+    next(error);
+  }
+};
+
