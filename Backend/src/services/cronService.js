@@ -21,7 +21,7 @@ class CronService {
     // Job 1: Cleanup Expired Sessions (Runs every hour)
     const cleanupSessionsInterval = setInterval(async () => {
       try {
-        const deleted = await Session.deleteMany({ expires: { $lt: new Date() } });
+        const deleted = await Session.deleteMany({ expiresAt: { $lt: new Date() } });
         if (deleted.deletedCount > 0) {
           console.log(`⏰ Cron Job: Cleaned up ${deleted.deletedCount} expired sessions.`);
         }
