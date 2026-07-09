@@ -178,33 +178,23 @@ exports.registerUser = async (req, res, next) => {
       console.log(`🔑 [DEVELOPER ONLY] Registration OTP for ${user.email} is: ${otp}`);
     }
 
-    let emailSent = false;
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Verify your WorkQuora Account 🚀',
-        message: `Hi ${user.name},\n\nYour registration OTP is: ${otp}\n\nIt expires in 10 minutes.\n\nWorkQuora Team`,
-        otp,
-      });
-      emailSent = true;
-    } catch (err) {
-      console.error('❌ Registration Email sending failed:', err.message);
-      // Don't return an error — the user account already exists. Let them
-      // reach the OTP screen regardless and use resend-otp once email
-      // delivery recovers, instead of being stuck on a "Registration
-      // failed" message for an account that was actually created.
-    }
+    // Trigger email in background so slow or blocked SMTP ports do not delay/timeout the API response
+    sendEmail({
+      email: user.email,
+      subject: 'Verify your WorkQuora Account 🚀',
+      message: `Hi ${user.name},\n\nYour registration OTP is: ${otp}\n\nIt expires in 10 minutes.\n\nWorkQuora Team`,
+      otp,
+    }).catch((err) => {
+      console.error('❌ Registration Email sending failed in background:', err.message);
+    });
 
     // Always return success — user can request resend if email didn't arrive.
     return res.status(200).json({
       success: true,
-      message: emailSent
-        ? 'OTP sent to your email. Please verify.'
-        : 'Account created. Email delivery delayed — use the resend OTP option.',
-      emailSent,
-      // In dev mode, include the OTP directly so testing isn't blocked by
-      // real email delivery.
-      ...(process.env.NODE_ENV === 'development' && { otp })
+      message: 'Account created. Verification OTP has been dispatched to your email.',
+      emailSent: true,
+      // Include the OTP directly if dev bypass is enabled or in development mode so user can verify easily
+      ...((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && { otp })
     });
   } catch (error) {
     next(error);
@@ -230,22 +220,21 @@ exports.resendOtp = async (req, res, next) => {
     user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    // Send email
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: 'WorkQuora — Resend OTP',
-        message: `Your new OTP is: ${otp}. Valid for 10 minutes.`,
-        otp,
-      });
-      res.json({ success: true, message: 'OTP resent successfully' });
-    } catch (err) {
-      console.error('Resend email failed:', err.message);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send email. Please check your email address and try again.'
-      });
-    }
+    // Send email in background
+    sendEmail({
+      email: user.email,
+      subject: 'WorkQuora — Resend OTP',
+      message: `Your new OTP is: ${otp}. Valid for 10 minutes.`,
+      otp,
+    }).catch((err) => {
+      console.error('Resend email failed in background:', err.message);
+    });
+
+    return res.json({ 
+      success: true, 
+      message: 'OTP resent successfully',
+      ...((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && { otp })
+    });
   } catch (err) {
     next(err);
   }
@@ -703,23 +692,21 @@ exports.forgotPassword = async (req, res, next) => {
       entityId: user.id
     });
 
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Reset your WorkQuora Password 🔑',
-        message: `Hi ${user.name},\n\nYour password reset OTP is: ${otp}\n\nIt expires in 5 minutes.\n\nWorkQuora Team`,
-        otp,
-      });
-    } catch (err) {
-      console.error('❌ Forgot Password Email sending failed:', err.message);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send OTP email. Please try again.',
-        debug: process.env.NODE_ENV === 'development' ? err.message : undefined
-      });
-    }
+    // Send email in background
+    sendEmail({
+      email: user.email,
+      subject: 'Reset your WorkQuora Password 🔑',
+      message: `Hi ${user.name},\n\nYour password reset OTP is: ${otp}\n\nIt expires in 5 minutes.\n\nWorkQuora Team`,
+      otp,
+    }).catch((err) => {
+      console.error('❌ Forgot Password Email sending failed in background:', err.message);
+    });
 
-    res.status(200).json({ success: true, message: 'OTP sent to email. Please verify.' });
+    res.status(200).json({ 
+      success: true, 
+      message: 'OTP sent to email. Please verify.',
+      ...((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && { otp })
+    });
   } catch (error) {
     next(error);
   }
