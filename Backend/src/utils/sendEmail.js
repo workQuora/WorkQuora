@@ -139,6 +139,9 @@ const sendEmail = async (options) => {
     greetingTimeout: 15000,
     socketTimeout: 15000,
     family: 4,
+    lookup: (hostname, options, callback) => {
+      require('dns').lookup(hostname, { ...options, family: 4 }, callback);
+    }
   });
 
   // Auto-detect template type from subject
