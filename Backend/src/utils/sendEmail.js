@@ -122,10 +122,14 @@ const getWelcomeTemplate = (name) => getEmailTemplate(
 );
 
 const sendEmail = async (options) => {
+  const isGmail = process.env.SMTP_HOST === 'smtp.gmail.com';
+  const smtpPort = isGmail ? 465 : (Number(process.env.SMTP_PORT) || 587);
+  const isSecure = smtpPort === 465;
+
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: Number(process.env.SMTP_PORT) === 465,
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: smtpPort,
+    secure: isSecure,
     auth: {
       user: process.env.SMTP_EMAIL,
       pass: process.env.SMTP_PASSWORD,
