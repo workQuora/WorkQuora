@@ -191,7 +191,7 @@ const Navbar = () => {
 
           {/* Desktop original navigation links styled premium */}
           <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-white/[0.02] p-1 border border-slate-200/80 dark:border-white/5 rounded-xl">
-            {user && !isDashboard && (
+            {user && (
               <NavLink 
                 to="/" 
                 className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
@@ -306,17 +306,7 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Messages link if logged in */}
-          {user && (
-            <NavLink to="/shared/messages" className="relative p-2.5 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-all">
-              <MessageSquare size={16} />
-              {unreadMessagesCount > 0 && (
-                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm border border-white dark:border-[#07070c]">
-                  {unreadMessagesCount}
-                </span>
-              )}
-            </NavLink>
-          )}
+
 
           {/* Notifications component */}
           {user && <Notifications />}

@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { IndianRupee, TrendingUp, Star, ArrowUpRight, Loader2, Briefcase, FileText, Wallet, UserCog } from 'lucide-react';
+import { IndianRupee, TrendingUp, Star, ArrowUpRight, Loader2, Briefcase, FileText, Wallet } from 'lucide-react';
 import api from '../../services/api';
 import KycVerificationCard from '../../components/KycVerificationCard';
 import AdBanner from '../../components/shared/AdBanner';
@@ -68,7 +68,6 @@ const FreelancerDashboard = () => {
     { label: 'Browse Jobs', icon: Briefcase, onClick: () => navigate('/discover'), primary: true },
     { label: 'My Proposals', icon: FileText, onClick: () => navigate('/discover') },
     { label: 'Wallet', icon: Wallet, onClick: () => navigate('/shared/wallet') },
-    { label: 'Update Profile', icon: UserCog, onClick: () => navigate('/profile') },
   ];
 
   const subtext = rating > 4
@@ -87,6 +86,36 @@ const FreelancerDashboard = () => {
       <WelcomeOverlay userId={user?._id || user?.id} message="Ready to land your next project? 🚀" />
       <div className="max-w-7xl mx-auto">
         <KycVerificationCard />
+
+        {/* Profile Card — clickable, goes to /profile */}
+        <div
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-4 bg-card border border-border rounded-2xl p-4 mb-8 cursor-pointer hover:border-primary/40 transition-all group shadow-sm"
+        >
+          <div className="relative shrink-0">
+            <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-xl font-bold text-white shadow-inner">
+              {user?.avatar || user?.profilePic
+                ? <img src={user.avatar || user.profilePic} alt={user.name} className="w-full h-full object-cover" />
+                : <span>{user?.name?.[0]?.toUpperCase() || 'U'}</span>
+              }
+            </div>
+            {user?.isKycVerified && (
+              <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full border-2 border-card flex items-center justify-center">
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 fill-white"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-foreground text-sm truncate">{user?.name || 'Your Name'}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.title || user?.role || 'Freelancer'}</p>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${
+              user?.isKycVerified ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+            }`}>
+              {user?.isKycVerified ? '✅ KYC Verified' : '⚠️ KYC Pending'}
+            </span>
+          </div>
+          <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+        </div>
 
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">

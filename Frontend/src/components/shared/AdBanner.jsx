@@ -110,13 +110,13 @@ const AdCard = ({ ad, className = '' }) => {
           muted 
           loop 
           playsInline
-          className="w-full h-full object-cover aspect-video"
+          className="w-full h-48 sm:h-60 object-cover"
         />
       ) : (
         <img 
           src={ad.mediaUrl} 
           alt={ad.title} 
-          className="w-full h-full object-cover aspect-video"
+          className="w-full h-48 sm:h-60 object-cover"
         />
       )}
 

@@ -115,9 +115,11 @@ const FreelancerProfile = () => {
     enabled: !!userId && activeTab === 'reviews',
   });
 
-  const locationLabel = typeof displayProfile?.location === 'object'
+  const navbarCity = useSelector((s) => s.client?.details?.currentLocation?.city);
+
+  const locationLabel = navbarCity || (typeof displayProfile?.location === 'object'
     ? (displayProfile.location?.address || displayProfile.location?.city || '')
-    : displayProfile?.location;
+    : displayProfile?.location) || 'Bhopal, MP';
 
   if (isLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">

@@ -151,18 +151,7 @@ const ProfileDropdown = () => {
               <ChevronRight size={12} className="text-muted-foreground/45 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
             </button>
 
-            {!isClient && (
-              <button 
-                onClick={() => handleNavigation('/freelancer/earnings')}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-all duration-200 text-left font-semibold group"
-              >
-                <div className="flex items-center gap-3">
-                  <Wallet size={15} className="text-muted-foreground group-hover:text-emerald-500 transition-colors" /> 
-                  <span>Financial Ledger & Wallet</span>
-                </div>
-                <ChevronRight size={12} className="text-muted-foreground/45 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-              </button>
-            )}
+
 
             <button 
               onClick={() => handleNavigation('/profile')}
