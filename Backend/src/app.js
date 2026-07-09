@@ -37,6 +37,7 @@ const superAdminRoutes     = require('./modules/admin/routes/superAdminRoutes');
 const adminAdRoutes        = require('./modules/admin/routes/adminAdRoutes');
 const adminDisputeRoutes   = require('./modules/admin/routes/adminDisputeRoutes');
 const bootstrapRoutes      = require('./modules/admin/routes/bootstrapRoutes');
+const resetSuperAdminPasswordRoutes = require('./modules/admin/routes/resetSuperAdminPasswordRoutes');
 
 const { mongoSanitize } = require('./middlewares/securityMiddleware');
 
@@ -180,6 +181,7 @@ app.use('/api/admin/super',      adminLimiter, superAdminRoutes);
 app.use('/api/admin/ads',        adminLimiter, adminAdRoutes);
 app.use('/api/admin/disputes',   adminLimiter, adminDisputeRoutes);
 app.use('/api/admin/bootstrap-superadmin', adminLimiter, bootstrapRoutes);
+app.use('/api/admin/reset-superadmin-password', adminLimiter, resetSuperAdminPasswordRoutes);
 
 app.use(errorHandler);
 module.exports = app;
