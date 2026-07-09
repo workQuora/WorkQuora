@@ -201,6 +201,19 @@ const Auth = () => {
     verifyRegistration({ email: registrationEmail, otp: regOtp });
   };
 
+  const handleResendRegistrationOtp = async () => {
+    try {
+      const res = await api.post('/auth/resend-otp', { email: registrationEmail });
+      if (res.data?.success) {
+        toast.success('A new OTP has been sent to your email.');
+      } else {
+        toast.error(res.data?.message || 'Failed to resend OTP');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to resend OTP');
+    }
+  };
+
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (!forgotEmail) return;
@@ -405,10 +418,16 @@ const Auth = () => {
                   'Verify & Create Account'
                 )}
               </button>
-              <button type="button" onClick={() => setIsRegistrationOtpSent(false)}
-                className="w-full text-sm font-bold text-muted-foreground hover:text-foreground transition-colors mt-2">
-                Back to Registration
-              </button>
+              <div className="flex flex-col gap-2.5 mt-2">
+                <button type="button" onClick={handleResendRegistrationOtp}
+                  className="w-full text-sm font-bold text-primary hover:underline transition-all">
+                  Resend OTP
+                </button>
+                <button type="button" onClick={() => setIsRegistrationOtpSent(false)}
+                  className="w-full text-sm font-bold text-muted-foreground hover:text-foreground transition-colors">
+                  Back to Registration
+                </button>
+              </div>
             </form>
           ) : (
             <>
