@@ -93,7 +93,7 @@ exports.verifyOtp = async (req, res, next) => {
 // @access  Private
 exports.submitPan = async (req, res, next) => {
   try {
-    const { panNumber } = req.body;
+    const panNumber = req.body.panNumber || req.body.panCard;
     if (!panNumber || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber.toUpperCase())) {
       return res.status(400).json({ success: false, message: 'Valid 10-character PAN number is required' });
     }
