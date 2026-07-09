@@ -111,6 +111,7 @@ const Settings = () => {
         onSuccess: (res) => {
           const updatedUser = res?.data?.data ?? res?.data;
           if (updatedUser && token) dispatch(loginSuccess({ user: { ...user, ...updatedUser }, token }));
+          navigate('/profile');
         },
       }
     );
