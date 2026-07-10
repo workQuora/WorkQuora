@@ -197,12 +197,14 @@ const Auth = () => {
     const timer = setTimeout(() => {
       if (window.google && googleBtnRef.current) {
         googleBtnRef.current.innerHTML = '';
+        const containerWidth = Math.floor(googleBtnRef.current.getBoundingClientRect().width);
+        const buttonWidth = containerWidth > 200 ? containerWidth : 350;
         window.google.accounts.id.renderButton(googleBtnRef.current, {
           theme: 'filled_black',
           size: 'large',
           text: 'signin_with',
           shape: 'rectangular',
-          width: Math.floor(googleBtnRef.current.getBoundingClientRect().width) || 190
+          width: buttonWidth
         });
       }
     }, 100);
@@ -718,10 +720,10 @@ const Auth = () => {
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col sm:flex-row gap-3 items-center">
-            <div ref={googleBtnRef} className="flex-1 flex justify-center h-[40px] overflow-hidden rounded-xl w-full"></div>
+          <div className="mt-6 flex flex-col gap-3 w-full">
+            <div ref={googleBtnRef} className="w-full flex justify-center h-[40px] overflow-hidden rounded-xl"></div>
             <button type="button" onClick={handleFacebookLogin} disabled={isSocialLoading}
-              className="flex-1 flex items-center justify-center gap-2 h-[40px] px-4 w-full bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] rounded-xl hover:bg-[#1877F2]/20 transition-colors font-semibold text-sm cursor-pointer disabled:opacity-50">
+              className="w-full flex items-center justify-center gap-2 h-[40px] px-4 bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] rounded-xl hover:bg-[#1877F2]/20 transition-colors font-semibold text-sm cursor-pointer disabled:opacity-50">
               <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
