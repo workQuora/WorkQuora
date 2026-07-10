@@ -97,7 +97,7 @@ const Auth = () => {
 
   const {
     login, isLoggingIn, isLoginSuccess,
-    register, isRegistering,
+    register, registerAsync, isRegistering,
     verifyRegistration, isVerifyingRegistration, isVerifyRegistrationSuccess,
     socialLogin, isSocialLoading,
   } = useAuth();
@@ -213,7 +213,7 @@ const Auth = () => {
 
   const onValidationError = () => setShake(true);
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     if (isLogin) {
       login({ email: data.email, password: data.password });
     } else {
@@ -221,10 +221,16 @@ const Auth = () => {
         toast.error('Please choose a unique username');
         return;
       }
-      setRegistrationEmail(data.email);
-      register({ name: data.name, email: data.email, mobileNumber: data.mobileNumber, username: data.username, password: data.password, role: selectedRole, gender: data.gender }, {
-        onSuccess: () => setIsRegistrationOtpSent(true)
-      });
+      try {
+        const response = await registerAsync({ name: data.name, email: data.email, mobileNumber: data.mobileNumber, username: data.username, password: data.password, role: selectedRole, gender: data.gender });
+        if (response?.data?.success === true && response?.data?.emailSent === true) {
+          setRegistrationEmail(data.email);
+          setIsRegistrationOtpSent(true);
+        }
+      } catch (error) {
+        // Mutation level onError inside useAuth.js handles toast notification.
+        // Catch here to prevent uncaught promise rejection warning in console.
+      }
     }
   };
 

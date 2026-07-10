@@ -103,6 +103,7 @@ export const useAuth = () => {
     isLoggingIn:  loginMutation.isPending,
     isLoginSuccess: loginMutation.isSuccess,
     register:     registerMutation.mutate,
+    registerAsync: registerMutation.mutateAsync,
     isRegistering: registerMutation.isPending,
     verifyRegistration: verifyRegistrationMutation.mutate,
     isVerifyingRegistration: verifyRegistrationMutation.isPending,
