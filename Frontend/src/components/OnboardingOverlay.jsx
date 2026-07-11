@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -66,9 +66,16 @@ const OnboardingOverlay = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Redirect to the role-appropriate dashboard once onboarding is fully complete
+  // Redirect to the role-appropriate dashboard the moment onboarding *becomes*
+  // complete (e.g. right after accepting terms) — but not on every mount where
+  // it was *already* complete (e.g. a refresh on an unrelated page), since this
+  // overlay stays mounted at the router root across the whole app.
+  const wasOnboardingCompleteRef = useRef(onboarding?.onboardingComplete);
   useEffect(() => {
-    if (isAuthenticated && onboarding?.onboardingComplete && user?.role) {
+    const wasComplete = wasOnboardingCompleteRef.current;
+    wasOnboardingCompleteRef.current = onboarding?.onboardingComplete;
+
+    if (isAuthenticated && !wasComplete && onboarding?.onboardingComplete && user?.role) {
       const target = user.role.toLowerCase() === 'client'
         ? '/client/dashboard'
         : '/freelancer/dashboard';
