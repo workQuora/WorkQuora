@@ -74,7 +74,7 @@ const SocialLinks = () => {
           target="_blank"
           rel="noopener noreferrer"
           aria-label={soc.label}
-          className="p-3 bg-white/[0.02] border border-white/5 rounded-xl text-muted-foreground hover:text-white transition-colors duration-300 relative group flex items-center justify-center"
+          className="p-3 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-xl text-slate-500 dark:text-muted-foreground hover:text-slate-900 dark:hover:text-white transition-colors duration-300 relative group flex items-center justify-center"
           whileHover={{ 
             y: -3, 
             rotate: 4, 
@@ -86,7 +86,7 @@ const SocialLinks = () => {
           {soc.svg}
           
           {/* Tooltip */}
-          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-[#09090B] border border-white/10 rounded-lg text-[9px] font-bold uppercase tracking-wider text-white opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-300 shadow-xl whitespace-nowrap">
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-white dark:bg-[#09090B] border border-slate-200 dark:border-white/10 rounded-lg text-[9px] font-bold uppercase tracking-wider text-slate-900 dark:text-white opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-300 shadow-xl whitespace-nowrap">
             {soc.label}
           </span>
         </motion.a>

@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { createBrowserRouter, RouterProvider, redirect } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, redirect, Outlet } from 'react-router-dom';
 import { store } from './redux/store';
 import { useAppStore } from './store/appStore';
 
@@ -73,7 +73,7 @@ const guestLoader = () => {
 const clientLoader = () => {
   const { isAuthenticated, role } = store.getState().auth;
   if (!isAuthenticated) return redirect('/auth');
-  if (!role) return redirect('/auth/select-role');
+  if (!role) return redirect('/home');
   if (role?.toLowerCase() !== 'client') return redirect('/freelancer/dashboard');
   return null;
 };
@@ -81,7 +81,7 @@ const clientLoader = () => {
 const freelancerLoader = () => {
   const { isAuthenticated, role } = store.getState().auth;
   if (!isAuthenticated) return redirect('/auth');
-  if (!role) return redirect('/auth/select-role');
+  if (!role) return redirect('/home');
   if (role?.toLowerCase() !== 'freelancer') return redirect('/client/dashboard');
   return null;
 };
@@ -104,90 +104,105 @@ const adminGuestLoader = () => {
   return null;
 };
 
+/* ── Root layout ──────────────────────────────────────
+   Wraps every route so OnboardingOverlay renders inside the
+   router context (useNavigate requires a <Router> ancestor). */
+const RootLayout = () => (
+  <>
+    <Outlet />
+    <OnboardingOverlay />
+  </>
+);
+
 /* ── Router ───────────────────────────────────────── */
 const router = createBrowserRouter([
-  // Public routes (with Navbar)
   {
-    path: '/',
-    element: <MainLayout />,
+    element: <RootLayout />,
     children: [
-      { index: true, element: <Landing /> },
-      { path: 'home', element: <Landing /> },
-      { path: 'discover', element: <Discover /> },
-      { path: 'job/:id', element: <JobDetails /> },
-      { path: 'search', element: <SearchPage /> },
-      { path: 'freelancer/:userId', element: <FreelancerPublicProfile /> },
+      // Public routes (with Navbar)
+      {
+        path: '/',
+        element: <MainLayout />,
+        children: [
+          { index: true, element: <Landing /> },
+          { path: 'home', element: <Landing /> },
+          { path: 'discover', element: <Discover /> },
+          { path: 'job/:id', element: <JobDetails /> },
+          { path: 'search', element: <SearchPage /> },
+          { path: 'freelancer/:userId', element: <FreelancerPublicProfile /> },
 
-      // Protected shared routes
-      { path: 'profile', loader: authLoader, element: <Profile /> },
-      { path: 'shared/messages', loader: authLoader, element: <Messages /> },
-      { path: 'shared/settings', loader: authLoader, element: <Settings /> },
-      { path: 'shared/wallet',   loader: authLoader, element: <Wallet /> },
-      { path: 'reviews/:userId', loader: authLoader, element: <Reviews /> },
-      { path: 'freelancer/earnings', loader: freelancerLoader, element: <Earnings /> },
-      { path: 'client/post-job', loader: clientLoader, element: <PostJob /> },
-      { path: 'info/:slug', element: <InfoPage /> },
+          // Protected shared routes
+          { path: 'profile', loader: authLoader, element: <Profile /> },
+          { path: 'shared/messages', loader: authLoader, element: <Messages /> },
+          { path: 'shared/settings', loader: authLoader, element: <Settings /> },
+          { path: 'shared/wallet',   loader: authLoader, element: <Wallet /> },
+          { path: 'reviews/:userId', loader: authLoader, element: <Reviews /> },
+          { path: 'freelancer/earnings', loader: freelancerLoader, element: <Earnings /> },
+          { path: 'client/post-job', loader: clientLoader, element: <PostJob /> },
+          { path: 'info/:slug', element: <InfoPage /> },
+        ],
+      },
+
+      // Auth routes (eager — entry points)
+      { path: '/auth',             element: <Auth />,       loader: guestLoader },
+      { path: '/auth/login',       element: <Login />,      loader: guestLoader },
+      { path: '/auth/select-role', element: <SelectRole />, loader: authLoader },
+
+      // Client dashboard (sidebar layout)
+      {
+        path: '/client',
+        element: <DashboardLayout />,
+        loader: clientLoader,
+        children: [
+          { path: 'dashboard', element: <ClientDashboard /> },
+          { path: 'jobs',      element: <ClientJobs /> },
+          { path: 'history',   element: <ClientHistory /> },
+        ],
+      },
+
+      // Freelancer dashboard (sidebar layout)
+      {
+        path: '/freelancer',
+        element: <DashboardLayout />,
+        loader: freelancerLoader,
+        children: [
+          { path: 'dashboard', element: <FreelancerDashboard /> },
+        ],
+      },
+
+      // Admin Portal Routes
+      { path: '/admin/login', element: <AdminLogin />, loader: adminGuestLoader },
+      {
+        path: '/admin',
+        element: <AdminLayout />,
+        loader: adminLoader,
+        children: [
+          { index: true, element: <AdminDashboard /> },
+          { path: 'dashboard', element: <AdminDashboard /> },
+          { path: 'clients', element: <AdminUsers roleProp="CLIENT" /> },
+          { path: 'freelancers', element: <AdminUsers roleProp="FREELANCER" /> },
+          { path: 'kyc', element: <AdminKyc /> },
+          { path: 'disputes', element: <AdminDisputes /> },
+          { path: 'tasks', element: <AdminTasks /> },
+          { path: 'payments', element: <AdminPayments /> },
+          { path: 'analytics', element: <AdminAnalytics /> },
+          { path: 'ads', element: <AdminAds /> },
+          { path: 'audit-logs', element: <AdminAuditLogs /> },
+          { path: 'settings', element: <AdminSettings /> },
+        ],
+      },
+
+      {
+        path: '/maintenance',
+        element: <Maintenance />
+      },
+
+      // 404
+      {
+        path: '*',
+        element: <NotFound />,
+      },
     ],
-  },
-
-  // Auth routes (eager — entry points)
-  { path: '/auth',             element: <Auth />,       loader: guestLoader },
-  { path: '/auth/login',       element: <Login />,      loader: guestLoader },
-  { path: '/auth/select-role', element: <SelectRole />, loader: authLoader },
-
-  // Client dashboard (sidebar layout)
-  {
-    path: '/client',
-    element: <DashboardLayout />,
-    loader: clientLoader,
-    children: [
-      { path: 'dashboard', element: <ClientDashboard /> },
-      { path: 'jobs',      element: <ClientJobs /> },
-      { path: 'history',   element: <ClientHistory /> },
-    ],
-  },
-
-  // Freelancer dashboard (sidebar layout)
-  {
-    path: '/freelancer',
-    element: <DashboardLayout />,
-    loader: freelancerLoader,
-    children: [
-      { path: 'dashboard', element: <FreelancerDashboard /> },
-    ],
-  },
-
-  // Admin Portal Routes
-  { path: '/admin/login', element: <AdminLogin />, loader: adminGuestLoader },
-  {
-    path: '/admin',
-    element: <AdminLayout />,
-    loader: adminLoader,
-    children: [
-      { index: true, element: <AdminDashboard /> },
-      { path: 'dashboard', element: <AdminDashboard /> },
-      { path: 'clients', element: <AdminUsers roleProp="CLIENT" /> },
-      { path: 'freelancers', element: <AdminUsers roleProp="FREELANCER" /> },
-      { path: 'kyc', element: <AdminKyc /> },
-      { path: 'disputes', element: <AdminDisputes /> },
-      { path: 'tasks', element: <AdminTasks /> },
-      { path: 'payments', element: <AdminPayments /> },
-      { path: 'analytics', element: <AdminAnalytics /> },
-      { path: 'ads', element: <AdminAds /> },
-      { path: 'audit-logs', element: <AdminAuditLogs /> },
-      { path: 'settings', element: <AdminSettings /> },
-    ],
-  },
-
-  {
-    path: '/maintenance',
-    element: <Maintenance />
-  },
-
-  // 404
-  {
-    path: '*',
-    element: <NotFound />,
   },
 ]);
 
@@ -216,7 +231,6 @@ function App() {
   return (
     <Suspense fallback={<PageLoader />}>
       <RouterProvider router={router} />
-      <OnboardingOverlay />
     </Suspense>
   );
 }

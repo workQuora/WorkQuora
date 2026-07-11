@@ -5,7 +5,7 @@ import SocialLinks from './SocialLinks';
 
 const Footer = () => {
   return (
-    <footer className="w-full border-t border-border/60 bg-[#05050a]/90 backdrop-blur-md pt-16 pb-8 relative z-20 mt-16 transition-colors duration-300">
+    <footer className="w-full border-t border-border/60 bg-slate-50 dark:bg-[#05050a]/90 backdrop-blur-md pt-16 pb-8 relative z-20 mt-16 transition-colors duration-300">
       <div className="max-w-6xl mx-auto px-6">
         
         {/* Top Section: Detailed Links Grid */}

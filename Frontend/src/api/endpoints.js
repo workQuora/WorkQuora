@@ -8,8 +8,12 @@ export const authApi = {
   login:      (d) => api.post('/auth/login', d),
   me:         ()  => api.get('/auth/me'),
   logout:     ()  => api.post('/auth/logout'),
+  logoutAll:  ()  => api.post('/auth/logout-all'),
   social:     (d) => api.post('/auth/social', d),
   assignRole: (r) => api.put('/auth/user/assign-role', { role: r }),
+  changePassword: (d) => api.put('/auth/change-password', d),
+  sessions:   ()  => api.get('/auth/sessions'),
+  deleteAccount: () => api.delete('/auth/account'),
 };
 
 export const geoApi = {
@@ -40,8 +44,16 @@ export const profileApi = {
   me:          ()  => api.get('/profile/me'),
   update:      (d) => api.put('/profile/update', d),
   uploadPhoto: (f) => api.post('/profile/photo', f, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  deletePhoto: ()  => api.delete('/profile/photo'),
   updateKyc:   (d) => api.post('/profile/kyc', d),
   updateBank:  (d) => api.post('/profile/bank', d),
+};
+
+export const settingsApi = {
+  getPrivacy:        ()  => api.get('/settings/privacy'),
+  updatePrivacy:     (d) => api.put('/settings/privacy', d),
+  getNotifications:  ()  => api.get('/settings/notifications'),
+  updateNotifications: (d) => api.put('/settings/notifications', d),
 };
 
 export const messagesApi = {

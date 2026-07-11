@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Briefcase, UserCheck, Check, Loader2, ArrowRight, Shield } from 'lucide-react';
 import api from '../services/api';
@@ -7,6 +8,7 @@ import { loginSuccess } from '../actions/authSlice';
 
 const OnboardingOverlay = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { isAuthenticated, token, user, onboarding } = useSelector((s) => s.auth);
 
   const [selectedRole, setSelectedRole] = useState('');
@@ -53,22 +55,30 @@ const OnboardingOverlay = () => {
     }
   }, [isAuthenticated, onboarding?.roleSelected, onboarding?.termsAccepted]);
 
-  if (!isAuthenticated || !onboarding || onboarding.onboardingComplete) {
-    return null;
-  }
-
-  // Escape key blocker
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-    }
-  };
-
   // Attach key blocker
   useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+      }
+    };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Redirect to the role-appropriate dashboard once onboarding is fully complete
+  useEffect(() => {
+    if (isAuthenticated && onboarding?.onboardingComplete && user?.role) {
+      const target = user.role.toLowerCase() === 'client'
+        ? '/client/dashboard'
+        : '/freelancer/dashboard';
+      navigate(target, { replace: true });
+    }
+  }, [isAuthenticated, onboarding?.onboardingComplete, user?.role]);
+
+  if (!isAuthenticated || !onboarding || onboarding.onboardingComplete) {
+    return null;
+  }
 
   const handleRoleSubmit = async () => {
     if (!selectedRole) return;

@@ -632,7 +632,7 @@ exports.refreshSession = async (req, res, next) => {
 // POST /auth/social
 exports.socialLogin = async (req, res, next) => {
   try {
-    const { provider, token: providerToken } = req.body;
+    const { provider, token: providerToken, tokenType } = req.body;
     let verifiedEmail = null;
     let verifiedName = null;
     let verifiedAvatar = null;
@@ -640,25 +640,44 @@ exports.socialLogin = async (req, res, next) => {
 
     if (provider === 'google') {
       if (!providerToken) {
-        return res.status(401).json({ success: false, message: 'Google ID token is required' });
+        return res.status(401).json({ success: false, message: 'Google token is required' });
       }
-      try {
-        const ticket = await googleClient.verifyIdToken({
-          idToken: providerToken,
-          audience: process.env.GOOGLE_CLIENT_ID,
-        });
-        const payload = ticket.getPayload();
-        
-        if (!payload.sub || !payload.email || payload.email_verified !== true) {
-          return res.status(401).json({ success: false, message: 'Invalid or unverified Google account identity' });
+      if (tokenType === 'access_token') {
+        try {
+          const { data } = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${providerToken}` },
+          });
+
+          if (!data.sub || !data.email || data.email_verified !== true) {
+            return res.status(401).json({ success: false, message: 'Invalid or unverified Google account identity' });
+          }
+
+          verifiedEmail = data.email.toLowerCase().trim();
+          verifiedName = data.name;
+          verifiedAvatar = data.picture;
+          googleSubId = data.sub;
+        } catch (err) {
+          return res.status(401).json({ success: false, message: 'Invalid Google access token verification failed' });
         }
-        
-        verifiedEmail = payload.email.toLowerCase().trim();
-        verifiedName = payload.name;
-        verifiedAvatar = payload.picture;
-        googleSubId = payload.sub;
-      } catch (err) {
-        return res.status(401).json({ success: false, message: 'Invalid Google ID token verification failed' });
+      } else {
+        try {
+          const ticket = await googleClient.verifyIdToken({
+            idToken: providerToken,
+            audience: process.env.GOOGLE_CLIENT_ID,
+          });
+          const payload = ticket.getPayload();
+
+          if (!payload.sub || !payload.email || payload.email_verified !== true) {
+            return res.status(401).json({ success: false, message: 'Invalid or unverified Google account identity' });
+          }
+
+          verifiedEmail = payload.email.toLowerCase().trim();
+          verifiedName = payload.name;
+          verifiedAvatar = payload.picture;
+          googleSubId = payload.sub;
+        } catch (err) {
+          return res.status(401).json({ success: false, message: 'Invalid Google ID token verification failed' });
+        }
       }
     } else if (provider === 'facebook' && providerToken) {
       try {
@@ -839,6 +858,81 @@ exports.resetPassword = async (req, res, next) => {
     });
 
     res.status(200).json({ success: true, message: 'Password reset successful' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /auth/change-password
+exports.changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    }
+
+    const user = await User.findById(req.user.id).select('+password +passwordHistory');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const isMatch = await user.comparePassword(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    // Verify Password History constraints (same rule enforced in resetPassword)
+    if (user.passwordHistory && user.passwordHistory.length > 0) {
+      for (const oldHash of user.passwordHistory) {
+        const reused = await bcrypt.compare(newPassword, oldHash);
+        if (reused) {
+          return res.status(400).json({ success: false, message: 'Cannot reuse any of your last 5 passwords.' });
+        }
+      }
+    }
+
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsCurrent) {
+      return res.status(400).json({ success: false, message: 'New password must be different from your current password.' });
+    }
+
+    const history = user.passwordHistory || [];
+    history.unshift(user.password);
+    user.passwordHistory = history.slice(0, 5);
+
+    user.password = newPassword; // pre-save hook hashes it
+    user.passwordChangedAt = new Date();
+    await user.save();
+
+    // Revoke all other sessions (Force re-login everywhere except this request)
+    await Session.updateMany({ userId: user.id }, { isRevoked: true });
+
+    await createAuditLog(req, {
+      userId: user.id,
+      action: 'PASSWORD_CHANGE',
+      entity: 'User',
+      entityId: user.id
+    });
+
+    res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /auth/sessions
+exports.getSessions = async (req, res, next) => {
+  try {
+    const sessions = await Session.find({
+      userId: req.user.id,
+      isRevoked: false,
+      expiresAt: { $gt: new Date() },
+    })
+      .sort({ lastUsedAt: -1 })
+      .select('deviceName browser operatingSystem ipAddress city country lastUsedAt createdAt sessionId')
+      .lean();
+    res.status(200).json({ success: true, data: sessions });
   } catch (error) {
     next(error);
   }

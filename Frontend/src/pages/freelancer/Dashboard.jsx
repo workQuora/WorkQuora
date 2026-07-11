@@ -28,13 +28,15 @@ const TASK_STATUS_STYLE = {
 };
 
 const FreelancerDashboard = () => {
-  const { user } = useSelector((s) => s.auth);
+  const { user, onboarding } = useSelector((s) => s.auth);
   const navigate = useNavigate();
+  const canFetch = !!user && onboarding?.onboardingComplete === true;
 
   const { data: dashData, isLoading: dashLoading } = useQuery({
     queryKey: ['freelancer-dashboard'],
     queryFn: () => api.get('/dashboard/freelancer').then((r) => r.data?.data ?? r.data),
     staleTime: 60_000,
+    enabled: canFetch,
   });
 
   const { data: latestJobs = [], isLoading: jobsLoading } = useQuery({
@@ -43,6 +45,7 @@ const FreelancerDashboard = () => {
       api.get('/jobs', { params: { limit: 5, status: 'open' } })
         .then((r) => Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.jobs ?? [])),
     staleTime: 60_000,
+    enabled: canFetch,
   });
 
   // Real fields from GET /dashboard/freelancer — note there's no "accepted proposals" or

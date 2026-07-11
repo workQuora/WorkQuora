@@ -9,13 +9,14 @@ export const useAuth = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const qc       = useQueryClient();
-  const { user, token, isAuthenticated, role } = useSelector((s) => s.auth);
+  const { user, token, isAuthenticated, role, onboarding } = useSelector((s) => s.auth);
 
   const afterAuth = (res) => {
     const u = res.data?.user ?? res.data?.data;
     const t = res.data?.token;
+    const onboarding = res.data?.onboarding ?? null;
     if (!u || !t) { toast.error('Invalid server response.'); return; }
-    dispatch(loginSuccess({ user: u, token: t }));
+    dispatch(loginSuccess({ user: u, token: t, onboarding }));
     return u;
   };
 
@@ -27,8 +28,7 @@ export const useAuth = () => {
       toast.success(`Welcome back, ${u.name?.split(' ')[0]}! 👋`);
       // Delayed so the caller can show a brief success state before navigating away.
       setTimeout(() => {
-        if (!u.role) navigate('/auth/select-role', { state: { userId: u.id } });
-        else navigate('/home');
+        navigate('/home');
       }, 600);
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Login failed.'),
@@ -51,8 +51,7 @@ export const useAuth = () => {
       if (!u) return;
       toast.success('Account verified and created successfully!');
       setTimeout(() => {
-        if (!u.role) navigate('/auth/select-role', { state: { userId: u.id } });
-        else navigate('/home');
+        navigate('/home');
       }, 600);
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Verification failed.'),
@@ -66,8 +65,7 @@ export const useAuth = () => {
       if (!u) return;
       toast.success('Account verified and created successfully!');
       setTimeout(() => {
-        if (!u.role) navigate('/auth/select-role', { state: { userId: u.id } });
-        else navigate('/home');
+        navigate('/home');
       }, 600);
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Mobile verification failed.'),
@@ -79,8 +77,7 @@ export const useAuth = () => {
       const u = afterAuth(res);
       if (!u) return;
       toast.success(`Welcome, ${u.name?.split(' ')[0]}!`);
-      if (!u.role) navigate('/auth/select-role', { state: { userId: u.id } });
-      else navigate('/home');
+      navigate('/home');
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Social login failed.'),
   });
@@ -98,11 +95,12 @@ export const useAuth = () => {
   const logout = () => { dispatch(logoutAction()); qc.clear(); navigate('/auth'); };
 
   return {
-    user, token, isAuthenticated, role,
+    user, token, isAuthenticated, role, onboarding,
     login:        loginMutation.mutate,
     isLoggingIn:  loginMutation.isPending,
     isLoginSuccess: loginMutation.isSuccess,
     register:     registerMutation.mutate,
+    registerAsync: registerMutation.mutateAsync,
     isRegistering: registerMutation.isPending,
     verifyRegistration: verifyRegistrationMutation.mutate,
     isVerifyingRegistration: verifyRegistrationMutation.isPending,

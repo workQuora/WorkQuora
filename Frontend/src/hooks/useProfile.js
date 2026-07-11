@@ -33,5 +33,15 @@ export const useProfile = () => {
     onError: () => toast.error('Photo upload failed.'),
   });
 
-  return { useGetProfile, updateProfile, isUpdating, uploadPhoto, isUploading };
+  const { mutate: deletePhoto, isPending: isDeletingPhoto } = useMutation({
+    mutationFn: profileApi.deletePhoto,
+    onSuccess: () => {
+      toast.success('Photo removed');
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      if (token) dispatch(loginSuccess({ user: { ...user, profilePic: null }, token }));
+    },
+    onError: () => toast.error('Failed to remove photo.'),
+  });
+
+  return { useGetProfile, updateProfile, isUpdating, uploadPhoto, isUploading, deletePhoto, isDeletingPhoto };
 };

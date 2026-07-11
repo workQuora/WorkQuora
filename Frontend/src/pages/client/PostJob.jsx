@@ -12,10 +12,11 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { MapPin, Briefcase, DollarSign, FileText, Send, Loader2, AlertCircle, ChevronDown } from 'lucide-react';
+import { MapPin, Briefcase, DollarSign, Send, AlertCircle, ChevronDown, Tag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useJobs } from '../../hooks/useJobs';
 import { useGeolocation } from '../../hooks/useGeolocation';
+import { Card, Button, Input, Badge } from '../../components/ui';
 
 const jobSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
@@ -40,6 +41,16 @@ const CATEGORIES = [
   'Teaching & Training',
   'Legal & Finance',
 ];
+
+const CATEGORY_ICON = {
+  'Design & Creative': '🎨',
+  'Development & IT': '💻',
+  'Writing & Translation': '✍️',
+  'Marketing & Sales': '📈',
+  'Home Services': '🛠️',
+  'Teaching & Training': '🎓',
+  'Legal & Finance': '💼',
+};
 
 const PostJob = () => {
   const navigate = useNavigate();
@@ -110,58 +121,44 @@ const PostJob = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-background text-foreground p-6 lg:p-10 transition-colors duration-300 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-10 right-10 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-10 left-10 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-[calc(100vh-80px)] bg-background text-foreground p-6 lg:p-10 transition-colors duration-300">
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-10">
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Post a new job</h1>
+          <p className="text-muted-foreground mt-3">Connect with nearby talent by describing your requirements.</p>
 
-      <div className="max-w-3xl mx-auto relative z-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">Post a New Job</h1>
-          <p className="text-muted-foreground mt-2 font-medium">Connect with nearby talent by describing your requirements.</p>
+          {/* Location status */}
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            {geo.latitude && !geo.error && (
+              <Badge variant="success">
+                <MapPin className="w-3 h-3" /> Posting from {geo.city || 'Bhopal, MP'}
+              </Badge>
+            )}
+            {geo.error && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning bg-warning/10 px-2.5 py-1 rounded-full">
+                <AlertCircle className="w-3 h-3" /> Location access denied — using default location
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Location status banner */}
-        {geo.error && (
-          <div className="mb-6 flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-amber-400 text-sm">
-            <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-bold">Location Access Denied</p>
-              <p className="text-amber-500/80 mt-0.5 font-medium">Your job will use a default location. Enable location in browser settings for better results.</p>
-            </div>
-          </div>
-        )}
-
-        {geo.latitude && !geo.error && (
-          <div className="mb-6 flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-4 py-3.5 text-emerald-400 text-sm font-semibold shadow-sm">
-            <MapPin className="w-4 h-4 text-emerald-500" />
-            <span>Posting from <strong className="text-emerald-300">{geo.city || 'Bhopal, MP'}</strong></span>
-          </div>
-        )}
-
-        <div className="bg-card/90 backdrop-blur-md border border-border rounded-3xl p-6 lg:p-8 shadow-xl relative overflow-hidden">
+        <Card className="p-6 sm:p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
             {/* Title */}
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-primary" /> Job Title
-              </label>
-              <input
-                {...register('title')}
-                type="text"
-                placeholder="e.g. Mobile App UI/UX Design"
-                className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-all"
-              />
-              {errors.title && <p className="text-red-500 text-xs mt-1.5 font-semibold">{errors.title.message}</p>}
-            </div>
+            <Input
+              label="Job Title"
+              icon={Briefcase}
+              {...register('title')}
+              type="text"
+              placeholder="e.g. Mobile App UI/UX Design"
+              error={errors.title?.message}
+            />
 
             {/* Category */}
             <div className="relative" ref={dropdownRef}>
-              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
-                📂 Category
-              </label>
-              
+              <label className="block text-sm font-medium text-foreground mb-2">Category</label>
+
               {/* Hidden Input for Form Submission */}
               <input type="hidden" {...register('category')} />
 
@@ -169,46 +166,31 @@ const PostJob = () => {
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`w-full flex items-center justify-between px-4 py-3 bg-accent/40 border ${
-                  isDropdownOpen ? 'border-primary/80 ring-2 ring-primary/20' : 'border-border'
-                } rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none transition-all font-medium text-left cursor-pointer`}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm bg-white dark:bg-zinc-800/50 border text-foreground focus:outline-none transition-colors cursor-pointer ${
+                  isDropdownOpen ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+                }`}
               >
                 <span className="flex items-center gap-2.5">
                   {selectedCategory ? (
                     <>
-                      <span className="text-lg">
-                        {selectedCategory === 'Design & Creative' && '🎨'}
-                        {selectedCategory === 'Development & IT' && '💻'}
-                        {selectedCategory === 'Writing & Translation' && '✍️'}
-                        {selectedCategory === 'Marketing & Sales' && '📈'}
-                        {selectedCategory === 'Home Services' && '🛠️'}
-                        {selectedCategory === 'Teaching & Training' && '🎓'}
-                        {selectedCategory === 'Legal & Finance' && '💼'}
-                      </span>
-                      <span>{selectedCategory}</span>
+                      <span className="text-base">{CATEGORY_ICON[selectedCategory] || '📂'}</span>
+                      <span className="font-medium">{selectedCategory}</span>
                     </>
                   ) : (
-                    <span className="text-muted-foreground">Select a category…</span>
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Tag className="w-4 h-4" /> Select a category…
+                    </span>
                   )}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${isDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-primary' : ''}`} />
               </button>
 
               {/* Dropdown Options Popover */}
               {isDropdownOpen && (
-                <div className="absolute left-0 right-0 mt-2 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute left-0 right-0 mt-2 bg-card border border-border rounded-2xl shadow-md overflow-hidden z-50">
                   <div className="p-2 space-y-1">
                     {CATEGORIES.map((c) => {
                       const isSelected = selectedCategory === c;
-                      const icon = 
-                        c === 'Design & Creative' ? '🎨' :
-                        c === 'Development & IT' ? '💻' :
-                        c === 'Writing & Translation' ? '✍️' :
-                        c === 'Marketing & Sales' ? '📈' :
-                        c === 'Home Services' ? '🛠️' :
-                        c === 'Teaching & Training' ? '🎓' :
-                        c === 'Legal & Finance' ? '💼' : '📂';
-
                       return (
                         <button
                           key={c}
@@ -219,115 +201,96 @@ const PostJob = () => {
                             trigger('category');
                             setIsDropdownOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left cursor-pointer ${
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors text-left cursor-pointer ${
                             isSelected
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-foreground hover:bg-accent/60'
+                              ? 'bg-primary text-white'
+                              : 'text-foreground hover:bg-muted'
                           }`}
                         >
-                          <span className="text-lg">{icon}</span>
+                          <span className="text-base">{CATEGORY_ICON[c]}</span>
                           <span className="flex-1">{c}</span>
-                          {isSelected && <span className="text-xs font-bold uppercase tracking-wider">Active</span>}
+                          {isSelected && <span className="text-[10px] font-bold uppercase tracking-wider">Active</span>}
                         </button>
                       );
                     })}
                   </div>
                 </div>
               )}
-              {errors.category && <p className="text-red-500 text-xs mt-1.5 font-semibold">{errors.category.message}</p>}
+              {errors.category && <p className="text-danger text-xs mt-1.5">{errors.category.message}</p>}
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" /> Job Description
-              </label>
+              <label className="block text-sm font-medium text-foreground mb-2">Job Description</label>
               <textarea
                 {...register('description')}
                 rows="5"
                 placeholder="Describe the work, deliverables, timeline expectations…"
-                className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 resize-none transition-all"
+                className={`w-full px-3.5 py-2.5 rounded-xl text-sm bg-white dark:bg-zinc-800/50 border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-colors ${errors.description ? 'border-danger' : 'border-border focus:border-primary'}`}
               />
-              {errors.description && <p className="text-red-500 text-xs mt-1.5 font-semibold">{errors.description.message}</p>}
+              {errors.description && <p className="text-danger text-xs mt-1.5">{errors.description.message}</p>}
             </div>
 
             {/* Skills */}
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Required Skills (comma-separated)</label>
-              <input
-                {...register('skills')}
-                type="text"
-                placeholder="e.g. Figma, React, Node.js"
-                className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-all"
-              />
-            </div>
+            <Input
+              label="Required Skills (comma-separated)"
+              {...register('skills')}
+              type="text"
+              placeholder="e.g. Figma, React, Node.js"
+            />
 
             {/* Location input */}
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" /> Job Location / City
-              </label>
-              <input
-                {...register('locationAddress')}
-                type="text"
-                placeholder="e.g. Bhopal, MP or Lalghati, Bhopal"
-                className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-all text-sm font-medium"
-              />
-              {errors.locationAddress && <p className="text-red-500 text-xs mt-1.5 font-semibold">{errors.locationAddress.message}</p>}
-            </div>
+            <Input
+              label="Job Location / City"
+              icon={MapPin}
+              {...register('locationAddress')}
+              type="text"
+              placeholder="e.g. Bhopal, MP or Lalghati, Bhopal"
+              error={errors.locationAddress?.message}
+            />
 
             {/* Budget + Radius */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-emerald-500" /> Min Budget (₹)
-                </label>
-                <input
-                  {...register('minBudget')}
-                  type="number"
-                  placeholder="500"
-                  className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/40 transition-all"
-                />
-                {errors.minBudget && <p className="text-red-500 text-xs mt-1.5 font-semibold">{errors.minBudget.message}</p>}
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Max Budget (₹)</label>
-                <input
-                  {...register('maxBudget')}
-                  type="number"
-                  placeholder="5000"
-                  className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/40 transition-all"
-                />
-                {errors.maxBudget && <p className="text-red-500 text-xs mt-1.5 font-semibold">{errors.maxBudget.message}</p>}
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-orange-500" /> Search Radius (km)
-                </label>
-                <input
-                  {...register('radius')}
-                  type="number"
-                  placeholder="25"
-                  className="w-full px-4 py-3 bg-accent/40 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/40 transition-all"
-                />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6">
+              <Input
+                label="Min Budget (₹)"
+                icon={DollarSign}
+                {...register('minBudget')}
+                type="number"
+                placeholder="500"
+                error={errors.minBudget?.message}
+              />
+              <Input
+                label="Max Budget (₹)"
+                icon={DollarSign}
+                {...register('maxBudget')}
+                type="number"
+                placeholder="5000"
+                error={errors.maxBudget?.message}
+              />
+              <Input
+                label="Search Radius (km)"
+                icon={MapPin}
+                {...register('radius')}
+                type="number"
+                placeholder="25"
+              />
             </div>
 
             {/* Submit */}
-            <div className="pt-6 border-t border-border/80">
-              <button
+            <div className="pt-4 border-t border-border">
+              <Button
                 type="submit"
+                variant="primary"
+                size="lg"
                 disabled={isPostingJob || geo.loading}
-                className="w-full flex justify-center items-center gap-2 py-4 px-6 bg-primary hover:opacity-90 text-primary-foreground font-bold rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-primary/20 cursor-pointer"
+                isLoading={isPostingJob}
+                className="w-full"
               >
-                {isPostingJob
-                  ? <><Loader2 className="w-5 h-5 animate-spin" /> Posting…</>
-                  : <><Send className="w-5 h-5" /> Post Job Now</>
-                }
-              </button>
+                {!isPostingJob && (<><Send className="w-4 h-4" /> Post Job Now</>)}
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -29,6 +29,31 @@
   --card-shadow-hover: 0 8px 24px rgba(30,0,169,0.10), 0 2px 8px rgba(0,0,0,0.06);
   --gradient-hero: linear-gradient(135deg, #1E00A9 0%, #6366F1 50%, #10B981 100%);
   --gradient-card: linear-gradient(135deg, rgba(30,0,169,0.03) 0%, rgba(99,102,241,0.05) 100%);
+
+  /* v2.0 Apple-style additive tokens */
+  --radius-pill: 9999px;
+
+  /* Refined neutral grays (Apple-like) */
+  --gray-50: 210 20% 98%;
+  --gray-100: 210 16% 96%;
+  --gray-200: 214 15% 91%;
+  --gray-500: 215 14% 47%;
+  --gray-900: 222 47% 11%;
+
+  /* Elevation shadows and radius-xl/2xl are declared once, in the @theme
+     block below — Tailwind v4 reads shadow/radius scales from --shadow-*
+     and --radius-* theme keys directly, so a second copy here would
+     self-reference instead of layering. */
+
+  /* Frosted glass */
+  --glass-bg: rgba(255,255,255,0.72);
+  --glass-border: rgba(255,255,255,0.5);
+  --glass-blur: 20px;
+
+  /* Status colors */
+  --success: 160 84% 39%;
+  --warning: 38 92% 50%;
+  --danger: 0 84% 60%;
 }
 
 .dark {
@@ -49,6 +74,14 @@
   --text-muted: 215 20% 55%;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
   --card-shadow-hover: 0 8px 24px rgba(99,102,241,0.2), 0 0 0 1px rgba(99,102,241,0.15);
+
+  /* v2.0 dark overrides */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+  --glass-bg: rgba(20,20,23,0.72);
+  --glass-border: rgba(255,255,255,0.08);
 }
 
 @theme {
@@ -67,6 +100,22 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+  --radius-xl: 1rem;        /* 16px cards */
+  --radius-2xl: 1.25rem;    /* 20px large cards */
+
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-danger: hsl(var(--danger));
+
+  /* Light-mode defaults — overridden per-key inside .dark { } above */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
+
+  --blur-glass: var(--glass-blur);
+
+  --font-sans: 'Inter', system-ui, sans-serif;
 }
 
 * {
@@ -77,6 +126,7 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: 'Inter', sans-serif;
+  font-feature-settings: 'cv02','cv03','cv04','cv11';
 }
 
 html, body, #root {
@@ -144,4 +194,18 @@ html {
 
 .skills-track:hover {
   animation-play-state: paused;
+}
+
+/* ─── v2.0 Apple-style utilities ─── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 0.5px solid var(--glass-border);
+}
+.card-elevated {
+  background: hsl(var(--card));
+  border: 0.5px solid hsl(var(--border));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
 }

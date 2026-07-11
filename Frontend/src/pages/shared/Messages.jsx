@@ -37,7 +37,7 @@ const RemoteAudio = ({ stream }) => {
 };
 
 const Messages = () => {
-  const { user, token } = useSelector((s) => s.auth);
+  const { user, token, onboarding } = useSelector((s) => s.auth);
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -123,6 +123,7 @@ const Messages = () => {
   const { data: conversations = [], isLoading: convoLoading } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => api.get('/messages/conversations').then((r) => r.data?.conversations ?? r.data ?? []),
+    enabled: !!user && !!token && onboarding?.onboardingComplete === true,
   });
 
   // Automatically select room if query params match, or build a temp fallback

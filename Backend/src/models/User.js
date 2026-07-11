@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema(
     
     password: { type: String, required: [true, 'Password is required'], select: false },
     gender: { type: String, enum: ['MALE', 'FEMALE', 'OTHER'], default: 'OTHER' },
+    dateOfBirth: { type: Date, default: null },
     role: { type: String, enum: ['CLIENT', 'FREELANCER', 'ADMIN'], default: 'CLIENT' },
     avatar: { type: String, default: null },
     profilePic: { type: String, default: null },
@@ -152,6 +153,12 @@ userSchema.pre('save', function () {
 // Compare password utility for Login
 userSchema.methods.comparePassword = async function (candidatePassword, userPassword) {
   return await bcrypt.compare(candidatePassword, userPassword);
+};
+
+userSchema.methods.getAge = function () {
+  if (!this.dateOfBirth) return null;
+  const diff = Date.now() - new Date(this.dateOfBirth).getTime();
+  return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
 };
 
 const User = mongoose.model('User', userSchema);

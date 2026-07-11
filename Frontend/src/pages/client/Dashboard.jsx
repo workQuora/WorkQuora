@@ -30,12 +30,13 @@ const STATUS_STYLE = {
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
-  const { user } = useSelector((state) => state.auth);
+  const { user, onboarding } = useSelector((state) => state.auth);
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['client-dashboard'],
     queryFn: () => api.get('/dashboard/client').then((r) => r.data?.data ?? r.data),
     staleTime: 60_000,
+    enabled: !!user && onboarding?.onboardingComplete === true,
   });
 
   const activeJobs = dashData?.stats?.activeJobs ?? 0;

@@ -15,12 +15,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let isLoggingOut = false;
+
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isLoggingOut) {
+      isLoggingOut = true;
       store.dispatch(logout());
       if (!window.location.pathname.startsWith('/auth')) window.location.href = '/auth';
+      setTimeout(() => { isLoggingOut = false; }, 3000);
     }
     return Promise.reject(error);
   }

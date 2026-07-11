@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  Search, Shield, Zap, Users, Briefcase, ArrowRight, ArrowUpRight, 
-  ChevronDown, X, Megaphone, ExternalLink, Sparkles, Star, MessageSquare, FileText, Check,
-  ClipboardList, UserCheck, UserPlus, Award, Compass, Rocket
+import {
+  Search, Shield, Zap, Users, Briefcase, ArrowRight, ArrowUpRight,
+  ChevronDown, X, ExternalLink, Sparkles, Star, MessageSquare, FileText, Check,
+  ClipboardList, UserCheck, UserPlus, Award, Compass, Rocket,
+  PlusCircle, LayoutDashboard, Wallet, MapPin
 } from 'lucide-react';
 import api from '../services/api';
 import AdBanner from '../components/shared/AdBanner';
@@ -14,6 +15,9 @@ import { GradientBlob } from '../components/ui/GradientBlob';
 import { AnimatedCard } from '../components/ui/AnimatedCard';
 import { StatCounter } from '../components/ui/StatCounter';
 import { fadeInUp, staggerContainer } from '../utils/animations';
+import { Card, Button, Badge } from '../components/ui';
+
+const JOB_STATUS_VARIANT = { open: 'success', 'in-progress': 'warning', completed: 'info', cancelled: 'danger' };
 
 const CATEGORIES = [
   { label: 'Design', emoji: '🎨' },
@@ -26,7 +30,7 @@ const CATEGORIES = [
 
 const Landing = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, role, user } = useSelector((s) => s.auth);
+  const { isAuthenticated, role, user, onboarding } = useSelector((s) => s.auth);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('clients'); // 'clients' | 'freelancers'
 
@@ -110,19 +114,31 @@ const Landing = () => {
 
   const featuredJobs = Array.isArray(jobsData) ? jobsData.slice(0, 6) : (jobsData?.data ?? jobsData?.jobs ?? []).slice(0, 6);
 
+  // City used for the freelancer hero subtitle — same source Navbar/Discover use
+  const homeCity = useSelector((s) => s.client?.details?.currentLocation?.city) || user?.location?.city;
+
+  // Client's own posted jobs + proposal stats for the client-role home view
+  const { data: clientDashData } = useQuery({
+    queryKey: ['client-dashboard-home'],
+    queryFn: () => api.get('/dashboard/client').then((r) => r.data?.data ?? r.data),
+    enabled: isAuthenticated && role === 'CLIENT' && onboarding?.onboardingComplete === true,
+    staleTime: 60_000,
+  });
+
   const handleSearch = (e) => {
     e.preventDefault();
     navigate(`/discover${searchQuery.trim() ? `?keyword=${encodeURIComponent(searchQuery.trim())}` : ''}`);
   };
 
-  // ── Render Logged-In Freelancer Home View ──
-  // ── Render Logged-In Freelancer Home View ──
+  // ── Render Logged-In Home View (role-aware) ──
   if (isAuthenticated) {
+    const isClientHome = role === 'CLIENT';
+
     // Fetch freelancer stats for the right column
     const { data: dashData } = useQuery({
       queryKey: ['freelancer-dashboard-home'],
       queryFn: () => api.get('/dashboard/freelancer').then((r) => r.data?.data ?? r.data),
-      enabled: role === 'FREELANCER',
+      enabled: role === 'FREELANCER' && onboarding?.onboardingComplete === true,
       staleTime: 60_000,
     });
 
@@ -134,282 +150,339 @@ const Landing = () => {
     const secondJob = jobList[1] || null;
     const premiumJob = jobList[2] || null;
 
+    const clientJobs = clientDashData?.recentJobs ?? [];
+    const pendingProposals = clientDashData?.stats?.pendingProposals ?? 0;
+
     // Only show real ads from DB — no hardcoded fallback ad
     const featuredAd = visibleAds && visibleAds.length > 0 ? visibleAds[0] : null;
 
     return (
-      <div className="bg-slate-50/50 dark:bg-[#07070c] text-slate-800 dark:text-foreground w-full min-h-screen py-10 transition-colors duration-300">
+      <div className="bg-slate-50/50 dark:bg-[#07070c] text-slate-800 dark:text-foreground w-full min-h-screen py-8 transition-colors duration-300">
         <div className="max-w-6xl mx-auto px-6">
-          
+
           {/* 1. Welcome Hero Section */}
-          <section className="text-center py-16 mb-10 bg-white dark:bg-[#0d0d15] rounded-3xl border border-slate-200/60 dark:border-white/5 shadow-sm p-8 relative overflow-hidden transition-all duration-300">
-            <GradientBlob className="opacity-15 dark:opacity-20" />
+          <section className="text-center py-10 md:py-12 mb-8 bg-white dark:bg-[#0d0d15] rounded-3xl border border-slate-200/60 dark:border-white/5 shadow-sm p-8 relative overflow-hidden transition-all duration-300">
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: 'radial-gradient(circle at 50% 0%, hsl(var(--primary) / 0.07), transparent 65%)' }}
+            />
+            <GradientBlob className="opacity-10 dark:opacity-15" />
             <motion.div
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
               className="max-w-xl mx-auto relative z-10"
             >
-              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight flex items-center justify-center gap-2">
-                Welcome Back, {user?.name?.split(' ')[0] || 'Partner'}! 👋
-              </h1>
-              
-              {/* Search input to match UI design exactly */}
-              <form onSubmit={handleSearch} className="relative flex items-center bg-[#f0f2f8] dark:bg-[#151522] border border-transparent dark:border-white/5 rounded-2xl px-4 py-2 mb-6">
-                <Search className="w-5 h-5 text-slate-400 dark:text-muted-foreground mr-3 shrink-0" />
+              <motion.h1 variants={fadeInUp} className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">
+                Welcome back, {user?.name?.split(' ')[0] || 'there'}
+              </motion.h1>
+              <motion.p variants={fadeInUp} className="text-sm text-slate-500 dark:text-muted-foreground mb-6">
+                {isClientHome
+                  ? 'Find the right talent for your next job'
+                  : `Find work near you${homeCity ? ` in ${homeCity}` : ''}`}
+              </motion.p>
+
+              {/* Search input */}
+              <motion.form
+                variants={fadeInUp}
+                onSubmit={handleSearch}
+                className="relative flex items-center gap-2 bg-slate-100 dark:bg-white/[0.03] border border-transparent focus-within:border-primary/30 rounded-full px-5 py-3 mb-5 shadow-sm transition-colors"
+              >
+                <Search className="w-4 h-4 text-slate-400 dark:text-muted-foreground mr-1 shrink-0" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search for open contracts, gigs..."
-                  className="bg-transparent text-slate-850 dark:text-foreground w-full focus:outline-none placeholder:text-slate-400 dark:placeholder:text-muted-foreground/60 text-xs font-semibold py-1.5"
+                  placeholder={isClientHome ? 'Search for talent, skills…' : 'Search for open contracts, gigs…'}
+                  className="bg-transparent text-slate-850 dark:text-foreground w-full focus:outline-none placeholder:text-slate-400 dark:placeholder:text-muted-foreground/60 text-sm font-medium"
                 />
-                <button type="submit" className="text-xs text-primary dark:text-primary font-bold hover:underline px-2 mr-2 shrink-0 cursor-pointer">
+                <button type="submit" className="text-xs text-primary font-bold hover:underline px-2 shrink-0 cursor-pointer">
                   Search Gigs
                 </button>
-              </form>
+              </motion.form>
 
-              {/* Categories badge grid */}
-              <div className="flex flex-wrap justify-center gap-2.5">
+              {/* Categories quick-chips */}
+              <motion.div variants={fadeInUp} className="flex flex-wrap justify-center gap-2">
                 {CATEGORIES.slice(0, 4).map((cat) => (
                   <button
                     key={cat.label}
                     onClick={() => navigate(`/discover?category=${cat.label.toLowerCase()}`)}
-                    className="px-5 py-1.5 bg-[#eef0fc] dark:bg-primary/10 border-none text-xs font-bold text-primary dark:text-primary-foreground rounded-full hover:bg-indigo-100/50 dark:hover:bg-primary/10 transition-all cursor-pointer"
+                    className="px-4 py-1.5 bg-primary/10 hover:bg-primary/15 text-primary border-none text-xs font-semibold rounded-full transition-colors cursor-pointer"
                   >
-                    {cat.label}
+                    {cat.emoji} {cat.label}
                   </button>
                 ))}
-              </div>
+              </motion.div>
             </motion.div>
           </section>
 
-          {/* 2. Grid Layout: Left Column (Recommended Jobs) & Right Column (Widgets) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Left Column: Recommended Jobs (2/3 width) */}
+          {/* 2. Grid Layout: Left Column (Recommended / Jobs) & Right Column (Widgets) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* Left Column (2/3 width) */}
             <div className="lg:col-span-2 flex flex-col gap-6">
-              
-              {/* Recommended Jobs Header */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                  Recommended Jobs for You
-                </h2>
-                <button 
-                  onClick={() => navigate('/discover')}
-                  className="text-xs font-bold text-primary dark:text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  View All &rarr;
-                </button>
-              </div>
 
-              {/* Two Column cards — 100% real DB data */}
-              {jobsLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {[0, 1].map((i) => (
-                    <div key={i} className="bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-3xl p-6 animate-pulse h-52">
-                      <div className="h-5 bg-slate-200 dark:bg-white/10 rounded w-1/3 mb-4" />
-                      <div className="h-4 bg-slate-200 dark:bg-white/10 rounded w-3/4 mb-3" />
-                      <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-full mb-2" />
-                      <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-2/3" />
-                    </div>
-                  ))}
-                </div>
-              ) : jobList.length === 0 ? (
-                <div className="col-span-2 flex flex-col items-center justify-center py-16 text-center bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-3xl">
-                  <Briefcase className="w-12 h-12 text-slate-300 dark:text-white/20 mb-4" />
-                  <p className="text-sm font-semibold text-slate-500 dark:text-muted-foreground mb-1">No jobs in database right now</p>
-                  <p className="text-xs text-slate-400 dark:text-muted-foreground/60 mb-5">New jobs will appear here as soon as clients post them.</p>
-                  <button onClick={() => navigate('/discover')} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold border-none cursor-pointer transition-all">
-                    Browse All Jobs
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Card 1 */}
-                  {firstJob && (
-                    <div className="bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-3xl p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300 h-full relative group">
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <span className="text-lg font-extrabold text-[#1E00A9] dark:text-[#10B981]">
-                            ₹{firstJob.budgetRange?.min?.toLocaleString('en-IN') || firstJob.budget?.toLocaleString('en-IN') || '—'}
-                          </span>
-                          <span className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full uppercase">
-                            {firstJob.category}
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-1">
-                          {firstJob.title}
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mb-4">
-                          {firstJob.description}
-                        </p>
-                        {firstJob.skillsRequired?.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mb-4">
-                            {firstJob.skillsRequired.slice(0, 2).map((skill) => (
-                              <span key={skill} className="px-2.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded-md text-[10px] font-semibold text-slate-500 dark:text-muted-foreground">
-                                {skill}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => navigate(`/job/${firstJob._id}`)}
-                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-600/10 border-none"
-                      >
-                        Apply Now
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Card 2 */}
-                  {secondJob && (
-                    <div className="bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-3xl p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300 h-full relative group">
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <span className="text-lg font-extrabold text-[#1E00A9] dark:text-[#10B981]">
-                            ₹{secondJob.budgetRange?.min?.toLocaleString('en-IN') || secondJob.budget?.toLocaleString('en-IN') || '—'}
-                          </span>
-                          <span className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full uppercase">
-                            {secondJob.category}
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-1">
-                          {secondJob.title}
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mb-4">
-                          {secondJob.description}
-                        </p>
-                        {secondJob.skillsRequired?.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mb-4">
-                            {secondJob.skillsRequired.slice(0, 2).map((skill) => (
-                              <span key={skill} className="px-2.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded-md text-[10px] font-semibold text-slate-500 dark:text-muted-foreground">
-                                {skill}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => navigate(`/job/${secondJob._id}`)}
-                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-600/10 border-none"
-                      >
-                        Apply Now
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Premium Listing block card — only shown if there's a 3rd DB job */}
-              {premiumJob && (
-                <div className="bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all duration-300 hover:border-amber-500/20 group">
-                  <div className="flex-1">
-                    <span className="inline-flex items-center text-[9px] font-extrabold uppercase px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-500 rounded border border-amber-500/20 mb-3 tracking-wider">
-                      Premium Listing
-                    </span>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-primary transition-colors">
-                      {premiumJob.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed max-w-xl mb-4 line-clamp-2">
-                      {premiumJob.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-semibold">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
-                        💰 ₹{premiumJob.budgetRange?.min?.toLocaleString('en-IN') || premiumJob.budget?.toLocaleString('en-IN') || '—'}
-                        {premiumJob.budgetRange?.max ? ` – ₹${premiumJob.budgetRange.max.toLocaleString('en-IN')}` : ''}
-                      </span>
-                      <span>⏱️ {premiumJob.duration || '2 Months'}</span>
-                    </div>
+              {isClientHome ? (
+                <>
+                  {/* Client header + primary CTA */}
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Your Active Jobs
+                    </h2>
+                    <Button variant="primary" size="sm" onClick={() => navigate('/client/post-job')}>
+                      <PlusCircle className="w-3.5 h-3.5" /> Post a New Job
+                    </Button>
                   </div>
-                  <button
-                    onClick={() => navigate(`/job/${premiumJob._id}`)}
-                    className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md shadow-indigo-600/10 border-none"
-                  >
-                    View Detailed Brief
-                  </button>
-                </div>
+
+                  {clientJobs.length === 0 ? (
+                    <Card className="flex flex-col items-center justify-center py-16 text-center">
+                      <Briefcase className="w-12 h-12 text-slate-300 dark:text-white/20 mb-4" />
+                      <p className="text-sm font-semibold text-slate-500 dark:text-muted-foreground mb-1">You haven't posted any jobs yet</p>
+                      <p className="text-xs text-slate-400 dark:text-muted-foreground/60 mb-5">Post a job to start receiving proposals from freelancers.</p>
+                      <Button variant="primary" size="sm" onClick={() => navigate('/client/post-job')}>
+                        <PlusCircle className="w-3.5 h-3.5" /> Post a New Job
+                      </Button>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {clientJobs.slice(0, 4).map((job) => (
+                        <Card
+                          key={job._id}
+                          hover
+                          onClick={() => navigate(`/job/${job._id}`)}
+                          className="cursor-pointer flex flex-col justify-between"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                              <Badge variant={JOB_STATUS_VARIANT[job.status] || 'neutral'}>{job.status}</Badge>
+                              <span className="text-[10px] text-slate-400 dark:text-muted-foreground/60 uppercase font-semibold truncate">{job.category}</span>
+                            </div>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug mb-2 line-clamp-1">
+                              {job.title}
+                            </h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
+                              {job.description}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-white/5">
+                            <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                              ₹{job.budgetRange?.min?.toLocaleString('en-IN') || job.budget?.toLocaleString('en-IN') || '—'}
+                            </span>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+
+                  <Card className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Need more hands?</h3>
+                      <p className="text-xs text-muted-foreground">Browse verified freelancers ready to help nearby.</p>
+                    </div>
+                    <Button variant="secondary" size="sm" onClick={() => navigate('/discover')} className="shrink-0">
+                      Find Talent Nearby <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </Card>
+                </>
+              ) : (
+                <>
+                  {/* Freelancer header */}
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Recommended Jobs for You
+                    </h2>
+                    <button
+                      onClick={() => navigate('/discover')}
+                      className="text-xs font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      View All &rarr;
+                    </button>
+                  </div>
+
+                  {/* Two Column cards — 100% real DB data */}
+                  {jobsLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {[0, 1].map((i) => (
+                        <div key={i} className="bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-2xl p-6 animate-pulse h-52">
+                          <div className="h-5 bg-slate-200 dark:bg-white/10 rounded w-1/3 mb-4" />
+                          <div className="h-4 bg-slate-200 dark:bg-white/10 rounded w-3/4 mb-3" />
+                          <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-full mb-2" />
+                          <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-2/3" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : jobList.length === 0 ? (
+                    <Card className="flex flex-col items-center justify-center py-16 text-center">
+                      <Briefcase className="w-12 h-12 text-slate-300 dark:text-white/20 mb-4" />
+                      <p className="text-sm font-semibold text-slate-500 dark:text-muted-foreground mb-1">No jobs in database right now</p>
+                      <p className="text-xs text-slate-400 dark:text-muted-foreground/60 mb-5">New jobs will appear here as soon as clients post them.</p>
+                      <Button variant="primary" size="sm" onClick={() => navigate('/discover')}>Browse All Jobs</Button>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {[firstJob, secondJob].filter(Boolean).map((job) => (
+                        <Card key={job._id} hover className="flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-4">
+                              <span className="text-lg font-extrabold text-[#1E00A9] dark:text-[#10B981]">
+                                ₹{job.budgetRange?.min?.toLocaleString('en-IN') || job.budget?.toLocaleString('en-IN') || '—'}
+                              </span>
+                              <Badge variant="success">{job.category}</Badge>
+                            </div>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug mb-2 line-clamp-1">
+                              {job.title}
+                            </h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mb-3">
+                              {job.description}
+                            </p>
+                            {job.distance && (
+                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-3">
+                                <MapPin className="w-3 h-3" /> {job.distance} away
+                              </div>
+                            )}
+                            {job.skillsRequired?.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mb-4">
+                                {job.skillsRequired.slice(0, 2).map((skill) => (
+                                  <span key={skill} className="px-2.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded-md text-[10px] font-semibold text-slate-500 dark:text-muted-foreground">
+                                    {skill}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <Button variant="primary" size="sm" className="w-full" onClick={() => navigate(`/job/${job._id}`)}>
+                            Apply Now
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Premium Listing block card — only shown if there's a 3rd DB job */}
+                  {premiumJob && (
+                    <Card className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-amber-500/20 transition-colors group">
+                      <div className="flex-1">
+                        <span className="inline-flex items-center text-[9px] font-extrabold uppercase px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-500 rounded border border-amber-500/20 mb-3 tracking-wider">
+                          Premium Listing
+                        </span>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-primary transition-colors">
+                          {premiumJob.title}
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed max-w-xl mb-4 line-clamp-2">
+                          {premiumJob.description}
+                        </p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground font-semibold">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
+                            💰 ₹{premiumJob.budgetRange?.min?.toLocaleString('en-IN') || premiumJob.budget?.toLocaleString('en-IN') || '—'}
+                            {premiumJob.budgetRange?.max ? ` – ₹${premiumJob.budgetRange.max.toLocaleString('en-IN')}` : ''}
+                          </span>
+                          <span>⏱️ {premiumJob.duration || '2 Months'}</span>
+                        </div>
+                      </div>
+                      <Button variant="secondary" size="sm" onClick={() => navigate(`/job/${premiumJob._id}`)} className="shrink-0">
+                        View Detailed Brief
+                      </Button>
+                    </Card>
+                  )}
+                </>
               )}
 
             </div>
 
             {/* Right Column: Widgets (1/3 width) */}
             <div className="flex flex-col gap-6">
-              
-              {/* Promoted Campaigns Widget — only shown if real ads exist in DB */}
-              <div className="bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-3xl p-6 shadow-sm flex flex-col justify-between transition-all duration-300">
-                <div className="flex items-center gap-2 mb-4">
-                  <Megaphone className="w-4 h-4 text-primary shrink-0" />
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                    Promoted Campaigns
-                  </h3>
-                </div>
 
-                {adsLoading ? (
-                  <div className="aspect-video bg-slate-100 dark:bg-white/5 rounded-2xl animate-pulse mb-4" />
-                ) : featuredAd ? (
-                  <div>
-                    <div className="bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 rounded-2xl overflow-hidden mb-4 relative aspect-video flex flex-col justify-end p-4">
-                      {featuredAd.mediaUrl && (
-                        <img
-                          src={featuredAd.mediaUrl}
-                          alt={featuredAd.title}
-                          className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-overlay"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
-                      <div className="relative z-10 text-left">
-                        <span className="inline-flex text-[8px] font-extrabold bg-primary text-white uppercase px-1.5 py-0.5 rounded mb-1">
-                          {featuredAd.brandName || 'Sponsored'}
-                        </span>
-                        <h4 className="text-xs font-bold text-white leading-tight">{featuredAd.title}</h4>
+              {/* Promoted ad — only rendered at all when loading or an ad exists (no placeholder clutter) */}
+              {(adsLoading || featuredAd) && (
+                <Card>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-muted-foreground/60 uppercase tracking-widest">Promoted</span>
+                  {adsLoading ? (
+                    <div className="aspect-video bg-slate-100 dark:bg-white/5 rounded-2xl animate-pulse mt-3" />
+                  ) : (
+                    <div className="mt-3">
+                      <div className="bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 rounded-2xl overflow-hidden mb-3 relative aspect-video flex flex-col justify-end p-4">
+                        {featuredAd.mediaUrl && (
+                          <img
+                            src={featuredAd.mediaUrl}
+                            alt={featuredAd.title}
+                            className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-overlay"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+                        <div className="relative z-10 text-left">
+                          <span className="inline-flex text-[8px] font-extrabold bg-primary text-white uppercase px-1.5 py-0.5 rounded mb-1">
+                            {featuredAd.brandName || 'Sponsored'}
+                          </span>
+                          <h4 className="text-xs font-bold text-white leading-tight">{featuredAd.title}</h4>
+                        </div>
                       </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed mb-4">{featuredAd.description}</p>
+                      <Button variant="secondary" size="sm" className="w-full" onClick={() => handleAdClick(featuredAd)}>
+                        Learn More
+                      </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed mb-6">{featuredAd.description}</p>
-                    <button
-                      onClick={() => handleAdClick(featuredAd)}
-                      className="w-full py-2.5 bg-transparent hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-foreground rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    >
-                      Learn More
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <Megaphone className="w-8 h-8 text-slate-300 dark:text-white/20 mb-3" />
-                    <p className="text-xs text-muted-foreground">No active campaigns right now.</p>
-                  </div>
-                )}
-              </div>
+                  )}
+                </Card>
+              )}
 
-              {/* Manage Tasks Widget */}
-              <div className="bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-3xl p-6 shadow-sm flex flex-col justify-between transition-all duration-300">
-                <div>
+              {isClientHome ? (
+                /* Quick Actions Widget (CLIENT) */
+                <Card>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
+                    Quick Actions
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                    You have {pendingProposals} pending proposal{pendingProposals !== 1 ? 's' : ''} to review.
+                  </p>
+
+                  <div className="flex flex-col gap-2.5">
+                    {[
+                      { icon: PlusCircle, label: 'Post a Job', to: '/client/post-job' },
+                      { icon: LayoutDashboard, label: 'Go to Dashboard', to: '/client/dashboard' },
+                      { icon: Wallet, label: 'Manage Wallet', to: '/shared/wallet' },
+                      { icon: MessageSquare, label: 'Messages', to: '/shared/messages' },
+                    ].map((action) => (
+                      <button
+                        key={action.label}
+                        onClick={() => navigate(action.to)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <action.icon className="w-3.5 h-3.5 text-primary" /> {action.label}
+                        </span>
+                        <span className="text-slate-400">&rarr;</span>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              ) : (
+                /* Manage Tasks Widget (FREELANCER) */
+                <Card>
                   <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
                     Manage Tasks
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-6">
                     You have {activeMilestones} active milestone{activeMilestones !== 1 ? 's' : ''} due this week. Keep your rating high by staying on track.
                   </p>
-                </div>
 
-                <div className="flex flex-col gap-2.5">
-                  <button 
-                    onClick={() => navigate('/freelancer/dashboard')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
-                  >
-                    <span>Go to Dashboard</span>
-                    <span className="text-slate-400">&rarr;</span>
-                  </button>
-                  <button 
-                    onClick={() => navigate('/shared/wallet')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
-                  >
-                    <span>Manage Wallet</span>
-                    <span className="text-slate-400">&rarr;</span>
-                  </button>
-                </div>
-              </div>
+                  <div className="flex flex-col gap-2.5">
+                    <button
+                      onClick={() => navigate('/freelancer/dashboard')}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
+                    >
+                      <span>Go to Dashboard</span>
+                      <span className="text-slate-400">&rarr;</span>
+                    </button>
+                    <button
+                      onClick={() => navigate('/shared/wallet')}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
+                    >
+                      <span>Manage Wallet</span>
+                      <span className="text-slate-400">&rarr;</span>
+                    </button>
+                  </div>
+                </Card>
+              )}
 
             </div>
 

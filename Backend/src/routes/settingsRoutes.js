@@ -11,4 +11,7 @@ router.get('/', authorize('ADMIN'), settingsController.getSettings);
 router.get('/privacy', settingsController.getPrivacySettings);
 router.put('/privacy', settingsController.updatePrivacySettings);
 
+router.get('/notifications', settingsController.getNotificationPrefs);
+router.put('/notifications', settingsController.updateNotificationPrefs);
+
 module.exports = router;

@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import {
   MapPin, Sun, Moon, MessageSquare, Compass,
-  ChevronDown, Crosshair, MapPinned, Search, Loader2, PlusCircle, Wallet, Home,
+  ChevronDown, Crosshair, Search, Loader2, PlusCircle, Wallet, Home,
   Menu, X, Shield, Briefcase, Award, TrendingUp, Users
 } from 'lucide-react';
 import ProfileDropdown from './ui/ProfileDropdown';
@@ -22,7 +22,7 @@ const Navbar = () => {
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
 
-  const { user } = useSelector((state) => state.auth);
+  const { user, onboarding } = useSelector((state) => state.auth);
   const freelancerRadius = useSelector((state) => state.freelancer?.radar?.radiusKm) || 15;
 
   const { theme, toggleTheme } = useTheme();
@@ -31,8 +31,7 @@ const Navbar = () => {
   const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
   const [activeCity, setActiveCity] = useState('Bhopal, MP');
   const [locLoading, setLocLoading] = useState(false);
-  const [pincodeInput, setPincodeInput] = useState('');
-  const [manualCityInput, setManualCityInput] = useState('');
+  const [locationInput, setLocationInput] = useState('');
 
   // Mobile drawer states
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -46,7 +45,7 @@ const Navbar = () => {
   const { data: conversations = [] } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => api.get('/messages/conversations').then((r) => r.data?.conversations ?? r.data ?? []),
-    enabled: !!user,
+    enabled: !!user && onboarding?.onboardingComplete === true,
     refetchInterval: 15000,
   });
 
@@ -142,32 +141,32 @@ const Navbar = () => {
     );
   };
 
-  const handlePincodeSubmit = async (e) => {
+  const handleLocationSearch = async (e) => {
     e.preventDefault();
-    if (pincodeInput.length !== 6) return;
-    setLocLoading(true);
-    try {
-      const res = await fetch(`https://api.postalpincode.in/pincode/${pincodeInput}`);
-      const data = await res.json();
-      if (data[0]?.Status === 'Success') {
-        const po = data[0].PostOffice[0];
-        const formattedCity = normalizeLocationLabel(po.District || po.Block || 'Bhopal', po.State || 'MP');
-        await dispatchLocationUpdate(23.2599, 77.4126, formattedCity);
-        setPincodeInput('');
-      }
-    } catch (err) { console.error(err); }
-    finally { setLocLoading(false); }
-  };
+    const value = locationInput.trim();
+    if (!value) return;
 
-  const handleManualSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!manualCityInput.trim()) return;
-    let cityName = manualCityInput.trim();
-    if (!cityName.includes(',')) {
-      cityName = `${cityName}, MP`;
+    // If it's exactly 6 digits, treat as pincode
+    if (/^\d{6}$/.test(value)) {
+      setLocLoading(true);
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${value}`);
+        const data = await res.json();
+        if (data[0]?.Status === 'Success') {
+          const po = data[0].PostOffice[0];
+          const formattedCity = normalizeLocationLabel(po.District || po.Block || 'Bhopal', po.State || 'MP');
+          await dispatchLocationUpdate(23.2599, 77.4126, formattedCity);
+          setLocationInput('');
+        }
+      } catch (err) { console.error(err); }
+      finally { setLocLoading(false); }
+    } else {
+      // Treat as city/region
+      let cityName = value;
+      if (!cityName.includes(',')) cityName = `${cityName}, MP`;
+      dispatchLocationUpdate(23.2599, 77.4126, cityName);
+      setLocationInput('');
     }
-    dispatchLocationUpdate(23.2599, 77.4126, cityName);
-    setManualCityInput('');
   };
 
   const handleSearchSubmit = (e) => {
@@ -227,26 +226,25 @@ const Navbar = () => {
                 )}
               </NavLink>
             )}
-            {user && (
-              user?.role?.toLowerCase() === 'client' ? (
-                <NavLink 
-                  to="/client/post-job" 
-                  className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-                  }`}
-                >
-                  <PlusCircle size={14} className="text-primary dark:text-primary" /><span>Post Job</span>
-                </NavLink>
-              ) : (
-                <NavLink 
-                  to="/freelancer/earnings" 
-                  className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-                  }`}
-                >
-                  <Wallet size={14} className="text-emerald-600 dark:text-emerald-400" /><span>Earnings</span>
-                </NavLink>
-              )
+            {user?.role?.toLowerCase() === 'client' && (
+              <NavLink
+                to="/client/post-job"
+                className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                }`}
+              >
+                <PlusCircle size={14} className="text-primary dark:text-primary" /><span>Post Job</span>
+              </NavLink>
+            )}
+            {user?.role?.toLowerCase() === 'freelancer' && (
+              <NavLink
+                to="/freelancer/earnings"
+                className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                }`}
+              >
+                <Wallet size={14} className="text-emerald-600 dark:text-emerald-400" /><span>Earnings</span>
+              </NavLink>
             )}
           </div>
         </div>
@@ -267,43 +265,47 @@ const Navbar = () => {
             </button>
 
             {isLocationMenuOpen && (
-              <div className="absolute right-0 mt-2.5 w-80 bg-white dark:bg-[#0f0f18] border border-slate-200 dark:border-white/5 rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <p className="text-xs font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-widest mb-3">Set Location Radar</p>
+              <div className="absolute right-0 mt-2.5 w-72 bg-white dark:bg-[#0f0f18] border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
 
-                <button onClick={handleAutoLocationFetch} disabled={locLoading}
-                  className="w-full flex items-center justify-between gap-3 px-3.5 py-3 bg-indigo-50 dark:bg-primary/5 hover:bg-indigo-100 dark:hover:bg-primary/10 border border-indigo-200 dark:border-primary/20 rounded-xl text-xs font-bold text-primary dark:text-primary transition-all mb-4 group">
-                  <div className="flex items-center gap-2.5">
-                    {locLoading ? <Loader2 size={14} className="animate-spin" /> : <Crosshair size={14} className="group-hover:rotate-90 transition-transform" />}
-                    <span>Use Current GPS</span>
-                  </div>
-                  <span className="text-[9px] bg-indigo-100 dark:bg-primary/10 px-1.5 py-0.5 rounded text-primary dark:text-primary uppercase font-bold">GPS</span>
+                <div className="px-3 pt-2 pb-1.5">
+                  <span className="text-sm font-medium text-slate-500 dark:text-muted-foreground">Location</span>
+                </div>
+
+                <button
+                  onClick={handleAutoLocationFetch}
+                  disabled={locLoading}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-indigo-50 dark:bg-primary/10 hover:bg-indigo-100 dark:hover:bg-primary/15 transition-colors mb-2 group disabled:opacity-60"
+                >
+                  {locLoading
+                    ? <Loader2 size={17} className="animate-spin text-primary" />
+                    : <Crosshair size={17} className="text-primary group-hover:rotate-90 transition-transform duration-300" />}
+                  <span className="text-sm font-medium text-primary">Use current location</span>
                 </button>
 
-                <form onSubmit={handlePincodeSubmit} className="mb-3">
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wider block mb-1.5">Pincode</label>
-                  <div className="flex bg-slate-50 dark:bg-background border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2 items-center focus-within:border-primary/40 transition-all">
-                    <MapPinned size={14} className="text-slate-400 dark:text-muted-foreground mr-2" />
-                    <input type="text" maxLength="6" placeholder="e.g. 462001"
-                      value={pincodeInput} onChange={(e) => setPincodeInput(e.target.value.replace(/\D/g, ''))}
-                      className="bg-transparent border-none outline-none w-full text-xs text-slate-800 dark:text-foreground placeholder:text-slate-400 dark:placeholder:text-muted-foreground/60 font-medium" />
-                    {pincodeInput.length === 6 && (
-                      <button type="submit" className="text-xs text-primary dark:text-primary font-bold hover:underline">Apply</button>
+                <div className="flex items-center gap-2 px-3 py-1 mb-1">
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-white/10"></div>
+                  <span className="text-xs text-slate-400 dark:text-muted-foreground/60">or</span>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-white/10"></div>
+                </div>
+
+                <form onSubmit={handleLocationSearch} className="p-1">
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 focus-within:border-primary/40 focus-within:bg-white dark:focus-within:bg-white/[0.05] transition-colors">
+                    <Search size={15} className="text-slate-400 dark:text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search city or pincode"
+                      value={locationInput}
+                      onChange={(e) => setLocationInput(e.target.value)}
+                      className="flex-1 bg-transparent border-none outline-none text-sm text-slate-800 dark:text-foreground placeholder:text-slate-400 dark:placeholder:text-muted-foreground/50"
+                    />
+                    {locationInput.trim() && (
+                      <button type="submit" className="text-xs font-semibold text-primary hover:underline shrink-0">
+                        Go
+                      </button>
                     )}
                   </div>
                 </form>
 
-                <form onSubmit={handleManualSearchSubmit}>
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wider block mb-1.5">City / Region</label>
-                  <div className="flex bg-slate-50 dark:bg-background border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2 items-center focus-within:border-primary/40 transition-all">
-                    <Search size={14} className="text-slate-400 dark:text-muted-foreground mr-2" />
-                    <input type="text" placeholder="e.g. MP Nagar, Bhopal"
-                      value={manualCityInput} onChange={(e) => setManualCityInput(e.target.value)}
-                      className="bg-transparent border-none outline-none w-full text-xs text-slate-800 dark:text-foreground placeholder:text-slate-400 dark:placeholder:text-muted-foreground/60 font-medium" />
-                    {manualCityInput.trim() && (
-                      <button type="submit" className="text-xs text-primary dark:text-primary font-bold hover:underline">Go</button>
-                    )}
-                  </div>
-                </form>
               </div>
             )}
           </div>
@@ -390,15 +392,16 @@ const Navbar = () => {
                     )}
                   </Link>
                 )}
-                {user?.role?.toLowerCase() === 'client' ? (
+                {user?.role?.toLowerCase() === 'client' && (
                   <Link to="/client/post-job" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">
                     <PlusCircle className="w-4 h-4 text-primary dark:text-primary" /> Post a Job
                   </Link>
-                ) : user ? (
+                )}
+                {user?.role?.toLowerCase() === 'freelancer' && (
                   <Link to="/freelancer/earnings" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">
                     <Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> My Earnings
                   </Link>
-                ) : null}
+                )}
               </div>
 
               {/* Set radar section on mobile */}

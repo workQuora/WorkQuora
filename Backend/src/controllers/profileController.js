@@ -69,11 +69,23 @@ exports.getProfile = async (req, res, next) => {
 // PUT /profile/update
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, bio, title, skills, hourlyRate, isAvailable, serviceRadius, username, twoFactorEnabled, address, city, coordinates, email, mobileNumber } = req.body;
+    const { name, bio, title, skills, hourlyRate, isAvailable, serviceRadius, username, twoFactorEnabled, address, city, coordinates, email, mobileNumber, dateOfBirth } = req.body;
+
+    if (dateOfBirth) {
+      const dob = new Date(dateOfBirth);
+      if (isNaN(dob.getTime())) {
+        return res.status(400).json({ success: false, message: 'Invalid date of birth' });
+      }
+      const age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      if (age < 18) {
+        return res.status(400).json({ success: false, message: 'You must be at least 18 years old' });
+      }
+    }
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
+    if (dateOfBirth) user.dateOfBirth = new Date(dateOfBirth);
     if (name !== undefined) user.name = name;
     if (twoFactorEnabled !== undefined) user.twoFactorEnabled = twoFactorEnabled;
     if (bio !== undefined) user.bio = bio;
