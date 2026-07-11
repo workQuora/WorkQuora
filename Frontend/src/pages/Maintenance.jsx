@@ -1,8 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import LoadingScreen from '../components/LoadingScreen';
-import ThreeScene from '../components/ThreeScene';
-import Aurora from '../components/Aurora';
-import Meteor from '../components/Meteor';
 import Cursor from '../components/Cursor';
 import Hero from '../components/Hero';
 import Timeline from '../components/Timeline';
@@ -13,11 +10,45 @@ import FAQ from '../components/FAQ';
 import Footer from '../components/Footer';
 import Logo from '../components/Logo';
 import { useAppStore } from '../store/appStore';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Heavy WebGL/3D — code-split so three.js + drei never load on mobile
+const ThreeScene = lazy(() => import('../components/ThreeScene'));
+const Aurora = lazy(() => import('../components/Aurora'));
+const Meteor = lazy(() => import('../components/Meteor'));
+
+// Pure-CSS animated backdrop for mobile — no WebGL, no canvas, no requestAnimationFrame
+const mobileGradientStyles = `
+  @keyframes mqDrift1 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(6%, -8%, 0) scale(1.1); }
+  }
+  @keyframes mqDrift2 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(-8%, 6%, 0) scale(1.08); }
+  }
+  .mq-blob-1 { animation: mqDrift1 20s ease-in-out infinite; }
+  .mq-blob-2 { animation: mqDrift2 24s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .mq-blob-1, .mq-blob-2 { animation: none; }
+  }
+`;
+
+const MobileGradientBackdrop = () => (
+  <div className="absolute inset-0 z-0 bg-[#040408] overflow-hidden pointer-events-none">
+    <style>{mobileGradientStyles}</style>
+    <div className="absolute inset-0 bg-gradient-to-tr from-[#020205] via-transparent to-[#070512]" />
+    <div className="mq-blob-1 absolute -top-[10%] -left-[10%] w-[80vw] h-[80vw] rounded-full bg-gradient-to-br from-indigo-600/20 to-purple-700/10 blur-[100px]" />
+    <div className="mq-blob-2 absolute -bottom-[15%] -right-[10%] w-[70vw] h-[70vw] rounded-full bg-gradient-to-tr from-cyan-500/15 to-primary/10 blur-[90px]" />
+    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,#030307_90%)]" />
+  </div>
+);
 
 const Maintenance = () => {
   const { isLoadingComplete, isMaintenanceMode, maintenanceData } = useAppStore();
   const [mounted, setMounted] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setMounted(true);
@@ -70,12 +101,19 @@ const Maintenance = () => {
       {/* Loading Overlay (Cinematic 3s delay) */}
       <LoadingScreen />
 
-      {/* Background Interactive 3D Canvas Scene */}
-      <ThreeScene />
+      {/* Background: heavy WebGL scene on desktop, lightweight CSS gradient on mobile */}
+      {isMobile ? (
+        <MobileGradientBackdrop />
+      ) : (
+        <Suspense fallback={null}>
+          {/* Background Interactive 3D Canvas Scene */}
+          <ThreeScene />
 
-      {/* Spawners & Background Lighting Blobs */}
-      <Aurora />
-      <Meteor />
+          {/* Spawners & Background Lighting Blobs */}
+          <Aurora />
+          <Meteor />
+        </Suspense>
+      )}
 
       {/* Primary Page Wrapper */}
       <AnimatePresence>
