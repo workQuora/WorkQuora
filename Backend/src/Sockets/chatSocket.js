@@ -261,6 +261,31 @@ const chatSocketHandler = (io) => {
           return;
         }
 
+        // Enforce Chat Rules (same as REST sendMessage controller):
+        // - Client can initiate chat with any worker anytime.
+        // - Worker CANNOT initiate chat first.
+        // - Worker can only send a message after EITHER: (a) Client accepted their bid, OR (b) Client sent the first message.
+        if (socket.user?.role === 'FREELANCER') {
+          const Proposal = require('../models/Proposal');
+
+          const clientInitiated = await Message.exists({
+            sender: receiverId,
+            receiver: senderId,
+            job: jobId
+          });
+
+          const proposalAccepted = await Proposal.exists({
+            job: jobId,
+            freelancer: senderId,
+            status: 'accepted'
+          });
+
+          if (!clientInitiated && !proposalAccepted) {
+            socket.emit('error', { message: 'Workers cannot initiate a chat unless the Client initiates it or accepts their bid.' });
+            return;
+          }
+        }
+
         // Check if receiver is currently online
         const recipientSockets = io.sockets.adapter.rooms.get(receiverId);
         const isOnline = recipientSockets && recipientSockets.size > 0;
