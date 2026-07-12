@@ -79,7 +79,20 @@ export const useAuth = () => {
       toast.success(`Welcome, ${u.name?.split(' ')[0]}!`);
       navigate('/home');
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Social login failed.'),
+    onError: (err) => {
+      // Log the raw error for debugging — the toast alone can't show a stack/response body.
+      console.error('Social login failed:', err);
+      const backendMessage = err.response?.data?.message;
+      if (backendMessage) {
+        toast.error(backendMessage);
+      } else if (!err.response) {
+        toast.error('Social login failed: could not reach the server. Check your connection.');
+      } else {
+        // No .message means the backend didn't return the JSON we expect (e.g. a routing
+        // 404 returning an HTML body) — surface the status so it's debuggable in prod.
+        toast.error(`Social login failed (server returned ${err.response.status}). See console for details.`);
+      }
+    },
   });
 
   const assignRoleMutation = useMutation({

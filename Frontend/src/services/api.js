@@ -3,7 +3,7 @@ import { store } from '../redux/store';
 import { logout } from '../actions/authSlice';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://workquora.onrender.com/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'https://workquora-e7jd.onrender.com/api/v1',
   timeout: 15000,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },

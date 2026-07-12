@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://workquora.onrender.com';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://workquora-e7jd.onrender.com';
 
 class SocketService {
   socket = null;

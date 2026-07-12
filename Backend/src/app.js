@@ -72,7 +72,7 @@ app.use(helmet({
         "ws://localhost:*",
         "wss://localhost:*",
         // Also allow the Render backend itself to be reachable from the browser.
-        "https://workquora.onrender.com",
+        "https://workquora-e7jd.onrender.com",
         "https://api.razorpay.com"
       ],
       frameSrc: ["'self'", "https://api.razorpay.com"],

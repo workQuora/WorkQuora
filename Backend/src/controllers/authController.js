@@ -46,6 +46,15 @@ const getOnboardingStatus = (user) => {
   }
 };
 
+// Cross-site cookie attrs: frontend (workquora.com) and backend (onrender.com) are
+// different registrable domains, so cookies need SameSite=None + Secure in production
+// (browsers reject SameSite=None without Secure). Locally both run on http://localhost,
+// where Secure would block the cookie from being set at all, so we fall back to Lax.
+const authCookieOptions = () =>
+  process.env.NODE_ENV === 'production'
+    ? { secure: true, sameSite: 'none' }
+    : { secure: false, sameSite: 'lax' };
+
 // Session based token response generation (Module 1)
 const sendTokenResponse = async (user, statusCode, req, res) => {
   const ua = parseUserAgent(req.headers['user-agent']);
@@ -113,15 +122,13 @@ const sendTokenResponse = async (user, statusCode, req, res) => {
   res.cookie('jwt', accessToken, {
     expires: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    ...authCookieOptions(),
   });
 
   res.cookie('refreshToken', refreshToken, {
     expires: expiresAt,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    ...authCookieOptions(),
   });
 
   const userObj = user.toObject ? user.toObject() : user;
@@ -535,8 +542,8 @@ exports.logoutUser = async (req, res, next) => {
       entityId: req.user?.id || null
     });
 
-    res.cookie('jwt', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true });
-    res.cookie('refreshToken', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true });
+    res.cookie('jwt', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true, ...authCookieOptions() });
+    res.cookie('refreshToken', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true, ...authCookieOptions() });
     res.status(200).json({ success: true, message: 'Logged out' });
   } catch (error) {
     next(error);
@@ -555,8 +562,8 @@ exports.logoutAllDevices = async (req, res, next) => {
       entityId: req.user.id
     });
 
-    res.cookie('jwt', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true });
-    res.cookie('refreshToken', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true });
+    res.cookie('jwt', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true, ...authCookieOptions() });
+    res.cookie('refreshToken', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true, ...authCookieOptions() });
     res.status(200).json({ success: true, message: 'Logged out from all sessions' });
   } catch (error) {
     next(error);
@@ -607,15 +614,13 @@ exports.refreshSession = async (req, res, next) => {
     res.cookie('jwt', newAccessToken, {
       expires: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...authCookieOptions(),
     });
 
     res.cookie('refreshToken', newRefreshToken, {
       expires: session.expiresAt,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...authCookieOptions(),
     });
 
     res.status(200).json({
@@ -997,8 +1002,8 @@ exports.deleteAccount = async (req, res, next) => {
       entityId: userId
     });
 
-    res.cookie('jwt', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true });
-    res.cookie('refreshToken', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true });
+    res.cookie('jwt', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true, ...authCookieOptions() });
+    res.cookie('refreshToken', 'none', { expires: new Date(Date.now() + 10 * 1000), httpOnly: true, ...authCookieOptions() });
 
     res.status(200).json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
