@@ -9,7 +9,7 @@ const Footer = () => {
       <div className="max-w-6xl mx-auto px-6">
         
         {/* Top Section: Detailed Links Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-8 mb-12">
           
           {/* Column 1: Brand & Description */}
           <div className="flex flex-col gap-4">
@@ -25,7 +25,7 @@ const Footer = () => {
           </div>
 
           {/* Column 2: Freelance Services */}
-          <div>
+          <div className="text-center md:text-left pt-8 md:pt-0 border-t border-border/40 md:border-t-0">
             <h4 className="text-xs font-bold text-foreground uppercase tracking-widest mb-4">
               Explore Services
             </h4>
@@ -46,7 +46,7 @@ const Footer = () => {
           </div>
 
           {/* Column 3: Trust & Company */}
-          <div>
+          <div className="text-center md:text-left pt-8 md:pt-0 border-t border-border/40 md:border-t-0">
             <h4 className="text-xs font-bold text-foreground uppercase tracking-widest mb-4">
               Trust & Company
             </h4>
@@ -67,20 +67,20 @@ const Footer = () => {
           </div>
 
           {/* Column 4: Contact & Support */}
-          <div>
+          <div className="text-center md:text-left pt-8 md:pt-0 border-t border-border/40 md:border-t-0">
             <h4 className="text-xs font-bold text-foreground uppercase tracking-widest mb-4">
               Contact Us
             </h4>
             <ul className="space-y-3 text-xs text-muted-foreground">
-              <li className="flex items-center gap-2">
+              <li className="flex items-center justify-center md:justify-start gap-2">
                 <Mail className="w-4 h-4 text-primary shrink-0" />
                 <span className="font-medium hover:text-primary transition-colors">support@workquora.com</span>
               </li>
-              <li className="flex items-center gap-2">
+              <li className="flex items-center justify-center md:justify-start gap-2">
                 <Phone className="w-4 h-4 text-[#10B981] shrink-0" />
                 <span className="font-medium">+91 99999 99999</span>
               </li>
-              <li className="flex items-start gap-2">
+              <li className="flex items-start justify-center md:justify-start gap-2">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <span className="font-medium">
                   WorkQuora HQ, Bhopal, Madhya Pradesh, India

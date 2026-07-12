@@ -326,13 +326,13 @@ const FreelancerProfile = () => {
       {/* Edit Profile Modal */}
       <AnimatePresence>
         {isEditing && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-end p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-end p-3 sm:p-4 overflow-y-auto">
             <motion.div
               initial={{ x: 300, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 300, opacity: 0 }}
               transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-              className="bg-card border border-border rounded-3xl w-full max-w-lg p-8 shadow-2xl relative my-8"
+              className="bg-card border border-border rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative my-8"
             >
               <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 p-2 rounded-full bg-muted hover:bg-accent text-muted-foreground transition-colors">
                 <X size={20} />

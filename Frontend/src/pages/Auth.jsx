@@ -5,7 +5,7 @@ import * as z from 'zod';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { Briefcase, User, MapPin, Loader2, ShieldCheck, Zap, Globe, Check, CheckCircle, XCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Briefcase, User, Loader2, ShieldCheck, Zap, Globe, Check, CheckCircle, XCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import Logo from '../components/Logo';
@@ -366,9 +366,8 @@ const Auth = () => {
 
           {/* Mobile Logo */}
           <div className="flex justify-center mb-8 lg:hidden">
-            <Link to="/" className="flex items-center gap-2 font-extrabold text-2xl text-foreground">
-              <div className="bg-primary p-2 rounded-xl"><MapPin className="w-6 h-6 text-primary-foreground fill-current" /></div>
-              WorkQuora
+            <Link to="/">
+              <Logo />
             </Link>
           </div>
 

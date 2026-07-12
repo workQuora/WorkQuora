@@ -83,7 +83,7 @@ const ProfileDropdown = () => {
 
       {/* FLOATING DROPDOWN MENU CARD */}
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-68 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.4)] p-2 z-50 origin-top-right transform transition-all animate-in fade-in zoom-in-95 duration-200 ease-out">
+        <div className="absolute right-0 mt-3 w-64 max-w-[calc(100vw-2rem)] bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.4)] p-2 z-50 origin-top-right transform transition-all animate-in fade-in zoom-in-95 duration-200 ease-out">
           
           {/* SECTION 1: Identity Profile Card with large avatar */}
           <div className="px-3.5 py-3 bg-gradient-to-br from-accent/40 to-accent/10 border border-border/40 rounded-xl mb-2 relative overflow-hidden group">

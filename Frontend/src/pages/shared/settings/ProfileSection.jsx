@@ -71,27 +71,29 @@ const ProfileSection = ({ profile }) => {
 
       {/* Avatar */}
       <Card>
-        <div className="flex items-center gap-6">
-          <div className="relative group shrink-0">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-xl font-bold overflow-hidden text-white shadow-inner">
-              {profile?.profilePic || profile?.avatar ? (
-                <img src={profile.profilePic || profile.avatar} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                profile?.name?.[0]?.toUpperCase() || 'U'
-              )}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+            <div className="relative group shrink-0">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-xl font-bold overflow-hidden text-white shadow-inner">
+                {profile?.profilePic || profile?.avatar ? (
+                  <img src={profile.profilePic || profile.avatar} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  profile?.name?.[0]?.toUpperCase() || 'U'
+                )}
+              </div>
+              <label className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-white">
+                {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Edit2 className="w-4 h-4" />}
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={isUploading} />
+              </label>
             </div>
-            <label className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-white">
-              {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Edit2 className="w-4 h-4" />}
-              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={isUploading} />
-            </label>
+
+            <div className="min-w-0 flex-1">
+              <h4 className="font-bold text-foreground truncate">{profile?.name || 'Your Name'}</h4>
+              <p className="text-sm text-muted-foreground truncate">@{profile?.username || 'username'}</p>
+            </div>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <h4 className="font-bold text-foreground truncate">{profile?.name || 'Your Name'}</h4>
-            <p className="text-sm text-muted-foreground truncate">@{profile?.username || 'username'}</p>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 sm:ml-auto">
             <Button as="label" variant="secondary" size="sm" isLoading={isUploading} className="cursor-pointer">
               {!isUploading && 'Upload photo'}
               <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={isUploading} />
