@@ -137,7 +137,7 @@ const Settings = () => {
                 transition={{ duration: 0.2 }}
               >
                 {activeSection === 'profile' && <ProfileSection profile={profile} />}
-                {activeSection === 'security' && <SecuritySection />}
+                {activeSection === 'security' && <SecuritySection profile={profile} />}
                 {activeSection === 'kyc' && <KycSection />}
                 {activeSection === 'notifications' && <NotificationsSection />}
                 {activeSection === 'payment' && <PaymentSection profile={profile} />}

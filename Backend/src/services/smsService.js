@@ -14,20 +14,21 @@ const MSG91_API_KEY = process.env.MSG91_API_KEY;
  * Sends an OTP via SMS
  * @param {string} mobileNumber - User's mobile number (e.g., 9999999999)
  * @param {string} otp - 6-digit OTP
+ * @param {string} [message] - Optional custom SMS body; defaults to the KYC verification copy.
  */
-exports.sendOtp = async (mobileNumber, otp) => {
+exports.sendOtp = async (mobileNumber, otp, message) => {
   console.log(`[SMS Service] Sending OTP ${otp} to ${mobileNumber} via ${SMS_PROVIDER}`);
 
   try {
     if (SMS_PROVIDER === 'FAST2SMS') {
       if (!FAST2SMS_API_KEY) throw new Error('FAST2SMS_API_KEY is missing');
-      
+
       await axios.post(
         'https://www.fast2sms.com/dev/bulkV2',
         {
           route: 'v3',
           sender_id: 'TXTIND',
-          message: `Your WorkQuora KYC verification OTP is ${otp}. It is valid for 5 minutes.`,
+          message: message || `Your WorkQuora KYC verification OTP is ${otp}. It is valid for 5 minutes.`,
           language: 'english',
           flash: 0,
           numbers: mobileNumber,

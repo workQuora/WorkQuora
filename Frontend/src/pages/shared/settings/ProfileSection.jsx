@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { Loader2, Edit2, MapPin, Trash2, User } from 'lucide-react';
+import { Loader2, Edit2, MapPin, Trash2, User, CheckCircle, XCircle } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { useProfile } from '../../../hooks/useProfile';
 import { Card, SectionHeader, Button, Input, Select } from '../../../components/ui';
+import api from '../../../services/api';
 
 const GENDER_OPTIONS = [
   { value: 'MALE', label: 'Male' },
@@ -26,6 +27,9 @@ const ProfileSection = ({ profile }) => {
   const dob = watch('dateOfBirth');
   const age = calcAge(dob);
 
+  const usernameValue = watch('username');
+  const [usernameStatus, setUsernameStatus] = useState(null); // 'checking' | 'available' | 'taken' | 'invalid' | null
+
   useEffect(() => {
     if (!profile) return;
     reset({
@@ -33,8 +37,32 @@ const ProfileSection = ({ profile }) => {
       bio: profile.bio || '',
       gender: profile.gender || 'OTHER',
       dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().slice(0, 10) : '',
+      username: profile.username || '',
     });
   }, [profile, reset]);
+
+  useEffect(() => {
+    const current = (profile?.username || '').toLowerCase();
+    const next = (usernameValue || '').trim().toLowerCase();
+    if (!next || next === current) {
+      setUsernameStatus(null);
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]{3,}$/.test(next)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+    setUsernameStatus('checking');
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await api.get('/users/check-username', { params: { username: next } });
+        setUsernameStatus(res.data?.available ? 'available' : 'taken');
+      } catch {
+        setUsernameStatus(null);
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounce);
+  }, [usernameValue, profile?.username]);
 
   const onSubmit = (data) => {
     if (data.dateOfBirth) {
@@ -44,12 +72,26 @@ const ProfileSection = ({ profile }) => {
         return;
       }
     }
-    updateProfile({
-      name: data.name,
-      bio: data.bio,
-      gender: data.gender,
-      dateOfBirth: data.dateOfBirth || undefined,
-    });
+    const nextUsername = (data.username || '').trim().toLowerCase();
+    const usernameChanged = nextUsername && nextUsername !== (profile?.username || '').toLowerCase();
+    if (usernameChanged && (usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking')) {
+      toast.error('Please choose a valid, available username first.');
+      return;
+    }
+    updateProfile(
+      {
+        name: data.name,
+        bio: data.bio,
+        gender: data.gender,
+        dateOfBirth: data.dateOfBirth || undefined,
+        ...(usernameChanged && { username: nextUsername }),
+      },
+      {
+        onSuccess: () => {
+          if (usernameChanged) window.location.reload();
+        },
+      }
+    );
   };
 
   const handlePhotoChange = async (e) => {
@@ -119,7 +161,26 @@ const ProfileSection = ({ profile }) => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-1">
           <div className="grid sm:grid-cols-2 gap-x-6">
             <Input label="Full Name" {...register('name')} placeholder="John Doe" />
-            <Input label="Username" value={profile?.username || 'Not set'} readOnly disabled />
+            <div className="w-full mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">Username</label>
+              <div className="relative">
+                <input
+                  {...register('username')}
+                  placeholder="username"
+                  className={`w-full px-3.5 py-2.5 pr-10 rounded-xl text-sm bg-white dark:bg-zinc-800/50 border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors ${
+                    usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'border-danger' : 'border-border focus:border-primary'
+                  }`}
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {usernameStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                  {usernameStatus === 'available' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                  {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <XCircle className="w-4 h-4 text-danger" />}
+                </div>
+              </div>
+              {usernameStatus === 'taken' && <p className="text-danger text-xs mt-1">Username already taken</p>}
+              {usernameStatus === 'invalid' && <p className="text-danger text-xs mt-1">Letters, numbers and underscores only, min 3 characters</p>}
+              {usernameStatus === 'available' && <p className="text-emerald-500 text-xs mt-1">Username is available</p>}
+            </div>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-x-6">
@@ -153,7 +214,12 @@ const ProfileSection = ({ profile }) => {
           </div>
 
           <div className="flex justify-end pt-2">
-            <Button type="submit" variant="primary" isLoading={isUpdating}>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isUpdating}
+              disabled={usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
+            >
               {!isUpdating && 'Save Profile'}
             </Button>
           </div>

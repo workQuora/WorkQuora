@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { MapPin, SlidersHorizontal, Map, List, Loader2, RefreshCw, Search, X, Calendar, Star } from 'lucide-react';
+import { MapPin, SlidersHorizontal, Loader2, RefreshCw, Search, X, Calendar, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import JobMap from '../components/JobMap';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
@@ -52,7 +51,6 @@ const Discover = () => {
 
   const userCoords = useSelector((s) => s.client?.details?.currentLocation) || useSelector((s) => s.auth?.user?.location);
 
-  const [viewMode, setViewMode] = useState('list');
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
   const [category, setCategory] = useState(searchParams.get('category') || 'All');
   const [radius, setRadius] = useState(25);
@@ -201,23 +199,6 @@ const Discover = () => {
                 </span>
               )}
             </button>
-
-            {/* View Toggle — Apple segmented control with sliding highlight */}
-            <div className="flex gap-0.5 bg-muted p-1 rounded-full shrink-0">
-              {[{ mode: 'list', Icon: List }, { mode: 'map', Icon: Map }].map(({ mode, Icon }) => (
-                <button key={mode} onClick={() => setViewMode(mode)}
-                  className="relative p-2 rounded-full transition-colors cursor-pointer">
-                  {viewMode === mode && (
-                    <motion.span
-                      layoutId="view-toggle-highlight"
-                      className="absolute inset-0 bg-primary rounded-full"
-                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                    />
-                  )}
-                  <Icon className={`relative z-10 w-4 h-4 ${viewMode === mode ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Category filter chips — horizontal scrollable row */}
@@ -296,8 +277,6 @@ const Discover = () => {
             </p>
             <button onClick={() => activeQuery.refetch()} className="text-primary hover:underline text-sm font-semibold cursor-pointer">Retry</button>
           </div>
-        ) : viewMode === 'map' ? (
-          <JobMap jobs={mapItems.filter((j) => j.location)} center={[lat, lng]} isFreelancerMap={isClient} />
         ) : (
           <div className="space-y-6">
             <AdBanner platform="WEB" className="mb-4 shadow-xl shadow-black/20" />

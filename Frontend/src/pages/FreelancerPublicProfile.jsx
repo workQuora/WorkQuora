@@ -2,21 +2,10 @@ import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ChevronLeft, MapPin, Star, ShieldCheck, ShieldX, Briefcase, Clock, Mail, Phone, Calendar,
-  Loader2, CheckCircle2, XCircle, AlertTriangle, MessageSquare, ExternalLink, User2,
+  ChevronLeft, MapPin, Star, BadgeCheck, Briefcase, Clock, Mail, Phone, Calendar,
+  Loader2, CheckCircle2, MessageSquare, ExternalLink, User2,
 } from 'lucide-react';
 import api from '../services/api';
-
-const VerifyBadge = ({ verified, label }) => (
-  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium ${
-    verified
-      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-      : 'bg-muted text-muted-foreground border-border'
-  }`}>
-    {verified ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4 opacity-50" />}
-    {label}
-  </div>
-);
 
 const FreelancerPublicProfile = () => {
   const { userId } = useParams();
@@ -46,12 +35,11 @@ const FreelancerPublicProfile = () => {
     ? profile.skills
     : (profile.skills || '').split(',').map((s) => s.trim()).filter(Boolean);
 
-  const v = profile.verifications || {};
   const stats = profile.stats || {};
 
-  // Compute KYC verification status — kycVerified = Aadhaar + PAN only (not email)
-  const isKycVerified = !!(profile.isKycVerified || profile.kycVerified || (profile.kyc?.aadhaarVerified && profile.kyc?.panVerified));
-  const kycStatus = profile.kyc?.status || 'not_submitted';
+  // All 5 KYC steps complete — the only verification signal shown (blue tick
+  // next to the name). No partial-verification display.
+  const isFullyVerified = !!profile.isFullyVerified;
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
@@ -64,17 +52,6 @@ const FreelancerPublicProfile = () => {
         <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
           {/* Cover Gradient */}
           <div className="h-36 bg-gradient-to-r from-primary via-purple-500 to-pink-500 relative">
-            {/* Verification Badge — top left on cover */}
-            <div className={`absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md border ${
-              isKycVerified
-                ? 'bg-emerald-500/25 text-emerald-100 border-emerald-400/40'
-                : 'bg-red-500/25 text-red-100 border-red-400/40'
-            }`}>
-              {isKycVerified
-                ? <><ShieldCheck className="w-3.5 h-3.5" /> KYC Verified</>
-                : <><ShieldX className="w-3.5 h-3.5" /> Not Verified</>
-              }
-            </div>
             {/* Active status — top right */}
             <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md ${
               profile.isActive
@@ -89,7 +66,7 @@ const FreelancerPublicProfile = () => {
           {/* Profile Info */}
           <div className="px-8 pb-8 -mt-14">
             <div className="flex flex-col md:flex-row gap-6 items-start">
-              {/* Avatar + pinned KYC badge */}
+              {/* Avatar */}
               <div className="relative shrink-0">
                 {profile.profilePic ? (
                   <img src={profile.profilePic} alt={profile.name}
@@ -99,37 +76,18 @@ const FreelancerPublicProfile = () => {
                     {profile.name?.[0]?.toUpperCase() || 'U'}
                   </div>
                 )}
-                {/* KYC shield badge pinned to avatar bottom-right */}
-                <div
-                  title={isKycVerified ? 'KYC Verified — Aadhaar & PAN verified' : 'KYC Incomplete — Aadhaar & PAN required'}
-                  className={`absolute -bottom-2 -right-2 flex items-center justify-center w-9 h-9 rounded-xl shadow-lg border-2 border-card ${
-                    isKycVerified ? 'bg-emerald-500' : 'bg-red-500'
-                  }`}
-                >
-                  {isKycVerified
-                    ? <ShieldCheck className="w-5 h-5 text-white" />
-                    : <ShieldX className="w-5 h-5 text-white" />
-                  }
-                </div>
               </div>
 
               {/* Name + Info */}
               <div className="flex-1 pt-4 md:pt-6">
-                {/* Name + inline verification badge */}
+                {/* Name + blue tick if fully KYC-verified (all 5 steps) */}
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
                     {profile.name}
                   </h1>
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border shrink-0 ${
-                    isKycVerified
-                      ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/30'
-                      : 'bg-red-500/10 text-red-500 border-red-500/30'
-                  }`}>
-                    {isKycVerified
-                      ? <><ShieldCheck className="w-3 h-3" /> Verified</>
-                      : <><ShieldX className="w-3 h-3" /> Not Verified</>
-                    }
-                  </span>
+                  {isFullyVerified && (
+                    <BadgeCheck title="Fully verified" className="w-5 h-5 text-blue-500 fill-blue-500/15 shrink-0" />
+                  )}
                 </div>
 
                 <p className="text-muted-foreground font-medium text-lg">{profile.title || profile.role || 'Freelancer'}</p>
@@ -161,19 +119,6 @@ const FreelancerPublicProfile = () => {
                         {s}
                       </span>
                     ))}
-                  </div>
-                )}
-
-                {/* KYC Status Banner */}
-                {isKycVerified ? (
-                  <div className="mt-4 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl px-3 py-2 text-xs font-semibold">
-                    <ShieldCheck className="w-4 h-4 shrink-0" />
-                    KYC Verified — Aadhaar &amp; PAN confirmed ✓
-                  </div>
-                ) : (
-                  <div className="mt-4 flex items-center gap-2 bg-red-500/8 border border-red-500/20 text-red-500 rounded-xl px-3 py-2 text-xs font-semibold">
-                    <ShieldX className="w-4 h-4 shrink-0" />
-                    KYC not completed — Aadhaar &amp; PAN verification pending
                   </div>
                 )}
               </div>
@@ -276,30 +221,6 @@ const FreelancerPublicProfile = () => {
               </div>
             </div>
 
-            {/* Verification Card */}
-            <div className="bg-card border border-border rounded-2xl p-6">
-              <h2 className="text-base font-bold text-foreground mb-4 pb-3 border-b border-border">Verifications</h2>
-              <div className="space-y-2">
-                <VerifyBadge verified={v.email} label="Email Verified" />
-                <VerifyBadge verified={v.phone} label="Phone Verified" />
-                <VerifyBadge verified={v.aadhar} label="Aadhar (OTP)" />
-                <VerifyBadge verified={v.pan} label="PAN Card" />
-                <VerifyBadge verified={v.bank} label="Bank Account" />
-              </div>
-              {v.kycStatus === 'approved' ? (
-                <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-bold">
-                  <ShieldCheck className="w-4 h-4" /> Fully Verified ✓
-                </div>
-              ) : v.kycStatus === 'pending' ? (
-                <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-amber-500 text-sm font-medium">
-                  <AlertTriangle className="w-4 h-4" /> Verification Pending
-                </div>
-              ) : (
-                <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-muted-foreground text-sm">
-                  <XCircle className="w-4 h-4" /> Not Yet Verified
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>

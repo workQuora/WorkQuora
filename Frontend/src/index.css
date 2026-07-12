@@ -115,7 +115,11 @@
 
   --blur-glass: var(--glass-blur);
 
-  --font-sans: 'Inter', system-ui, sans-serif;
+  /* Matches web/app/globals.css (workquora.com marketing site) — Geist Sans
+     for body/UI text, Geist Mono for the handful of font-mono usages
+     (transaction IDs, IP addresses in admin views). */
+  --font-sans: 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
 }
 
 * {
@@ -125,8 +129,23 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: 'Inter', sans-serif;
+  font-family: 'Geist', sans-serif;
   font-feature-settings: 'cv02','cv03','cv04','cv11';
+}
+
+/* Heading/paragraph defaults ported from web/ (workquora.com) — matches its
+   dominant `font-extrabold tracking-tight` heading pattern and
+   `leading-relaxed` body-copy pattern. Scoped to @layer base so any
+   component's own Tailwind weight/tracking/leading utility class (the vast
+   majority of headings here already set one explicitly) still wins. */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 800;
+    letter-spacing: -0.025em;
+  }
+  p {
+    line-height: 1.625;
+  }
 }
 
 html, body, #root {

@@ -12,6 +12,9 @@ export const authApi = {
   social:     (d) => api.post('/auth/social', d),
   assignRole: (r) => api.put('/auth/user/assign-role', { role: r }),
   changePassword: (d) => api.put('/auth/change-password', d),
+  requestPasswordOtp: (d) => api.post('/auth/request-password-otp', d),
+  verifyPasswordOtp:  (d) => api.post('/auth/verify-password-otp', d),
+  setPassword:        (d) => api.post('/auth/set-password', d),
   sessions:   ()  => api.get('/auth/sessions'),
   deleteAccount: () => api.delete('/auth/account'),
 };

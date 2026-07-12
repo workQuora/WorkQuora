@@ -19,6 +19,23 @@ const crypto = require('crypto');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// Derives a unique username from an email's local-part (e.g.
+// "prashant.jha@gmail.com" -> "prashant.jha"), appending a numeric suffix
+// ("prashant.jha1", "prashant.jha2", ...) if it's already taken.
+const generateUniqueUsername = async (rawLocalPart) => {
+  let base = (rawLocalPart || '').toLowerCase().replace(/[^a-z0-9._]/g, '');
+  if (!base) base = 'user';
+  if (base.length < 3) base = base.padEnd(3, '0');
+
+  let candidate = base;
+  let suffix = 1;
+  while (await User.exists({ username: candidate })) {
+    candidate = `${base}${suffix}`;
+    suffix += 1;
+  }
+  return candidate;
+};
+
 const getOnboardingStatus = (user) => {
   try {
     const filePath = path.join(__dirname, '../config/terms.json');
@@ -721,13 +738,21 @@ exports.socialLogin = async (req, res, next) => {
     let user = await User.findOne({ email: verifiedEmail });
     if (!user) {
       const randomPwd = Math.random().toString(36);
+      const username = await generateUniqueUsername(verifiedEmail.split('@')[0]);
       user = await User.create({
         name: verifiedName || verifiedEmail.split('@')[0],
         email: verifiedEmail,
+        username,
         password: randomPwd,
+        hasPassword: false,
         isEmailVerified: true,
         googleId: provider === 'google' ? googleSubId : null,
-        avatar: verifiedAvatar
+        avatar: verifiedAvatar,
+        // Deliberately no role — schema defaults to 'CLIENT', which would
+        // silently skip the OnboardingOverlay role-selection screen for
+        // every new social-login user. Null signals "new user" so
+        // getOnboardingStatus().roleSelected is false until they choose.
+        role: null,
       });
       await Earnings.create({ userId: user._id }).catch(() => {});
       const Wallet = require('../models/Wallet');
@@ -937,6 +962,167 @@ exports.changePassword = async (req, res, next) => {
     });
 
     res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /auth/request-password-otp — logged-in "Set/Change Password via OTP"
+// flow (Settings). Used both to set a first real password (social-login
+// users, Case A) and to change an existing one (Case B) — same OTP-gated
+// flow either way, no currentPassword required.
+exports.requestPasswordOtp = async (req, res, next) => {
+  try {
+    const { method } = req.body;
+    if (!['email', 'phone'].includes(method)) {
+      return res.status(400).json({ success: false, message: 'method must be "email" or "phone"' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (method === 'phone' && !user.mobileNumber) {
+      return res.status(400).json({ success: false, message: 'No phone number on file for this account' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.passwordOtp = otp;
+    user.passwordOtpExpires = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
+    user.passwordOtpMethod = method;
+    user.passwordOtpVerified = false;
+    await user.save();
+
+    if (method === 'phone') {
+      try {
+        await smsService.sendOtp(user.mobileNumber, otp, `Your WorkQuora password OTP is ${otp}. It is valid for 2 minutes.`);
+      } catch (err) {
+        return res.status(500).json({ success: false, message: 'Failed to send OTP via SMS. Please try again later.' });
+      }
+    } else {
+      try {
+        await sendEmail({
+          email: user.email,
+          subject: 'Your WorkQuora Password OTP',
+          message: `Hi ${user.name},\n\nYour OTP to set/change your WorkQuora password is: ${otp}\n\nIt expires in 2 minutes.\n\nWorkQuora Team`,
+          otp,
+        });
+      } catch (err) {
+        return res.status(500).json({ success: false, message: 'Failed to send OTP via email. Please try again later.' });
+      }
+    }
+
+    await createAuditLog(req, {
+      userId: user.id,
+      action: 'PASSWORD_OTP_REQUESTED',
+      entity: 'User',
+      entityId: user.id,
+      metadata: { method }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `OTP sent to your ${method}`,
+      expiresInSeconds: 120,
+      ...((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && { otp })
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /auth/verify-password-otp
+exports.verifyPasswordOtp = async (req, res, next) => {
+  try {
+    const { otp } = req.body;
+    if (!otp) return res.status(400).json({ success: false, message: 'OTP is required' });
+
+    const user = await User.findById(req.user.id).select('+passwordOtp +passwordOtpExpires');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    if (!isDevBypass && (!user.passwordOtp || user.passwordOtp !== otp || !user.passwordOtpExpires || new Date() > user.passwordOtpExpires)) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    user.passwordOtpVerified = true;
+    await user.save();
+
+    await createAuditLog(req, {
+      userId: user.id,
+      action: 'PASSWORD_OTP_VERIFIED',
+      entity: 'User',
+      entityId: user.id
+    });
+
+    res.status(200).json({ success: true, message: 'OTP verified. You can now set a new password.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /auth/set-password — consumes a verified passwordOtp to set the
+// password without needing the current one. Covers both "Set Password"
+// (user.hasPassword === false) and "Change Password" (true) from the client.
+exports.setPassword = async (req, res, next) => {
+  try {
+    const { newPassword, confirmPassword } = req.body;
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({ success: false, message: 'New password and confirmation are required' });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    }
+
+    const user = await User.findById(req.user.id).select('+password +passwordHistory +passwordOtp +passwordOtpExpires +passwordOtpVerified');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (!user.passwordOtpVerified) {
+      return res.status(400).json({ success: false, message: 'Please verify the OTP before setting a new password' });
+    }
+
+    if (user.passwordHistory && user.passwordHistory.length > 0) {
+      for (const oldHash of user.passwordHistory) {
+        const reused = await bcrypt.compare(newPassword, oldHash);
+        if (reused) {
+          return res.status(400).json({ success: false, message: 'Cannot reuse any of your last 5 passwords.' });
+        }
+      }
+    }
+
+    if (user.password) {
+      const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+      if (isSameAsCurrent) {
+        return res.status(400).json({ success: false, message: 'New password must be different from your current password.' });
+      }
+    }
+
+    const history = user.passwordHistory || [];
+    if (user.password) history.unshift(user.password);
+    user.passwordHistory = history.slice(0, 5);
+
+    user.password = newPassword; // pre-save hook hashes it
+    user.hasPassword = true;
+    user.passwordChangedAt = new Date();
+    user.passwordOtp = null;
+    user.passwordOtpExpires = null;
+    user.passwordOtpMethod = null;
+    user.passwordOtpVerified = false;
+    await user.save();
+
+    // Revoke all sessions (force re-login everywhere, including here)
+    await Session.updateMany({ userId: user.id }, { isRevoked: true });
+
+    await createAuditLog(req, {
+      userId: user.id,
+      action: 'PASSWORD_CHANGE',
+      entity: 'User',
+      entityId: user.id
+    });
+
+    res.status(200).json({ success: true, message: 'Password set successfully' });
   } catch (error) {
     next(error);
   }

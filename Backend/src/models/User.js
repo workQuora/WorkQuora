@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema(
     mobileOtpLastSent: { type: Date, default: null },
     
     password: { type: String, required: [true, 'Password is required'], select: false },
+    // false only for accounts created via social login that never chose their
+    // own password (a random one is set behind the scenes) — drives the
+    // "Set Password" vs "Change Password" label in Settings.
+    hasPassword: { type: Boolean, default: true },
     gender: { type: String, enum: ['MALE', 'FEMALE', 'OTHER'], default: 'OTHER' },
     dateOfBirth: { type: Date, default: null },
     role: { type: String, enum: ['CLIENT', 'FREELANCER', 'ADMIN'], default: 'CLIENT' },
@@ -72,6 +76,12 @@ const userSchema = new mongoose.Schema(
     twoFactorEnabled: { type: Boolean, default: false },
     resetPasswordOtp: { type: String, default: null, select: false },
     resetPasswordExpires: { type: Date, default: null, select: false },
+    // Logged-in "Set/Change Password via OTP" flow (Settings) — separate from
+    // resetPasswordOtp above, which is for the logged-out forgot-password flow.
+    passwordOtp: { type: String, default: null, select: false },
+    passwordOtpExpires: { type: Date, default: null, select: false },
+    passwordOtpMethod: { type: String, enum: ['email', 'phone'], default: null, select: false },
+    passwordOtpVerified: { type: Boolean, default: false, select: false },
     blockedUsers: { type: [String], default: [] },
     withdrawalPin: { type: String, default: null, select: false },
     

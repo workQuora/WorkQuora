@@ -118,13 +118,36 @@ exports.updateProfile = async (req, res, next) => {
     }
 
     if (username) {
-      const existing = await User.findOne({ username, _id: { $ne: req.user.id } });
+      const cleanUsername = username.toLowerCase().trim();
+      const existing = await User.findOne({ username: cleanUsername, _id: { $ne: req.user.id } });
       if (existing) return res.status(400).json({ success: false, message: 'Username is already taken' });
-      user.username = username;
+      user.username = cleanUsername;
     }
 
     await user.save();
     res.status(200).json({ success: true, message: 'Profile updated' });
+  } catch (error) { next(error); }
+};
+
+// GET /api/v1/users/check-username?username=xyz
+// Authenticated username-availability check for Settings — excludes the
+// requester's own current username so re-saving it unchanged doesn't show
+// as "taken" (unlike the logged-out /auth/check-username used at signup).
+exports.checkUsernameAvailability = async (req, res, next) => {
+  try {
+    const { username } = req.query;
+    if (!username) {
+      return res.status(400).json({ success: false, message: 'Username is required' });
+    }
+    const cleanUsername = username.toLowerCase().trim();
+    if (!/^[a-zA-Z0-9_]{3,}$/.test(cleanUsername)) {
+      return res.status(200).json({ success: true, available: false, message: 'Invalid username format' });
+    }
+    const existing = await User.findOne({ username: cleanUsername, _id: { $ne: req.user.id } });
+    if (existing) {
+      return res.status(200).json({ success: true, available: false, message: 'Username already taken' });
+    }
+    res.status(200).json({ success: true, available: true, message: 'Username is available' });
   } catch (error) { next(error); }
 };
 
@@ -230,6 +253,17 @@ exports.getPublicProfile = async (req, res, next) => {
     // kycVerified = dedicated KYC flag (Aadhaar + PAN) — use as truth, fallback to kyc record
     const kycVerified = !!(user.isKycVerified || (user.kyc && user.kyc.aadhaarVerified && user.kyc.panVerified));
 
+    // isFullyVerified = all 5 KYC steps complete — drives the single blue-tick
+    // display next to a freelancer's name. No partial-verification display.
+    const isFullyVerified = !!(
+      user.kyc &&
+      user.kyc.isMobileVerified &&
+      user.kyc.aadhaarVerified &&
+      user.kyc.panVerified &&
+      user.kyc.bankVerified &&
+      user.kyc.selfieVerified
+    );
+
     res.status(200).json({
       success: true,
       data: {
@@ -240,20 +274,13 @@ exports.getPublicProfile = async (req, res, next) => {
         isVerified: kycVerified,
         kycVerified: kycVerified,
         isKycVerified: kycVerified,
+        isFullyVerified,
         isEmailVerified: user.isEmailVerified,
         kyc: user.kyc ? { status: user.kyc.status, aadhaarVerified: user.kyc.aadhaarVerified, panVerified: user.kyc.panVerified } : null,
         bankDetails: user.bankDetails ? { id: user.bankDetails._id } : null,
         earnings: user.earnings ? { completedJobs: user.earnings.completedJobs, allTimeIncome: user.earnings.allTimeIncome, rating: user.averageRating } : null,
         stats,
         isActive,
-        verifications: {
-          email: !!user.email,
-          phone: !!user.mobileNumber,
-          aadhar: user.kyc?.aadhaarVerified || false,
-          pan: user.kyc?.panVerified || false,
-          bank: !!user.bankDetails,
-          kycStatus: user.kyc?.status || 'not_submitted',
-        },
       },
     });
   } catch (error) {
