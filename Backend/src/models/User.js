@@ -82,6 +82,15 @@ const userSchema = new mongoose.Schema(
     passwordOtpExpires: { type: Date, default: null, select: false },
     passwordOtpMethod: { type: String, enum: ['email', 'phone'], default: null, select: false },
     passwordOtpVerified: { type: Boolean, default: false, select: false },
+    // Settings > Account "Change Email" / "Change Mobile" OTP flows — separate
+    // field sets so they never collide with the signup-time mobile OTP
+    // (mobileOtp above) or the password-change OTP fields.
+    emailChangeOtp: { type: String, default: null, select: false },
+    emailChangeOtpExpires: { type: Date, default: null, select: false },
+    pendingEmail: { type: String, default: null, select: false },
+    mobileChangeOtp: { type: String, default: null, select: false },
+    mobileChangeOtpExpires: { type: Date, default: null, select: false },
+    pendingMobile: { type: String, default: null, select: false },
     blockedUsers: { type: [String], default: [] },
     withdrawalPin: { type: String, default: null, select: false },
     

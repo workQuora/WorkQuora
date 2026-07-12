@@ -1153,6 +1153,239 @@ exports.setPassword = async (req, res, next) => {
   }
 };
 
+// POST /auth/request-email-change-otp — OTP is sent to the NEW email to
+// prove the user actually controls it before the account email moves.
+exports.requestEmailChangeOtp = async (req, res, next) => {
+  try {
+    const { newEmail } = req.body;
+    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      return res.status(400).json({ success: false, message: 'A valid new email is required' });
+    }
+    const emailLower = newEmail.toLowerCase().trim();
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (emailLower === user.email) {
+      return res.status(400).json({ success: false, message: 'This is already your current email' });
+    }
+
+    const existing = await User.findOne({ email: emailLower, _id: { $ne: req.user.id } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'This email is already registered' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailChangeOtp = otp;
+    user.emailChangeOtpExpires = new Date(Date.now() + 2 * 60 * 1000);
+    user.pendingEmail = emailLower;
+    await user.save();
+
+    try {
+      await sendEmail({
+        email: emailLower,
+        subject: 'Verify your new WorkQuora email',
+        message: `Hi ${user.name},\n\nYour OTP to confirm this as your new WorkQuora email is: ${otp}\n\nIt expires in 2 minutes.\n\nIf you didn't request this, you can safely ignore this email.\n\nWorkQuora Team`,
+        otp,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: 'Failed to send OTP. Please try again later.' });
+    }
+
+    await createAuditLog(req, {
+      userId: user.id,
+      action: 'EMAIL_CHANGE_OTP_REQUESTED',
+      entity: 'User',
+      entityId: user.id,
+      metadata: { newEmail: emailLower }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent to your new email',
+      expiresInSeconds: 120,
+      ...((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && { otp })
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /auth/verify-email-change
+exports.verifyEmailChange = async (req, res, next) => {
+  try {
+    const { otp, newEmail } = req.body;
+    if (!otp) return res.status(400).json({ success: false, message: 'OTP is required' });
+
+    const user = await User.findById(req.user.id).select('+emailChangeOtp +emailChangeOtpExpires +pendingEmail');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (!user.pendingEmail) {
+      return res.status(400).json({ success: false, message: 'No pending email change found. Please request a new OTP.' });
+    }
+    if (newEmail && newEmail.toLowerCase().trim() !== user.pendingEmail) {
+      return res.status(400).json({ success: false, message: 'Email mismatch. Please request a new OTP.' });
+    }
+
+    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    if (!isDevBypass && (!user.emailChangeOtp || user.emailChangeOtp !== otp || !user.emailChangeOtpExpires || new Date() > user.emailChangeOtpExpires)) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    // Final uniqueness re-check right before committing (race-condition guard
+    // in case someone else registered this email while the OTP was pending).
+    const existing = await User.findOne({ email: user.pendingEmail, _id: { $ne: user.id } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'This email is already registered' });
+    }
+
+    const oldEmail = user.email;
+    user.email = user.pendingEmail;
+    user.isEmailVerified = true;
+    user.emailChangeOtp = null;
+    user.emailChangeOtpExpires = null;
+    user.pendingEmail = null;
+    await user.save();
+
+    await createAuditLog(req, {
+      userId: user.id,
+      action: 'EMAIL_CHANGED',
+      entity: 'User',
+      entityId: user.id,
+      metadata: { oldEmail, newEmail: user.email }
+    });
+
+    const io = req.app.get('io');
+    const { createNotification } = require('../utils/notification');
+    await createNotification({
+      recipient: user.id,
+      type: 'account_activity',
+      message: 'Your email was updated.',
+      io,
+    }).catch(() => {});
+
+    // Security alert to the OLD email — lets the original owner know if this
+    // wasn't them, since they can no longer see it reflected in the app.
+    sendEmail({
+      email: oldEmail,
+      subject: 'Your WorkQuora email was changed',
+      message: `Hi ${user.name},\n\nYour WorkQuora account email was changed to ${user.email}.\n\nIf you made this change, no action is needed. If you did not request this, please contact support@workquora.com immediately.\n\nWorkQuora Team`,
+    }).catch(() => {});
+
+    res.status(200).json({ success: true, message: 'Email updated successfully', email: user.email });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /auth/request-mobile-change-otp
+exports.requestMobileChangeOtp = async (req, res, next) => {
+  try {
+    const { newMobile } = req.body;
+    if (!newMobile || !/^[6-9]\d{9}$/.test(newMobile)) {
+      return res.status(400).json({ success: false, message: 'A valid 10-digit mobile number is required' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (newMobile === user.mobileNumber) {
+      return res.status(400).json({ success: false, message: 'This is already your current mobile number' });
+    }
+
+    const existing = await User.findOne({ mobileNumber: newMobile, _id: { $ne: req.user.id } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'This mobile number is already registered' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.mobileChangeOtp = otp;
+    user.mobileChangeOtpExpires = new Date(Date.now() + 2 * 60 * 1000);
+    user.pendingMobile = newMobile;
+    await user.save();
+
+    try {
+      await smsService.sendOtp(newMobile, otp, `Your WorkQuora OTP to confirm this new mobile number is ${otp}. It is valid for 2 minutes.`);
+    } catch (err) {
+      return res.status(500).json({ success: false, message: 'Failed to send OTP via SMS. Please try again later.' });
+    }
+
+    await createAuditLog(req, {
+      userId: user.id,
+      action: 'MOBILE_CHANGE_OTP_REQUESTED',
+      entity: 'User',
+      entityId: user.id,
+      metadata: { newMobile }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent to your new mobile number',
+      expiresInSeconds: 120,
+      ...((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_BYPASS === 'true') && { otp })
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /auth/verify-mobile-change
+exports.verifyMobileChange = async (req, res, next) => {
+  try {
+    const { otp, newMobile } = req.body;
+    if (!otp) return res.status(400).json({ success: false, message: 'OTP is required' });
+
+    const user = await User.findById(req.user.id).select('+mobileChangeOtp +mobileChangeOtpExpires +pendingMobile');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (!user.pendingMobile) {
+      return res.status(400).json({ success: false, message: 'No pending mobile number change found. Please request a new OTP.' });
+    }
+    if (newMobile && newMobile !== user.pendingMobile) {
+      return res.status(400).json({ success: false, message: 'Mobile number mismatch. Please request a new OTP.' });
+    }
+
+    const isDevBypass = process.env.NODE_ENV === 'development' && otp === '123456';
+    if (!isDevBypass && (!user.mobileChangeOtp || user.mobileChangeOtp !== otp || !user.mobileChangeOtpExpires || new Date() > user.mobileChangeOtpExpires)) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    const existing = await User.findOne({ mobileNumber: user.pendingMobile, _id: { $ne: user.id } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'This mobile number is already registered' });
+    }
+
+    user.mobileNumber = user.pendingMobile;
+    user.isMobileVerified = true;
+    user.mobileChangeOtp = null;
+    user.mobileChangeOtpExpires = null;
+    user.pendingMobile = null;
+    await user.save();
+
+    // Keep the Kyc record's mobile in sync (same as profileController.js's updateProfile)
+    await Kyc.findOneAndUpdate({ userId: user.id }, { mobileNumber: user.mobileNumber });
+
+    await createAuditLog(req, {
+      userId: user.id,
+      action: 'MOBILE_CHANGED',
+      entity: 'User',
+      entityId: user.id
+    });
+
+    const { createNotification } = require('../utils/notification');
+    await createNotification({
+      recipient: user.id,
+      type: 'account_activity',
+      message: 'Your mobile number was updated.',
+      io: req.app.get('io'),
+    }).catch(() => {});
+
+    res.status(200).json({ success: true, message: 'Mobile number updated successfully', mobileNumber: user.mobileNumber });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // GET /auth/sessions
 exports.getSessions = async (req, res, next) => {
   try {

@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { registerUser, resendOtp, verifyRegistration, verifyMobile, sendMobileOtp, loginUser, logoutUser, getMe, socialLogin, assignRole, forgotPassword, resetPassword, changePassword, getSessions, revokeSession, checkUsername, refreshSession, logoutAllDevices, deleteAccount, requestPasswordOtp, verifyPasswordOtp, setPassword } = require('../controllers/authController');
+const { registerUser, resendOtp, verifyRegistration, verifyMobile, sendMobileOtp, loginUser, logoutUser, getMe, socialLogin, assignRole, forgotPassword, resetPassword, changePassword, getSessions, revokeSession, checkUsername, refreshSession, logoutAllDevices, deleteAccount, requestPasswordOtp, verifyPasswordOtp, setPassword, requestEmailChangeOtp, verifyEmailChange, requestMobileChangeOtp, verifyMobileChange } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 
 const { enforceStringParams } = require('../middlewares/securityMiddleware');
@@ -24,6 +24,10 @@ router.put('/change-password',  protect, changePassword);
 router.post('/request-password-otp', protect, enforceStringParams(['method']), requestPasswordOtp);
 router.post('/verify-password-otp',  protect, enforceStringParams(['otp']), verifyPasswordOtp);
 router.post('/set-password',         protect, enforceStringParams(['newPassword', 'confirmPassword']), setPassword);
+router.post('/request-email-change-otp',  protect, enforceStringParams(['newEmail']), requestEmailChangeOtp);
+router.post('/verify-email-change',       protect, enforceStringParams(['otp', 'newEmail']), verifyEmailChange);
+router.post('/request-mobile-change-otp', protect, enforceStringParams(['newMobile']), requestMobileChangeOtp);
+router.post('/verify-mobile-change',      protect, enforceStringParams(['otp', 'newMobile']), verifyMobileChange);
 router.get('/sessions',         protect, getSessions);
 router.delete('/sessions/:id',  protect, revokeSession);
 router.delete('/sessions',      protect, logoutAllDevices);
