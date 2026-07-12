@@ -106,9 +106,8 @@ const Landing = () => {
   });
 
   const { data: statsData } = useQuery({
-    queryKey: ['landing-stats'],
-    queryFn: () => api.get('/jobs/stats').then((r) => r.data?.data ?? r.data ?? {}),
-    enabled: isAuthenticated,
+    queryKey: ['landing-public-stats'],
+    queryFn: () => api.get('/stats/public').then((r) => r.data?.data ?? r.data ?? {}),
     staleTime: 30_000,
   });
 
@@ -576,21 +575,21 @@ const Landing = () => {
           >
             <div className="flex flex-col items-center">
               <span className="text-3xl font-extrabold text-foreground">
-                <StatCounter target={statsData?.activeJobs ?? 5} duration={1200} />
+                <StatCounter target={statsData?.liveJobs ?? 0} duration={1200} />
               </span>
               <span className="text-xs uppercase font-bold tracking-wider mt-1 text-slate-500">Live Jobs</span>
             </div>
             <div className="w-px h-8 bg-border hidden sm:block" />
             <div className="flex flex-col items-center">
               <span className="text-3xl font-extrabold text-foreground">
-                <StatCounter target={statsData?.freelancers ?? 25} duration={1200} />
+                <StatCounter target={statsData?.totalWorkers ?? 0} duration={1200} />
               </span>
               <span className="text-xs uppercase font-bold tracking-wider mt-1 text-slate-500">Freelancers</span>
             </div>
             <div className="w-px h-8 bg-border hidden sm:block" />
             <div className="flex flex-col items-center">
               <span className="text-3xl font-extrabold text-foreground">
-                <StatCounter target={statsData?.clients ?? 10} duration={1200} />
+                <StatCounter target={statsData?.totalClients ?? 0} duration={1200} />
               </span>
               <span className="text-xs uppercase font-bold tracking-wider mt-1 text-slate-500">Registered Clients</span>
             </div>

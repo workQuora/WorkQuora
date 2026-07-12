@@ -147,8 +147,15 @@ const sendTokenResponse = async (user, statusCode, req, res) => {
 // POST /auth/register
 exports.registerUser = async (req, res, next) => {
   try {
-    const { name, email, password, mobileNumber, role, username, gender } = req.body;
+    const { name, email, password, mobileNumber, role, username, gender, agreedToTerms, agreedToPrivacy } = req.body;
     const emailLower = email.toLowerCase().trim();
+
+    if (!agreedToTerms || !agreedToPrivacy) {
+      return res.status(400).json({
+        success: false,
+        message: 'You must agree to the Terms of Service and Privacy Policy to register'
+      });
+    }
 
     const emailUser = await User.findOne({ email: emailLower });
     if (emailUser && emailUser.isEmailVerified) {
@@ -174,6 +181,9 @@ exports.registerUser = async (req, res, next) => {
         ? 'https://api.dicebear.com/7.x/avataaars/svg?seed=Lily'
         : 'https://api.dicebear.com/7.x/avataaars/svg?seed=User';
 
+    const termsConfig = require('../config/terms.json');
+    const consentTimestamp = new Date();
+
     if (user) {
       user.name = name;
       user.password = password;
@@ -184,6 +194,9 @@ exports.registerUser = async (req, res, next) => {
       user.resetPasswordExpires = otpExpires;
       user.otpAttempts = 0;
       user.otpLockedUntil = null;
+      user.termsAcceptedVersion = termsConfig.version;
+      user.termsAcceptedAt = consentTimestamp;
+      user.privacyAcceptedAt = consentTimestamp;
       await user.save();
     } else {
       user = await User.create({
@@ -197,7 +210,10 @@ exports.registerUser = async (req, res, next) => {
         avatar: defaultAvatar,
         isEmailVerified: false,
         resetPasswordOtp: otp,
-        resetPasswordExpires: otpExpires
+        resetPasswordExpires: otpExpires,
+        termsAcceptedVersion: termsConfig.version,
+        termsAcceptedAt: consentTimestamp,
+        privacyAcceptedAt: consentTimestamp
       });
       await Earnings.create({ userId: user._id }).catch(() => {});
       const Wallet = require('../models/Wallet');

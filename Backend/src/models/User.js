@@ -89,6 +89,7 @@ const userSchema = new mongoose.Schema(
     // Terms Acceptance Onboarding
     termsAcceptedVersion: { type: String, default: null },
     termsAcceptedAt: { type: Date, default: null },
+    privacyAcceptedAt: { type: Date, default: null },
     // Account lifecycle
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },

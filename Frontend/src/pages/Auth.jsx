@@ -94,6 +94,10 @@ const Auth = () => {
   const [regOtp, setRegOtp] = useState('');
   const [shake, setShake] = useState(false);
 
+  // Consent — must be explicitly checked by the user, never pre-checked.
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
+
   const {
     login, isLoggingIn, isLoginSuccess,
     register, registerAsync, isRegistering,
@@ -141,7 +145,7 @@ const Auth = () => {
   const hasNumber = /[0-9]/.test(passwordValue || '');
   const hasSpecial = /[^A-Za-z0-9]/.test(passwordValue || '');
 
-  const isSubmitBlocked = !isLogin && (!emailValid || passwordStrength.score < 2 || !phoneValid);
+  const isSubmitBlocked = !isLogin && (!emailValid || passwordStrength.score < 2 || !phoneValid || !agreedToTerms || !agreedToPrivacy);
 
   useEffect(() => {
     if (isLogin || !usernameValue || usernameValue.length < 3) {
@@ -192,8 +196,12 @@ const Auth = () => {
         toast.error('Please choose a unique username');
         return;
       }
+      if (!agreedToTerms || !agreedToPrivacy) {
+        toast.error('Please agree to the Terms of Service and Privacy Policy');
+        return;
+      }
       try {
-        const response = await registerAsync({ name: data.name, email: data.email, mobileNumber: data.mobileNumber, username: data.username, password: data.password, role: selectedRole, gender: data.gender });
+        const response = await registerAsync({ name: data.name, email: data.email, mobileNumber: data.mobileNumber, username: data.username, password: data.password, role: selectedRole, gender: data.gender, agreedToTerms, agreedToPrivacy });
         if (response?.data?.success === true && response?.data?.emailSent === true) {
           setRegistrationEmail(data.email);
           setIsRegistrationOtpSent(true);
@@ -304,10 +312,12 @@ const Auth = () => {
     );
   };
 
-  const switchTab = (toLogin) => { 
-    setIsLogin(toLogin); 
+  const switchTab = (toLogin) => {
+    setIsLogin(toLogin);
     setIsForgotPassword(false);
     setIsRegistrationOtpSent(false);
+    setAgreedToTerms(false);
+    setAgreedToPrivacy(false);
     reset();
   };
 
@@ -707,6 +717,39 @@ const Auth = () => {
                 </div>
               )}
             </div>
+
+            {!isLogin && (
+              <div className="space-y-2.5">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 shrink-0 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  />
+                  <span className="text-xs text-muted-foreground leading-snug">
+                    I have read and agree to the{' '}
+                    <a href="https://workquora.com/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline">
+                      Terms of Service
+                    </a>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreedToPrivacy}
+                    onChange={(e) => setAgreedToPrivacy(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 shrink-0 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  />
+                  <span className="text-xs text-muted-foreground leading-snug">
+                    I have read and agree to the{' '}
+                    <a href="https://workquora.com/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline">
+                      Privacy Policy
+                    </a>
+                  </span>
+                </label>
+              </div>
+            )}
 
             <motion.button type="submit" disabled={isLoggingIn || isRegistering || isLoginSuccess || isSubmitBlocked}
               whileHover={!isSubmitBlocked ? { scale: 1.02 } : {}}

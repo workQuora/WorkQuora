@@ -42,6 +42,9 @@ exports.acceptTerms = async (req, res, next) => {
 
     user.termsAcceptedVersion = terms.version;
     user.termsAcceptedAt = new Date();
+    if (!user.privacyAcceptedAt) {
+      user.privacyAcceptedAt = new Date();
+    }
     await user.save();
 
     const roleSelected = !!(user.role && ['CLIENT', 'FREELANCER'].includes(user.role.toUpperCase()));

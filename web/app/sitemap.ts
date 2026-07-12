@@ -8,9 +8,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/how-it-works`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/trust-safety`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
-    // /terms and /privacy are intentionally omitted — they're placeholder
-    // content marked noindex until real legal copy is in place (see their
-    // page.tsx `robots` metadata). Add them back here once that changes.
+    { url: `${SITE_URL}/terms`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.5 },
+    { url: `${SITE_URL}/privacy`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.5 },
   ];
 
   const serviceRoutes: MetadataRoute.Sitemap = SERVICES.map((service) => ({

@@ -163,6 +163,7 @@ app.use('/api/v1/dashboard',     dashboardRoutes);
 app.use('/api/v1/ads',           adRoutes);
 
 app.use('/api/v1/terms',          require('./routes/termsRoutes'));
+app.use('/api/v1/stats',          require('./routes/statsRoutes'));
 // ── Phase 4 Business Engine Routes ─────────────────────────
 app.use('/api/v1/disputes',      require('./routes/disputeRoutes'));
 app.use('/api/v1/coupons',       require('./routes/couponRoutes'));
