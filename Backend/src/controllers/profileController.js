@@ -85,6 +85,13 @@ exports.updateProfile = async (req, res, next) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
+    const before = {
+      name: user.name, bio: user.bio, title: user.title, gender: user.gender,
+      dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString() : null,
+      city: user.location?.city, address: user.location?.address,
+      username: user.username, email: user.email, mobileNumber: user.mobileNumber,
+    };
+
     if (dateOfBirth) user.dateOfBirth = new Date(dateOfBirth);
     if (name !== undefined) user.name = name;
     if (twoFactorEnabled !== undefined) user.twoFactorEnabled = twoFactorEnabled;
@@ -127,6 +134,39 @@ exports.updateProfile = async (req, res, next) => {
 
     await user.save();
 
+    // Activity-log notifications — best-effort, never block the response.
+    try {
+      const { createNotification } = require('../utils/notification');
+      const io = req.app.get('io');
+      const notifMessages = [];
+
+      if (email && user.email !== before.email) {
+        notifMessages.push('Your email was updated.');
+      }
+      if (mobileNumber && user.mobileNumber !== before.mobileNumber) {
+        notifMessages.push('Your mobile number was updated.');
+      }
+      const identityChanged = (
+        (name !== undefined && user.name !== before.name) ||
+        (bio !== undefined && user.bio !== before.bio) ||
+        (title !== undefined && user.title !== before.title) ||
+        (gender !== undefined && user.gender !== before.gender) ||
+        (dateOfBirth && (user.dateOfBirth ? user.dateOfBirth.toISOString() : null) !== before.dateOfBirth) ||
+        (city !== undefined && user.location?.city !== before.city) ||
+        (address !== undefined && user.location?.address !== before.address) ||
+        (username && user.username !== before.username)
+      );
+      if (identityChanged) {
+        notifMessages.push('Your profile was updated.');
+      }
+
+      for (const message of notifMessages) {
+        await createNotification({ recipient: req.user.id, type: 'account_activity', message, io }).catch(() => {});
+      }
+    } catch (notifyError) {
+      console.error('Profile update notification error:', notifyError.message);
+    }
+
     const userObj = user.toObject();
     delete userObj.password;
     res.status(200).json({ success: true, message: 'Profile updated', data: userObj });
@@ -165,10 +205,18 @@ exports.uploadProfilePhoto = async (req, res, next) => {
       transformation: { width: 500, crop: 'scale' }
     });
 
-    await User.findByIdAndUpdate(req.user.id, { 
-      profilePic: result.secureUrl, 
-      avatar: result.secureUrl 
+    await User.findByIdAndUpdate(req.user.id, {
+      profilePic: result.secureUrl,
+      avatar: result.secureUrl
     });
+
+    const { createNotification } = require('../utils/notification');
+    await createNotification({
+      recipient: req.user.id,
+      type: 'account_activity',
+      message: 'You updated your profile photo.',
+      io: req.app.get('io'),
+    }).catch(() => {});
 
     res.status(200).json({ success: true, message: 'Photo uploaded', profilePic: result.secureUrl });
   } catch (error) { next(error); }
@@ -349,6 +397,15 @@ exports.deleteProfilePhoto = async (req, res, next) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     user.profilePic = null;
     await user.save();
+
+    const { createNotification } = require('../utils/notification');
+    await createNotification({
+      recipient: req.user.id,
+      type: 'account_activity',
+      message: 'You removed your profile photo.',
+      io: req.app.get('io'),
+    }).catch(() => {});
+
     res.status(200).json({ success: true, message: 'Photo removed', profilePic: null });
   } catch (e) { next(e); }
 };

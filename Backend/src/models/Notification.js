@@ -11,7 +11,10 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['task_update', 'payment_alert', 'system_alert', 'new_message', 'review_received'],
+      enum: [
+        'task_update', 'payment_alert', 'system_alert', 'new_message', 'review_received',
+        'account_activity', 'security_alert', 'kyc_update',
+      ],
       required: true
     },
     message: {

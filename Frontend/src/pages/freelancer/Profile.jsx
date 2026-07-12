@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -6,13 +6,14 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Star, Edit3, Camera, Loader2, X, Save, ShieldCheck, ShieldX, AlertTriangle,
-  CheckCircle, XCircle,
+  CheckCircle, XCircle, Eye, Upload, Trash2,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useProfile } from '../../hooks/useProfile';
 import { loginSuccess } from '../../actions/authSlice';
 import { reviewsApi } from '../../api/endpoints';
 import { AnimatedCard } from '../../components/ui/AnimatedCard';
+import { Lightbox } from '../../components/ui/Lightbox';
 import KycVerificationCard from '../../components/KycVerificationCard';
 import imageCompression from 'browser-image-compression';
 import api from '../../services/api';
@@ -40,12 +41,25 @@ const TABS = [
 const FreelancerProfile = () => {
   const dispatch = useDispatch();
   const { user, token } = useSelector((s) => s.auth);
-  const { useGetProfile, updateProfile, isUpdating, uploadPhoto, isUploading } = useProfile();
+  const { useGetProfile, updateProfile, isUpdating, uploadPhoto, isUploading, deletePhoto, isDeletingPhoto } = useProfile();
   const { data: profile, isLoading } = useGetProfile();
 
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedGender, setSelectedGender] = useState('OTHER');
+
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState(null);
+  const photoMenuRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setShowPhotoMenu(false);
+    };
+    if (showPhotoMenu) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showPhotoMenu]);
 
   const { register, handleSubmit, reset, watch, setValue } = useForm();
 
@@ -167,6 +181,7 @@ const FreelancerProfile = () => {
 
   const displayProfile = profile || user;
   const userId = displayProfile?.id || displayProfile?._id || user?._id || user?.id;
+  const hasProfilePhoto = !!(displayProfile?.profilePic || displayProfile?.avatar);
 
   const skills = Array.isArray(displayProfile?.skills)
     ? displayProfile.skills
@@ -223,10 +238,57 @@ const FreelancerProfile = () => {
                   </div>
                 )}
               </div>
-              <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg cursor-pointer">
-                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={isUploading} />
-              </label>
+              <div className="absolute -bottom-1 -right-1" ref={photoMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowPhotoMenu((p) => !p)}
+                  disabled={isUploading || isDeletingPhoto}
+                  className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg cursor-pointer disabled:opacity-60"
+                  aria-label="Change profile photo"
+                >
+                  {isUploading || isDeletingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                </button>
+
+                <AnimatePresence>
+                  {showPhotoMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -6 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -6 }}
+                      transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+                      className="absolute bottom-10 right-0 w-48 bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-20 text-left origin-bottom-right"
+                    >
+                      {hasProfilePhoto && (
+                        <button
+                          type="button"
+                          onClick={() => { setShowPhotoMenu(false); setViewingPhoto(displayProfile.profilePic || displayProfile.avatar); }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
+                        >
+                          <Eye className="w-4 h-4 text-muted-foreground" /> View Photo
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { setShowPhotoMenu(false); fileInputRef.current?.click(); }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
+                      >
+                        <Upload className="w-4 h-4 text-muted-foreground" /> Upload New Photo
+                      </button>
+                      {hasProfilePhoto && (
+                        <button
+                          type="button"
+                          onClick={() => { setShowPhotoMenu(false); deletePhoto(); }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-danger hover:bg-danger/10 transition-colors border-t border-border"
+                        >
+                          <Trash2 className="w-4 h-4" /> Remove Photo
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={isUploading} />
+              </div>
             </div>
 
             <h2 className="text-xl font-bold text-foreground">{displayProfile?.name || 'Your Name'}</h2>
@@ -270,14 +332,16 @@ const FreelancerProfile = () => {
               </div>
             )}
 
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              onClick={() => setIsEditing(true)}
-              className="w-full mt-6 py-2.5 rounded-xl border-2 border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
-            >
-              <Edit3 className="w-4 h-4" /> Edit Profile
-            </motion.button>
+            <div className="flex justify-center mt-6">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsEditing(true)}
+                className="px-8 py-2.5 rounded-xl bg-primary text-white font-semibold text-sm shadow-md shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
+              >
+                <Edit3 className="w-4 h-4" /> Edit Profile
+              </motion.button>
+            </div>
           </AnimatedCard>
 
           {/* Right: Tabs */}
@@ -508,6 +572,8 @@ const FreelancerProfile = () => {
           </div>
         )}
       </AnimatePresence>
+
+      <Lightbox src={viewingPhoto} alt={displayProfile?.name} onClose={() => setViewingPhoto(null)} />
     </div>
   );
 };

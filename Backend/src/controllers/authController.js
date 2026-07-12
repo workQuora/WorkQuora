@@ -904,6 +904,14 @@ exports.resetPassword = async (req, res, next) => {
       entityId: user.id
     });
 
+    const { createNotification } = require('../utils/notification');
+    await createNotification({
+      recipient: user.id,
+      type: 'security_alert',
+      message: 'Your password was changed.',
+      io: req.app.get('io'),
+    }).catch(() => {});
+
     res.status(200).json({ success: true, message: 'Password reset successful' });
   } catch (error) {
     next(error);
@@ -961,6 +969,14 @@ exports.changePassword = async (req, res, next) => {
       entity: 'User',
       entityId: user.id
     });
+
+    const { createNotification } = require('../utils/notification');
+    await createNotification({
+      recipient: user.id,
+      type: 'security_alert',
+      message: 'Your password was changed.',
+      io: req.app.get('io'),
+    }).catch(() => {});
 
     res.status(200).json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
@@ -1122,6 +1138,14 @@ exports.setPassword = async (req, res, next) => {
       entity: 'User',
       entityId: user.id
     });
+
+    const { createNotification } = require('../utils/notification');
+    await createNotification({
+      recipient: user.id,
+      type: 'security_alert',
+      message: 'Your password was changed.',
+      io: req.app.get('io'),
+    }).catch(() => {});
 
     res.status(200).json({ success: true, message: 'Password set successfully' });
   } catch (error) {

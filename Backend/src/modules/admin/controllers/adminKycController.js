@@ -1,19 +1,30 @@
 const Kyc = require('../../../models/Kyc');
 const User = require('../../../models/User');
 const { createAuditLog } = require('../utils/adminAuditLogger');
+const { createNotification } = require('../../../utils/notification');
 
 // Helper to recalculate status
 const recalculateKycStatus = async (kycId, io) => {
   const kyc = await Kyc.findById(kycId);
   if (!kyc) return;
 
+  const wasVerified = kyc.status === 'verified';
   const isVerified = kyc.isMobileVerified && kyc.panVerified && kyc.aadhaarVerified && kyc.bankVerified && kyc.selfieVerified;
-  
+
   if (isVerified) {
     kyc.status = 'verified';
     kyc.verifiedAt = new Date();
     await kyc.save();
     await User.findByIdAndUpdate(kyc.userId, { isKycVerified: true });
+
+    if (!wasVerified) {
+      await createNotification({
+        recipient: kyc.userId,
+        type: 'kyc_update',
+        message: 'Your KYC verification is complete!',
+        io,
+      }).catch(() => {});
+    }
   } else {
     // If any step was rejected
     kyc.status = 'pending';
@@ -99,6 +110,16 @@ exports.reviewKycStep = async (req, res, next) => {
 
     const io = req.app.get('io');
     await recalculateKycStatus(kyc._id, io);
+
+    if (!isApprove) {
+      const stepLabel = step.charAt(0).toUpperCase() + step.slice(1);
+      await createNotification({
+        recipient: kyc.userId,
+        type: 'kyc_update',
+        message: `Your ${stepLabel} verification was rejected: ${kyc.rejectionReason}`,
+        io,
+      }).catch(() => {});
+    }
 
     await createAuditLog({
       admin: req.admin,
