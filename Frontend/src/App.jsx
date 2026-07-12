@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { createBrowserRouter, RouterProvider, redirect, Outlet } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, redirect, Outlet, Navigate } from 'react-router-dom';
 import { store } from './redux/store';
 import { useAppStore } from './store/appStore';
 
@@ -123,7 +123,7 @@ const router = createBrowserRouter([
         path: '/',
         element: <MainLayout />,
         children: [
-          { index: true, element: <Landing /> },
+          { index: true, element: <Navigate to="/auth" replace /> },
           { path: 'home', element: <Landing /> },
           { path: 'discover', element: <Discover /> },
           { path: 'job/:id', element: <JobDetails /> },
