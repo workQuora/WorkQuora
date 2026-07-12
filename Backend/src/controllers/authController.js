@@ -8,6 +8,7 @@ const Session = require('../models/Session');
 const Job = require('../models/Job');
 const Review = require('../models/Review');
 const { parseUserAgent } = require('../utils/uaParser');
+const { getLocationFromIp } = require('../utils/ipGeolocation');
 const { createAuditLog } = require('../utils/auditLogger');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -76,13 +77,7 @@ const authCookieOptions = () =>
 const sendTokenResponse = async (user, statusCode, req, res) => {
   const ua = parseUserAgent(req.headers['user-agent']);
   const ip = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
-  const country = req.headers['x-country'] || 'Unknown';
-  const city = req.headers['x-city'] || 'Unknown';
-
-  // Generate Access Token (1 hour expiry)
-  const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret123', {
-    expiresIn: '1h',
-  });
+  const { country, city } = await getLocationFromIp(ip);
 
   // Generate Refresh Token (rotated)
   const refreshToken = crypto.randomBytes(40).toString('hex');
@@ -125,6 +120,12 @@ const sendTokenResponse = async (user, statusCode, req, res) => {
   });
 
   req.sessionId = session.sessionId;
+
+  // Access Token (1 hour expiry) — embeds sessionId so /auth/sessions can
+  // flag which row is "this device" without a separate lookup.
+  const accessToken = jwt.sign({ id: user.id, sessionId: session.sessionId }, process.env.JWT_SECRET || 'secret123', {
+    expiresIn: '1h',
+  });
 
   // Append-only Audit Log (Module 3)
   await createAuditLog(req, {
@@ -624,7 +625,7 @@ exports.refreshSession = async (req, res, next) => {
     }
 
     // Rotate tokens
-    const newAccessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret123', {
+    const newAccessToken = jwt.sign({ id: user.id, sessionId: session.sessionId }, process.env.JWT_SECRET || 'secret123', {
       expiresIn: '1h',
     });
 
@@ -1139,7 +1140,36 @@ exports.getSessions = async (req, res, next) => {
       .sort({ lastUsedAt: -1 })
       .select('deviceName browser operatingSystem ipAddress city country lastUsedAt createdAt sessionId')
       .lean();
-    res.status(200).json({ success: true, data: sessions });
+
+    const data = sessions.map((s) => ({ ...s, isCurrent: s.sessionId === req.sessionId }));
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /auth/sessions/:id — log out a single device (revokes that session's
+// refresh token; its access token, if still valid, naturally expires within
+// the hour like any other revoked session).
+exports.revokeSession = async (req, res, next) => {
+  try {
+    const session = await Session.findOne({ sessionId: req.params.id, userId: req.user.id });
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'Session not found' });
+    }
+
+    session.isRevoked = true;
+    await session.save();
+
+    await createAuditLog(req, {
+      userId: req.user.id,
+      action: 'SESSION_REVOKED',
+      entity: 'Session',
+      entityId: session.sessionId,
+      metadata: { sessionId: session.sessionId }
+    });
+
+    res.status(200).json({ success: true, message: 'Session logged out' });
   } catch (error) {
     next(error);
   }

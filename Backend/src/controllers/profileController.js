@@ -69,7 +69,7 @@ exports.getProfile = async (req, res, next) => {
 // PUT /profile/update
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, bio, title, skills, hourlyRate, isAvailable, serviceRadius, username, twoFactorEnabled, address, city, coordinates, email, mobileNumber, dateOfBirth } = req.body;
+    const { name, bio, title, skills, hourlyRate, isAvailable, serviceRadius, username, twoFactorEnabled, address, city, coordinates, email, mobileNumber, dateOfBirth, gender } = req.body;
 
     if (dateOfBirth) {
       const dob = new Date(dateOfBirth);
@@ -90,6 +90,7 @@ exports.updateProfile = async (req, res, next) => {
     if (twoFactorEnabled !== undefined) user.twoFactorEnabled = twoFactorEnabled;
     if (bio !== undefined) user.bio = bio;
     if (title !== undefined) user.title = title;
+    if (gender !== undefined) user.gender = gender;
     if (Array.isArray(skills)) user.skills = skills;
     if (hourlyRate !== undefined) user.hourlyRate = Number(hourlyRate);
     if (isAvailable !== undefined) user.isAvailable = isAvailable;
@@ -125,7 +126,10 @@ exports.updateProfile = async (req, res, next) => {
     }
 
     await user.save();
-    res.status(200).json({ success: true, message: 'Profile updated' });
+
+    const userObj = user.toObject();
+    delete userObj.password;
+    res.status(200).json({ success: true, message: 'Profile updated', data: userObj });
   } catch (error) { next(error); }
 };
 

@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  User, Lock, ShieldCheck, Bell, CreditCard, Eye, Briefcase, AlertTriangle, Loader2, CheckCircle2,
+  IdCard, Lock, ShieldCheck, Bell, CreditCard, Eye, Briefcase, AlertTriangle, Loader2, CheckCircle2,
 } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
 
-import ProfileSection from './settings/ProfileSection';
+import AccountSection from './settings/AccountSection';
 import SecuritySection from './settings/SecuritySection';
 import KycSection from './settings/KycSection';
 import NotificationsSection from './settings/NotificationsSection';
@@ -16,7 +16,7 @@ import RoleSection from './settings/RoleSection';
 import DangerZoneSection from './settings/DangerZoneSection';
 
 const SECTIONS = [
-  { id: 'profile', label: 'Profile & Identity', icon: User },
+  { id: 'account', label: 'Account', icon: IdCard },
   { id: 'security', label: 'Account & Security', icon: Lock },
   { id: 'kyc', label: 'KYC Verification', icon: ShieldCheck },
   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -28,7 +28,7 @@ const SECTIONS = [
 
 const getSectionFromHash = () => {
   const hash = window.location.hash.replace('#', '');
-  return SECTIONS.some((s) => s.id === hash) ? hash : 'profile';
+  return SECTIONS.some((s) => s.id === hash) ? hash : 'account';
 };
 
 const Settings = () => {
@@ -136,7 +136,7 @@ const Settings = () => {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
               >
-                {activeSection === 'profile' && <ProfileSection profile={profile} />}
+                {activeSection === 'account' && <AccountSection profile={profile} />}
                 {activeSection === 'security' && <SecuritySection profile={profile} />}
                 {activeSection === 'kyc' && <KycSection />}
                 {activeSection === 'notifications' && <NotificationsSection />}

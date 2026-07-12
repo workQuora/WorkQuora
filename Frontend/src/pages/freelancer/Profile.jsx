@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Star, Edit3, Camera, Loader2, X, Save, ShieldCheck, ShieldX, AlertTriangle,
+  CheckCircle, XCircle,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useProfile } from '../../hooks/useProfile';
@@ -13,6 +15,21 @@ import { reviewsApi } from '../../api/endpoints';
 import { AnimatedCard } from '../../components/ui/AnimatedCard';
 import KycVerificationCard from '../../components/KycVerificationCard';
 import imageCompression from 'browser-image-compression';
+import api from '../../services/api';
+
+const GENDER_OPTIONS = [
+  { value: 'MALE', label: 'Male' },
+  { value: 'FEMALE', label: 'Female' },
+  { value: 'OTHER', label: 'Other' },
+];
+
+const calcAge = (dob) => {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return null;
+  const diff = Date.now() - d.getTime();
+  return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+};
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -28,36 +45,73 @@ const FreelancerProfile = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedGender, setSelectedGender] = useState('OTHER');
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, watch, setValue } = useForm();
+
+  const usernameValue = watch('username');
+  const [usernameStatus, setUsernameStatus] = useState(null); // 'checking' | 'available' | 'taken' | 'invalid' | null
+  const dobValue = watch('dateOfBirth');
+  const editAge = calcAge(dobValue);
 
   useEffect(() => {
     if (profile && isEditing) {
       reset({
         name: profile.name || '',
+        username: profile.username || '',
         title: profile.title || '',
         bio: profile.bio || '',
-        skills: Array.isArray(profile.skills) ? profile.skills.join(', ') : (profile.skills || ''),
-        hourlyRate: profile.hourlyRate || '',
+        dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().slice(0, 10) : '',
+        gender: profile.gender || 'OTHER',
+        city: profile.location?.city || '',
+        address: profile.location?.address || '',
       });
+      setSelectedGender(profile.gender || 'OTHER');
+      setUsernameStatus(null);
     }
   }, [profile, isEditing, reset]);
 
-  // Sync kycVerified and profile picture from fresh profile data into Redux (so Navbar stays accurate)
+  useEffect(() => {
+    const current = (profile?.username || '').toLowerCase();
+    const next = (usernameValue || '').trim().toLowerCase();
+    if (!isEditing || !next || next === current) {
+      setUsernameStatus(null);
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]{3,}$/.test(next)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+    setUsernameStatus('checking');
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await api.get('/users/check-username', { params: { username: next } });
+        setUsernameStatus(res.data?.available ? 'available' : 'taken');
+      } catch {
+        setUsernameStatus(null);
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounce);
+  }, [usernameValue, isEditing, profile?.username]);
+
+  // Sync kycVerified and profile picture from fresh profile data into Redux
+  // (so Navbar stays accurate even when KYC/photo change from elsewhere,
+  // e.g. the KYC tab below or an admin approval) — separate from the
+  // edit-form save flow, which is now synced centrally in useProfile.js.
   useEffect(() => {
     if (profile && token) {
       const kycDone = !!(profile.isKycVerified || profile.kycVerified || (profile.kyc?.aadhaarVerified && profile.kyc?.panVerified));
       const hasPicChanged = profile.profilePic !== user?.profilePic || profile.avatar !== user?.avatar;
       if (kycDone !== user?.isKycVerified || hasPicChanged) {
-        dispatch(loginSuccess({ 
-          user: { 
-            ...user, 
-            isKycVerified: kycDone, 
+        dispatch(loginSuccess({
+          user: {
+            ...user,
+            isKycVerified: kycDone,
             isEmailVerified: user?.isEmailVerified,
             profilePic: profile.profilePic,
             avatar: profile.avatar
-          }, 
-          token 
+          },
+          token
         }));
       }
     }
@@ -78,21 +132,34 @@ const FreelancerProfile = () => {
   };
 
   const onProfileSubmit = (data) => {
+    if (data.dateOfBirth) {
+      const a = calcAge(data.dateOfBirth);
+      if (a !== null && a < 18) {
+        toast.error('You must be at least 18 years old.');
+        return;
+      }
+    }
+    const nextUsername = (data.username || '').trim().toLowerCase();
+    const usernameChanged = nextUsername && nextUsername !== (profile?.username || '').toLowerCase();
+    if (usernameChanged && (usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking')) {
+      toast.error('Please choose a valid, available username first.');
+      return;
+    }
     updateProfile(
       {
         name: data.name,
         title: data.title,
         bio: data.bio,
-        skills: data.skills ? data.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
-        hourlyRate: Number(data.hourlyRate) || 0,
+        dateOfBirth: data.dateOfBirth || undefined,
+        gender: data.gender,
+        city: data.city,
+        address: data.address,
+        ...(usernameChanged && { username: nextUsername }),
       },
       {
-        onSuccess: (res) => {
-          const updatedUser = res?.data?.data ?? res?.data;
-          if (updatedUser && token) {
-            dispatch(loginSuccess({ user: { ...user, ...updatedUser }, token }));
-          }
+        onSuccess: () => {
           setIsEditing(false);
+          if (usernameChanged) window.location.reload();
         },
       }
     );
@@ -117,9 +184,11 @@ const FreelancerProfile = () => {
 
   const navbarCity = useSelector((s) => s.client?.details?.currentLocation?.city);
 
-  const locationLabel = navbarCity || (typeof displayProfile?.location === 'object'
+  // Saved profile location (now user-editable) takes priority — falls back
+  // to the live GPS-derived navbar city only when the profile has none set.
+  const locationLabel = (typeof displayProfile?.location === 'object'
     ? (displayProfile.location?.address || displayProfile.location?.city || '')
-    : displayProfile?.location) || 'Bhopal, MP';
+    : displayProfile?.location) || navbarCity || 'Not set';
 
   if (isLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -345,29 +414,82 @@ const FreelancerProfile = () => {
                   <input {...register('name')} placeholder="Your full name"
                     className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1.5">Username</label>
+                  <div className="relative">
+                    <input {...register('username')} placeholder="username"
+                      className={`w-full bg-background border rounded-xl px-4 py-3 pr-10 text-foreground focus:outline-none transition-colors text-sm ${
+                        usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'border-danger' : 'border-border focus:border-primary'
+                      }`} />
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                      {usernameStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                      {usernameStatus === 'available' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                      {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <XCircle className="w-4 h-4 text-danger" />}
+                    </div>
+                  </div>
+                  {usernameStatus === 'taken' && <p className="text-danger text-xs mt-1">Username already taken</p>}
+                  {usernameStatus === 'invalid' && <p className="text-danger text-xs mt-1">Letters, numbers and underscores only, min 3 characters</p>}
+                  {usernameStatus === 'available' && <p className="text-emerald-500 text-xs mt-1">Username is available</p>}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">Date of Birth</label>
+                    <input {...register('dateOfBirth')} type="date" max={new Date().toISOString().slice(0, 10)}
+                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                    {editAge !== null && (
+                      <p className={`text-xs font-semibold mt-1 ${editAge < 18 ? 'text-danger' : 'text-primary'}`}>
+                        Age: {editAge} {editAge < 18 && '— must be 18 or older'}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">Gender</label>
+                    <div className="flex gap-1.5">
+                      {GENDER_OPTIONS.map((g) => (
+                        <button key={g.value} type="button"
+                          onClick={() => { setSelectedGender(g.value); setValue('gender', g.value); }}
+                          className={`flex-1 py-3 rounded-xl border-2 font-bold text-xs transition-all ${
+                            selectedGender === g.value
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border bg-background text-muted-foreground hover:border-primary/40'
+                          }`}>
+                          {g.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">Bio</label>
                   <textarea {...register('bio')} rows="4" placeholder="Tell about yourself or your company…"
                     className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary resize-none transition-colors text-sm" />
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">City</label>
+                    <input {...register('city')} placeholder="e.g. Bhopal"
+                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">Address (optional)</label>
+                    <input {...register('address')} placeholder="Area, landmark…"
+                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                  </div>
+                </div>
+
                 {user?.role !== 'CLIENT' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-1.5">Professional Title</label>
-                      <input {...register('title')} placeholder="e.g. Full Stack Developer"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-1.5">Skills (comma-separated)</label>
-                      <input {...register('skills')} placeholder="React, Node.js, Figma…"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-1.5">Hourly Rate (₹)</label>
-                      <input {...register('hourlyRate')} type="number" placeholder="e.g. 500"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
-                    </div>
-                  </>
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">Professional Title</label>
+                    <input {...register('title')} placeholder="e.g. Full Stack Developer"
+                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors text-sm" />
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Manage skills, hourly rate &amp; availability in Settings → Role Settings.
+                    </p>
+                  </div>
                 )}
 
                 <div className="flex gap-3 pt-2">
@@ -375,7 +497,7 @@ const FreelancerProfile = () => {
                     className="flex-1 py-3 border border-border rounded-xl text-muted-foreground hover:text-foreground hover:border-muted-foreground font-medium transition-colors">
                     Cancel
                   </button>
-                  <button type="submit" disabled={isUpdating}
+                  <button type="submit" disabled={isUpdating || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
                     className="flex-1 py-3 bg-primary hover:opacity-90 text-primary-foreground rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all shadow-md">
                     {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={16} />}
                     {isUpdating ? 'Saving…' : 'Save Changes'}

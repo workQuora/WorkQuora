@@ -16,7 +16,17 @@ export const useProfile = () => {
 
   const { mutate: updateProfile, isPending: isUpdating } = useMutation({
     mutationFn: profileApi.update,
-    onSuccess: () => { toast.success('Profile updated!'); qc.invalidateQueries({ queryKey: ['profile'] }); },
+    onSuccess: (res) => {
+      toast.success('Profile updated!');
+      qc.invalidateQueries({ queryKey: ['profile'] });
+      // Single source of truth for syncing the edited fields into Redux, so
+      // every consumer (Navbar, dashboards, etc.) reflects the change
+      // immediately — no caller needs to dispatch this itself anymore.
+      const updated = res?.data?.data;
+      if (updated && token) {
+        dispatch(loginSuccess({ user: { ...user, ...updated }, token }));
+      }
+    },
     onError: (err) => toast.error(err.response?.data?.message || 'Update failed.'),
   });
 

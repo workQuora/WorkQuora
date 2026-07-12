@@ -43,6 +43,11 @@ const { mongoSanitize } = require('./middlewares/securityMiddleware');
 
 const app = express();
 
+// Render sits behind a reverse proxy — without this, req.ip resolves to the
+// proxy's internal address, breaking IP-based geolocation, rate limiting,
+// and audit-log IPs (which all read req.ip/X-Forwarded-For).
+app.set('trust proxy', 1);
+
 // CORS must be at the very top to handle preflight OPTIONS requests before
 // other middleware (helmet, tracing, version managers) intercept or modify headers.
 app.use(cors({ origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(','), credentials: true }));

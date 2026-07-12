@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { registerUser, resendOtp, verifyRegistration, verifyMobile, sendMobileOtp, loginUser, logoutUser, getMe, socialLogin, assignRole, forgotPassword, resetPassword, changePassword, getSessions, checkUsername, refreshSession, logoutAllDevices, deleteAccount, requestPasswordOtp, verifyPasswordOtp, setPassword } = require('../controllers/authController');
+const { registerUser, resendOtp, verifyRegistration, verifyMobile, sendMobileOtp, loginUser, logoutUser, getMe, socialLogin, assignRole, forgotPassword, resetPassword, changePassword, getSessions, revokeSession, checkUsername, refreshSession, logoutAllDevices, deleteAccount, requestPasswordOtp, verifyPasswordOtp, setPassword } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 
 const { enforceStringParams } = require('../middlewares/securityMiddleware');
@@ -25,6 +25,8 @@ router.post('/request-password-otp', protect, enforceStringParams(['method']), r
 router.post('/verify-password-otp',  protect, enforceStringParams(['otp']), verifyPasswordOtp);
 router.post('/set-password',         protect, enforceStringParams(['newPassword', 'confirmPassword']), setPassword);
 router.get('/sessions',         protect, getSessions);
+router.delete('/sessions/:id',  protect, revokeSession);
+router.delete('/sessions',      protect, logoutAllDevices);
 router.delete('/account',       protect, deleteAccount);
 
 module.exports = router;

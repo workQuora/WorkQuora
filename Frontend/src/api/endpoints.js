@@ -16,6 +16,8 @@ export const authApi = {
   verifyPasswordOtp:  (d) => api.post('/auth/verify-password-otp', d),
   setPassword:        (d) => api.post('/auth/set-password', d),
   sessions:   ()  => api.get('/auth/sessions'),
+  revokeSession: (id) => api.delete(`/auth/sessions/${id}`),
+  logoutAllSessions: () => api.delete('/auth/sessions'),
   deleteAccount: () => api.delete('/auth/account'),
 };
 

@@ -25,6 +25,7 @@ exports.protect = async (req, res, next) => {
     }
 
     req.user = currentUser;
+    req.sessionId = decoded.sessionId || null;
 
     const whitelist = [
       '/api/v1/auth/me',
