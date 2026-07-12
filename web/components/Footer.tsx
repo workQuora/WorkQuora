@@ -27,22 +27,22 @@ export function Footer() {
             </h4>
             <ul className="space-y-2.5 text-xs text-muted-foreground">
               <li>
-                <a href={`${SPA_URL}/discover`} className="font-medium transition-colors hover:text-primary">
+                <a href={SPA_URL} className="font-medium transition-colors hover:text-primary">
                   Browse Open Jobs
                 </a>
               </li>
               <li>
-                <a href={`${SPA_URL}/discover`} className="font-medium transition-colors hover:text-primary">
+                <a href={SPA_URL} className="font-medium transition-colors hover:text-primary">
                   Find Top Talent
                 </a>
               </li>
               <li>
-                <a href={`${SPA_URL}/client/post-job`} className="font-medium transition-colors hover:text-primary">
+                <a href={`${SPA_URL}/auth?mode=register`} className="font-medium transition-colors hover:text-primary">
                   Post a Job Requirement
                 </a>
               </li>
               <li>
-                <a href={`${SPA_URL}/shared/wallet`} className="font-medium transition-colors hover:text-primary">
+                <a href={SPA_URL} className="font-medium transition-colors hover:text-primary">
                   Smart Payouts &amp; Wallet
                 </a>
               </li>

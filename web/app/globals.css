@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Class-based dark mode — do NOT switch back to @media(prefers-color-scheme).
+   Default must always be light regardless of OS setting; only an explicit
+   .dark class (set by the inline script in app/layout.tsx from localStorage)
+   should switch it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Brand tokens — matches Frontend/src/index.css (--primary: #1E00A9) */
 :root {
   --background: #ffffff;
@@ -25,15 +31,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --muted-foreground: #94a3b8;
-    --border: #27272a;
-    --surface: #0f0f18;
-    --surface-2: #121214;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --muted-foreground: #94a3b8;
+  --border: #27272a;
+  --surface: #0f0f18;
+  --surface-2: #121214;
 }
 
 body {

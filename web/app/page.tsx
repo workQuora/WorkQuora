@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ShieldCheck, Zap, Globe2, Briefcase, Users, ArrowRight } from "lucide-react";
+import { ShieldCheck, Zap, Globe2, Briefcase, Users, ArrowRight, FileEdit, UserCheck, Lock, MapPin, Wallet } from "lucide-react";
 import { SITE_URL, SPA_URL } from "@/lib/constants";
 import { SERVICES } from "@/lib/services";
 
@@ -40,6 +40,42 @@ const TRUST_BADGES = [
     icon: Globe2,
     title: "Local & Global Reach",
     desc: "Find opportunities right in your neighborhood or work with clients worldwide.",
+  },
+];
+
+const CLIENT_STEPS = [
+  {
+    icon: FileEdit,
+    title: "Post your requirement",
+    desc: "Tell us what work you need done and your budget — takes under a minute.",
+  },
+  {
+    icon: UserCheck,
+    title: "Browse verified workers",
+    desc: "See KYC-verified profiles and ratings from real completed jobs before you hire.",
+  },
+  {
+    icon: Lock,
+    title: "Pay securely via escrow",
+    desc: "Your payment releases only once you approve the finished work.",
+  },
+];
+
+const WORKER_STEPS = [
+  {
+    icon: UserCheck,
+    title: "Complete KYC",
+    desc: "A one-time check — Aadhaar, PAN, bank account, and a selfie.",
+  },
+  {
+    icon: MapPin,
+    title: "Browse local jobs",
+    desc: "Find work in your own city, on your own terms.",
+  },
+  {
+    icon: Wallet,
+    title: "Complete & get paid",
+    desc: "Payment credits instantly to your wallet from escrow once the job is done.",
   },
 ];
 
@@ -123,8 +159,77 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trust badges */}
+      {/* Section A: For Clients */}
+      <section className="border-t border-border py-14 sm:py-20">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <h2 className="mb-10 text-center text-2xl font-extrabold tracking-tight sm:text-3xl">
+            For Clients: Hire in 3 Steps
+          </h2>
+          <div className="mb-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {CLIENT_STEPS.map((step, i) => (
+              <div key={step.title} className="rounded-2xl border border-border bg-surface p-6 text-center">
+                <span className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                  {i + 1}
+                </span>
+                <step.icon className="mx-auto mb-3 h-6 w-6 text-primary" />
+                <h3 className="mb-1.5 text-sm font-bold">{step.title}</h3>
+                <p className="text-xs leading-relaxed text-muted-foreground">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+          <div className="text-center">
+            <a
+              href={`${SPA_URL}/auth?mode=register`}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
+            >
+              Post a Job <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Section B: For Workers */}
       <section className="border-t border-border bg-surface-2 py-14 sm:py-20">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <h2 className="mb-10 text-center text-2xl font-extrabold tracking-tight sm:text-3xl">
+            For Workers: Find Work Your Way
+          </h2>
+          <div className="mb-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {WORKER_STEPS.map((step, i) => (
+              <div key={step.title} className="rounded-2xl border border-border bg-surface p-6 text-center">
+                <span className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                  {i + 1}
+                </span>
+                <step.icon className="mx-auto mb-3 h-6 w-6 text-emerald-600" />
+                <h3 className="mb-1.5 text-sm font-bold">{step.title}</h3>
+                <p className="text-xs leading-relaxed text-muted-foreground">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mx-auto mb-8 max-w-xl rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
+            <p className="mb-1.5 text-lg font-extrabold text-emerald-700 dark:text-emerald-400">
+              Jab mann kiya on karo, jab chaho off — no pressure
+            </p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Work in your own city, on your own schedule, whenever you want. No fixed shifts, no
+              travel to another city required.
+            </p>
+          </div>
+
+          <div className="text-center">
+            <a
+              href={`${SPA_URL}/auth?mode=register`}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-700"
+            >
+              Start Earning <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust badges */}
+      <section className="border-t border-border py-14 sm:py-20">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-4 sm:grid-cols-3 sm:px-6">
           {TRUST_BADGES.map(({ icon: Icon, title, desc }) => (
             <div key={title} className="flex flex-col items-center text-center sm:items-start sm:text-left">

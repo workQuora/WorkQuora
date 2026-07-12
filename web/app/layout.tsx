@@ -40,6 +40,21 @@ export const metadata: Metadata = {
   },
 };
 
+// Runs before paint so there's no flash of the wrong theme. Defaults to
+// light unconditionally — system prefers-color-scheme is intentionally
+// ignored; only an explicit localStorage 'theme'='dark' (set by the user)
+// switches to dark. Kept dependency-free since it must run synchronously,
+// before hydration.
+const themeInitScript = `
+(function () {
+  try {
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
+})();
+`;
+
 // TODO: swap in a real logo asset under /public once brand assets are migrated.
 const organizationJsonLd = {
   "@context": "https://schema.org",
@@ -59,8 +74,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <script
           type="application/ld+json"

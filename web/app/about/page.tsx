@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { ShieldCheck, Target, Users } from "lucide-react";
+import { ShieldCheck, MapPin, Users } from "lucide-react";
 import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "About Us",
   description:
-    "WorkQuora is India's KYC-verified freelance and local services marketplace, built to make hiring and getting hired safe, fast, and fair.",
+    "WorkQuora is India's KYC-verified local work marketplace, built so skilled workers can find real jobs in their own city — on their own terms.",
   alternates: { canonical: `${SITE_URL}/about` },
 };
 
@@ -14,15 +14,17 @@ export default function AboutPage() {
     <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-24">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">About Us</p>
       <h1 className="mb-6 text-4xl font-extrabold tracking-tight sm:text-5xl">
-        Building a safer way to hire and get hired in India
+        Built so skilled workers don&apos;t have to leave their city for work
       </h1>
       <p className="mb-12 text-lg leading-relaxed text-muted-foreground">
-        WorkQuora is a KYC-verified marketplace that connects clients with freelancers and
-        local service professionals across India. Every user on the platform verifies their
-        identity through Aadhaar and PAN before they can post a job, submit a proposal, or
-        get paid — and every payment moves through escrow, held safely until both sides agree
-        the work is done. We built WorkQuora because hiring someone you&apos;ve never met, or
-        working for a client you can&apos;t verify, shouldn&apos;t require blind trust.
+        WorkQuora is a KYC-verified marketplace connecting clients with local workers —
+        plumbers, electricians, cooks, painters, carpenters, and more — in their own city.
+        Every worker verifies their identity through Aadhaar, PAN, bank details, and a selfie
+        check before they can take a job, and every payment is held safely in escrow until the
+        client approves the completed work. We built WorkQuora because too many skilled workers
+        have had to leave home and move to a bigger city just to find steady work, when the
+        real problem was simply not having a reliable way for nearby clients to find and trust
+        them.
       </p>
 
       <div className="mb-14 grid grid-cols-1 gap-6 sm:grid-cols-3">
@@ -34,38 +36,45 @@ export default function AboutPage() {
           </p>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-6">
-          <Target className="mb-3 h-6 w-6 text-primary" />
-          <h3 className="mb-1.5 text-sm font-bold">Built for local + remote</h3>
+          <MapPin className="mb-3 h-6 w-6 text-primary" />
+          <h3 className="mb-1.5 text-sm font-bold">Local-first</h3>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Hire a nearby electrician or a remote developer — same platform, same protections.
+            Built around work in your own city — no need to relocate to find steady clients.
           </p>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-6">
           <Users className="mb-3 h-6 w-6 text-primary" />
           <h3 className="mb-1.5 text-sm font-bold">Fair to both sides</h3>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Escrow protects clients from bad work and freelancers from non-payment, equally.
+            Escrow protects clients from bad work and workers from non-payment, equally.
           </p>
         </div>
       </div>
 
       <h2 className="mb-4 text-2xl font-extrabold tracking-tight">Our Mission</h2>
-      <p className="mb-10 leading-relaxed text-muted-foreground">
-        India has millions of skilled freelancers and local service providers, and just as
-        many clients who need reliable help — but the trust gap between them is real. Fake
-        profiles, unpaid invoices, and no-show contractors are common enough that most people
-        default to hiring only within their own network. WorkQuora&apos;s mission is to close
-        that trust gap with verified identities, transparent pricing, and payments that are
-        never released until the work is actually approved, so that hiring a stranger for a
-        job feels as safe as hiring someone you already know.
+      <p className="mb-6 leading-relaxed text-muted-foreground">
+        India has millions of skilled workers — tradespeople, cooks, and local service
+        professionals — and just as many households and businesses nearby who need reliable
+        help. The gap between them usually isn&apos;t a lack of skill or a lack of demand,
+        it&apos;s trust: clients don&apos;t know who&apos;s actually reliable, and workers don&apos;t
+        have a steady way to reach clients without relying entirely on word of mouth. WorkQuora&apos;s
+        mission is simple: every skilled worker in India should have access to a verified
+        platform where they can find real work close to home, on their own schedule — no
+        middleman, no need to move to a different city to make a living.
       </p>
+
+      <div className="mb-14 rounded-2xl border border-border bg-surface-2 p-6 text-center">
+        <p className="text-sm font-bold text-foreground">
+          Growing community of workers and clients across India
+        </p>
+      </div>
 
       <h2 className="mb-4 text-2xl font-extrabold tracking-tight">A Note From Our Team</h2>
       <p className="leading-relaxed text-muted-foreground">
-        This section is where we&apos;ll share the story of why WorkQuora was started and
-        who&apos;s building it — we&apos;re holding that space for a proper founder&apos;s
-        note rather than publishing a placeholder bio. In the meantime, you can reach the team
-        directly at{" "}
+        WorkQuora is built by a solo developer who believes skilled workers deserve better
+        opportunities in their own city — that&apos;s the honest version of our founding story,
+        and we&apos;d rather tell you that than publish a polished bio that isn&apos;t real. If
+        you want to reach out directly, email{" "}
         <a href="mailto:support@workquora.com" className="font-semibold text-primary hover:underline">
           support@workquora.com
         </a>
