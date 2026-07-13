@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Same design tokens as Frontend/src/index.css — admin's own pages are
+   built with raw dark-UI colors rather than these semantic tokens, but the
+   scale (radius/shadow/font) stays consistent across both apps. */
+:root {
+  --background: 210 40% 98%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --border: 214 32% 91%;
+  --primary: 251 100% 33%;         /* Brand #1E00A9 */
+  --primary-foreground: 0 0% 100%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --radius: 0.875rem;
+
+  --surface: 0 0% 100%;
+  --surface-2: 210 40% 96%;
+  --text-primary: 222 47% 11%;
+  --text-muted: 215 16% 47%;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --card-shadow-hover: 0 8px 24px rgba(30,0,169,0.10), 0 2px 8px rgba(0,0,0,0.06);
+
+  --success: 160 84% 39%;
+  --warning: 38 92% 50%;
+  --danger: 0 84% 60%;
+}
+
+.dark {
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 5.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 6% 15%;
+  --primary: 251 100% 33%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+
+  --surface: 240 9% 8%;
+  --surface-2: 240 8% 11%;
+  --text-primary: 210 40% 96%;
+  --text-muted: 215 20% 55%;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+  --card-shadow-hover: 0 8px 24px rgba(99,102,241,0.2), 0 0 0 1px rgba(99,102,241,0.15);
+}
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-danger: hsl(var(--danger));
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
+
+  --font-sans: 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+}
+
+* {
+  border-color: hsl(var(--border) / 1);
+}
+
+body {
+  font-family: 'Geist', sans-serif;
+  font-feature-settings: 'cv02','cv03','cv04','cv11';
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Admin dashboard is a fixed dark "ops console" — not theme-toggle driven
+   like the client app, so background/foreground are pinned to the dark
+   values directly rather than resolved through .dark toggling. */
+html, body, #root {
+  background-color: #09090b;
+  color: #ededed;
+}
+
+/* Premium scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--text-muted));
+}

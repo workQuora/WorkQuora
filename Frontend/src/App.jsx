@@ -6,7 +6,6 @@ import { useAppStore } from './store/appStore';
 // ── Layouts (NOT lazy — shell must render instantly) ──────────────────────────
 import MainLayout from './Layouts/MainLayout';
 import DashboardLayout from './Layouts/DashboardLayout';
-import AdminLayout from './admin/components/AdminLayout';
 
 // ── Auth pages (NOT lazy — entry points, must load instantly) ─────────────────
 import Auth from './pages/Auth';
@@ -39,18 +38,6 @@ const FreelancerDashboard   = lazy(() => import('./pages/freelancer/Dashboard'))
 const Profile               = lazy(() => import('./pages/freelancer/Profile'));
 const Earnings              = lazy(() => import('./pages/freelancer/Earnings'));
 
-// ── Lazy-loaded admin pages (heaviest — biggest gain) ─────────────────────────
-const AdminLogin            = lazy(() => import('./admin/pages/AdminLogin'));
-const AdminDashboard        = lazy(() => import('./admin/pages/AdminDashboard'));
-const AdminUsers            = lazy(() => import('./admin/pages/AdminUsers'));
-const AdminKyc              = lazy(() => import('./admin/pages/AdminKyc'));
-const AdminDisputes         = lazy(() => import('./admin/pages/AdminDisputes'));
-const AdminTasks            = lazy(() => import('./admin/pages/AdminTasks'));
-const AdminPayments         = lazy(() => import('./admin/pages/AdminPayments'));
-const AdminAnalytics        = lazy(() => import('./admin/pages/AdminAnalytics'));
-const AdminAuditLogs        = lazy(() => import('./admin/pages/AdminAuditLogs'));
-const AdminSettings         = lazy(() => import('./admin/pages/AdminSettings'));
-const AdminAds              = lazy(() => import('./admin/pages/AdminAds'));
 const Maintenance           = lazy(() => import('./pages/Maintenance'));
 
 // ── Shared Suspense fallback (full-screen spinner) ────────────────────────────
@@ -88,18 +75,6 @@ const freelancerLoader = () => {
 const authLoader = () => {
   const { isAuthenticated } = store.getState().auth;
   if (!isAuthenticated) return redirect('/auth');
-  return null;
-};
-
-const adminLoader = () => {
-  const { admin } = store.getState().adminAuth;
-  if (!admin) return redirect('/admin/login');
-  return null;
-};
-
-const adminGuestLoader = () => {
-  const { admin } = store.getState().adminAuth;
-  if (admin) return redirect('/admin/dashboard');
   return null;
 };
 
@@ -166,28 +141,6 @@ const router = createBrowserRouter([
         loader: freelancerLoader,
         children: [
           { path: 'dashboard', element: <FreelancerDashboard /> },
-        ],
-      },
-
-      // Admin Portal Routes
-      { path: '/admin/login', element: <AdminLogin />, loader: adminGuestLoader },
-      {
-        path: '/admin',
-        element: <AdminLayout />,
-        loader: adminLoader,
-        children: [
-          { index: true, element: <AdminDashboard /> },
-          { path: 'dashboard', element: <AdminDashboard /> },
-          { path: 'clients', element: <AdminUsers roleProp="CLIENT" /> },
-          { path: 'freelancers', element: <AdminUsers roleProp="FREELANCER" /> },
-          { path: 'kyc', element: <AdminKyc /> },
-          { path: 'disputes', element: <AdminDisputes /> },
-          { path: 'tasks', element: <AdminTasks /> },
-          { path: 'payments', element: <AdminPayments /> },
-          { path: 'analytics', element: <AdminAnalytics /> },
-          { path: 'ads', element: <AdminAds /> },
-          { path: 'audit-logs', element: <AdminAuditLogs /> },
-          { path: 'settings', element: <AdminSettings /> },
         ],
       },
 
