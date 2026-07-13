@@ -8,6 +8,7 @@ import {
 import { authApi } from '../../../api/endpoints';
 import { useAuth } from '../../../hooks/useAuth';
 import { loginSuccess } from '../../../actions/authSlice';
+import { getLockInfo } from '../../../utils/updateLock';
 import { Card, SectionHeader, Button, Input } from '../../../components/ui';
 
 const formatDateTime = (dateStr) => {
@@ -26,11 +27,12 @@ const formatCountdown = (secs) => {
 // Inline "Change Email" / "Change Mobile" flow — enter new value, OTP is
 // sent to that NEW destination to prove ownership, then it's applied. Same
 // 2-minute-timer pattern as the password OTP flow in Security settings.
-const ChangeContactFlow = ({ kind, currentValue }) => {
+const ChangeContactFlow = ({ kind, currentValue, lastChangeAt }) => {
   const qc = useQueryClient();
   const dispatch = useDispatch();
   const { user, token } = useAuth();
   const isEmail = kind === 'email';
+  const lock = getLockInfo(lastChangeAt);
 
   const [step, setStep] = useState('idle'); // 'idle' | 'enter' | 'otp'
   const [value, setValue] = useState('');
@@ -92,6 +94,14 @@ const ChangeContactFlow = ({ kind, currentValue }) => {
     if (otp.length !== 6) return toast.error('Enter the 6-digit OTP');
     verifyMutation.mutate(isEmail ? { otp, newEmail: value.trim() } : { otp, newMobile: value.trim() });
   };
+
+  if (lock) {
+    return (
+      <span className="text-xs text-muted-foreground shrink-0 text-right">
+        You recently updated this.<br className="hidden sm:block" /> Next update available on {lock.formatted}.
+      </span>
+    );
+  }
 
   return (
     <>
@@ -211,7 +221,7 @@ const AccountSection = ({ profile }) => {
                 <span className="flex items-center gap-1 text-xs font-bold text-muted-foreground"><XCircle className="w-3.5 h-3.5" /> Unverified</span>
               )}
             </div>
-            <ChangeContactFlow kind="email" currentValue={profile?.email} />
+            <ChangeContactFlow kind="email" currentValue={profile?.email} lastChangeAt={profile?.lastEmailChangeAt} />
           </div>
 
           <div className="flex items-center justify-between gap-3 py-2 border-b border-border/60 flex-wrap">
@@ -228,7 +238,7 @@ const AccountSection = ({ profile }) => {
                 )
               )}
             </div>
-            <ChangeContactFlow kind="mobile" currentValue={profile?.mobileNumber} />
+            <ChangeContactFlow kind="mobile" currentValue={profile?.mobileNumber} lastChangeAt={profile?.lastMobileChangeAt} />
           </div>
 
           <div className="flex items-center gap-2.5 py-2">

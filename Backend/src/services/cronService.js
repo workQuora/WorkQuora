@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Session = require('../models/Session');
 const featureFlags = require('../config/featureFlags');
+const { cleanupOldNotifications } = require('../utils/notificationCleanup');
 
 class CronService {
   constructor() {
@@ -45,7 +46,21 @@ class CronService {
       }
     }, 5 * 60 * 1000); // 5 Minutes
 
-    this.jobs.push(cleanupSessionsInterval, expireOtpsInterval);
+    // Job 3: Notification retention — among each user's notifications older
+    // than 7 days, delete the oldest 40% of that subset (runs every 6 hours;
+    // the 99-per-user FIFO cap runs separately, on every notification create).
+    const cleanupNotificationsInterval = setInterval(async () => {
+      try {
+        const { totalDeleted, recipientsProcessed } = await cleanupOldNotifications();
+        if (totalDeleted > 0) {
+          console.log(`⏰ Cron Job: Cleaned up ${totalDeleted} old notifications across ${recipientsProcessed} users.`);
+        }
+      } catch (err) {
+        console.error('❌ Cron cleanupNotifications error:', err.message);
+      }
+    }, 6 * 60 * 60 * 1000); // 6 Hours
+
+    this.jobs.push(cleanupSessionsInterval, expireOtpsInterval, cleanupNotificationsInterval);
   }
 
   /**

@@ -10,6 +10,7 @@ const Review = require('../models/Review');
 const { parseUserAgent } = require('../utils/uaParser');
 const { getLocationFromIp } = require('../utils/ipGeolocation');
 const { createAuditLog } = require('../utils/auditLogger');
+const { checkUpdateLock } = require('../utils/updateLock');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
@@ -1170,6 +1171,11 @@ exports.requestEmailChangeOtp = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'This is already your current email' });
     }
 
+    const lock = checkUpdateLock(user.lastEmailChangeAt, 'email');
+    if (lock) {
+      return res.status(400).json({ success: false, message: lock.message, nextAvailableAt: lock.nextAvailableAt });
+    }
+
     const existing = await User.findOne({ email: emailLower, _id: { $ne: req.user.id } });
     if (existing) {
       return res.status(400).json({ success: false, message: 'This email is already registered' });
@@ -1245,6 +1251,7 @@ exports.verifyEmailChange = async (req, res, next) => {
     user.emailChangeOtp = null;
     user.emailChangeOtpExpires = null;
     user.pendingEmail = null;
+    user.lastEmailChangeAt = new Date();
     await user.save();
 
     await createAuditLog(req, {
@@ -1254,6 +1261,9 @@ exports.verifyEmailChange = async (req, res, next) => {
       entityId: user.id,
       metadata: { oldEmail, newEmail: user.email }
     });
+
+    const { createRecord } = require('../utils/recordLogger');
+    createRecord(req, { userId: user.id, action: 'EMAIL_CHANGE', oldValue: oldEmail, newValue: user.email });
 
     const io = req.app.get('io');
     const { createNotification } = require('../utils/notification');
@@ -1291,6 +1301,11 @@ exports.requestMobileChangeOtp = async (req, res, next) => {
 
     if (newMobile === user.mobileNumber) {
       return res.status(400).json({ success: false, message: 'This is already your current mobile number' });
+    }
+
+    const lock = checkUpdateLock(user.lastMobileChangeAt, 'mobile number');
+    if (lock) {
+      return res.status(400).json({ success: false, message: lock.message, nextAvailableAt: lock.nextAvailableAt });
     }
 
     const existing = await User.findOne({ mobileNumber: newMobile, _id: { $ne: req.user.id } });
@@ -1355,11 +1370,13 @@ exports.verifyMobileChange = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'This mobile number is already registered' });
     }
 
+    const oldMobile = user.mobileNumber;
     user.mobileNumber = user.pendingMobile;
     user.isMobileVerified = true;
     user.mobileChangeOtp = null;
     user.mobileChangeOtpExpires = null;
     user.pendingMobile = null;
+    user.lastMobileChangeAt = new Date();
     await user.save();
 
     // Keep the Kyc record's mobile in sync (same as profileController.js's updateProfile)
@@ -1371,6 +1388,9 @@ exports.verifyMobileChange = async (req, res, next) => {
       entity: 'User',
       entityId: user.id
     });
+
+    const { createRecord } = require('../utils/recordLogger');
+    createRecord(req, { userId: user.id, action: 'MOBILE_CHANGE', oldValue: oldMobile, newValue: user.mobileNumber });
 
     const { createNotification } = require('../utils/notification');
     await createNotification({

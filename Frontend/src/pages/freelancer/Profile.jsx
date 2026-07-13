@@ -17,6 +17,7 @@ import { Lightbox } from '../../components/ui/Lightbox';
 import KycVerificationCard from '../../components/KycVerificationCard';
 import imageCompression from 'browser-image-compression';
 import api from '../../services/api';
+import { getLockInfo } from '../../utils/updateLock';
 
 const GENDER_OPTIONS = [
   { value: 'MALE', label: 'Male' },
@@ -65,6 +66,7 @@ const FreelancerProfile = () => {
 
   const usernameValue = watch('username');
   const [usernameStatus, setUsernameStatus] = useState(null); // 'checking' | 'available' | 'taken' | 'invalid' | null
+  const usernameLock = getLockInfo(profile?.lastUsernameChangeAt);
   const dobValue = watch('dateOfBirth');
   const editAge = calcAge(dobValue);
 
@@ -482,8 +484,8 @@ const FreelancerProfile = () => {
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1.5">Username</label>
                   <div className="relative">
-                    <input {...register('username')} placeholder="username"
-                      className={`w-full bg-background border rounded-xl px-4 py-3 pr-10 text-foreground focus:outline-none transition-colors text-sm ${
+                    <input {...register('username')} placeholder="username" disabled={!!usernameLock}
+                      className={`w-full bg-background border rounded-xl px-4 py-3 pr-10 text-foreground focus:outline-none transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed ${
                         usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'border-danger' : 'border-border focus:border-primary'
                       }`} />
                     <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
@@ -492,9 +494,15 @@ const FreelancerProfile = () => {
                       {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <XCircle className="w-4 h-4 text-danger" />}
                     </div>
                   </div>
-                  {usernameStatus === 'taken' && <p className="text-danger text-xs mt-1">Username already taken</p>}
-                  {usernameStatus === 'invalid' && <p className="text-danger text-xs mt-1">Letters, numbers and underscores only, min 3 characters</p>}
-                  {usernameStatus === 'available' && <p className="text-emerald-500 text-xs mt-1">Username is available</p>}
+                  {usernameLock ? (
+                    <p className="text-muted-foreground text-xs mt-1">You recently updated this. Next update available on {usernameLock.formatted}.</p>
+                  ) : (
+                    <>
+                      {usernameStatus === 'taken' && <p className="text-danger text-xs mt-1">Username already taken</p>}
+                      {usernameStatus === 'invalid' && <p className="text-danger text-xs mt-1">Letters, numbers and underscores only, min 3 characters</p>}
+                      {usernameStatus === 'available' && <p className="text-emerald-500 text-xs mt-1">Username is available</p>}
+                    </>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

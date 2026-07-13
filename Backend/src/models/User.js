@@ -13,10 +13,15 @@ const userSchema = new mongoose.Schema(
     // Email Trackers
     email: { type: String, required: [true, 'Email is required'], unique: true, lowercase: true, trim: true },
     isEmailEdited: { type: Boolean, default: false }, // Rule: Can only edit email once
-    
+    // 14-day cooldown between changes — enforced server-side in the request/
+    // update handlers, not just displayed in the UI.
+    lastEmailChangeAt: { type: Date, default: null },
+    lastMobileChangeAt: { type: Date, default: null },
+    lastUsernameChangeAt: { type: Date, default: null },
+
     // Username (optional, unique)
     username: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
-    
+
     // Mobile Trackers
     mobileNumber: { type: String },
     isMobileEdited: { type: Boolean, default: false }, // Rule: Can only edit mobile once

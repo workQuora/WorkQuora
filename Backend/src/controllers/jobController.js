@@ -79,6 +79,14 @@ exports.createJob = async (req, res, next) => {
       metadata: { title: job.title, category: job.category, budget: job.budget }
     });
 
+    const { createRecord } = require('../utils/recordLogger');
+    createRecord(req, {
+      userId: req.user.id,
+      action: 'JOB_POSTED',
+      oldValue: null,
+      newValue: { jobId: job._id, title: job.title, category: job.category, budget: job.budget },
+    });
+
     res.status(201).json({
       success: true,
       data: job

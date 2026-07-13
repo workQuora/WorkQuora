@@ -5,6 +5,8 @@ const Earnings = require('../models/Earnings');
 const cloudinary = require('../config/cloudinary');
 const Job = require('../models/Job');
 const encryption = require('../utils/encryption');
+const { checkUpdateLock } = require('../utils/updateLock');
+const { createRecord } = require('../utils/recordLogger');
 
 // GET /profile/me
 exports.getProfile = async (req, res, next) => {
@@ -67,9 +69,13 @@ exports.getProfile = async (req, res, next) => {
 };
 
 // PUT /profile/update
+// Email and mobile number are deliberately NOT accepted here — those go
+// exclusively through the OTP-verified /auth/request-email-change-otp and
+// /auth/request-mobile-change-otp flows (with their own 14-day lock), so
+// this endpoint can never be used to bypass that verification.
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, bio, title, skills, hourlyRate, isAvailable, serviceRadius, username, twoFactorEnabled, address, city, coordinates, email, mobileNumber, dateOfBirth, gender } = req.body;
+    const { name, bio, title, skills, hourlyRate, isAvailable, serviceRadius, username, twoFactorEnabled, address, city, coordinates, dateOfBirth, gender } = req.body;
 
     if (dateOfBirth) {
       const dob = new Date(dateOfBirth);
@@ -89,7 +95,7 @@ exports.updateProfile = async (req, res, next) => {
       name: user.name, bio: user.bio, title: user.title, gender: user.gender,
       dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString() : null,
       city: user.location?.city, address: user.location?.address,
-      username: user.username, email: user.email, mobileNumber: user.mobileNumber,
+      username: user.username,
     };
 
     if (dateOfBirth) user.dateOfBirth = new Date(dateOfBirth);
@@ -112,56 +118,53 @@ exports.updateProfile = async (req, res, next) => {
       user.location.coordinates = coordinates;
     }
 
-    if (email) {
-      const emailLower = email.toLowerCase().trim();
-      const existing = await User.findOne({ email: emailLower, _id: { $ne: req.user.id } });
-      if (existing) return res.status(400).json({ success: false, message: 'Email is already in use by another account' });
-      user.email = emailLower;
-    }
-
-    if (mobileNumber) {
-      user.mobileNumber = mobileNumber;
-      // Also update Kyc record if it exists
-      await Kyc.findOneAndUpdate({ userId: req.user.id }, { mobileNumber });
-    }
-
+    let usernameChanged = false;
     if (username) {
       const cleanUsername = username.toLowerCase().trim();
-      const existing = await User.findOne({ username: cleanUsername, _id: { $ne: req.user.id } });
-      if (existing) return res.status(400).json({ success: false, message: 'Username is already taken' });
-      user.username = cleanUsername;
+      if (cleanUsername !== user.username) {
+        const lock = checkUpdateLock(user.lastUsernameChangeAt, 'username');
+        if (lock) {
+          return res.status(400).json({ success: false, message: lock.message, nextAvailableAt: lock.nextAvailableAt });
+        }
+        const existing = await User.findOne({ username: cleanUsername, _id: { $ne: req.user.id } });
+        if (existing) return res.status(400).json({ success: false, message: 'Username is already taken' });
+        user.username = cleanUsername;
+        user.lastUsernameChangeAt = new Date();
+        usernameChanged = true;
+      }
     }
 
     await user.save();
 
-    // Activity-log notifications — best-effort, never block the response.
+    // Activity-log notifications + admin-only history record — best-effort,
+    // never block the response.
     try {
       const { createNotification } = require('../utils/notification');
       const io = req.app.get('io');
-      const notifMessages = [];
 
-      if (email && user.email !== before.email) {
-        notifMessages.push('Your email was updated.');
+      const profileDiff = {
+        ...(name !== undefined && user.name !== before.name && { name: [before.name, user.name] }),
+        ...(bio !== undefined && user.bio !== before.bio && { bio: [before.bio, user.bio] }),
+        ...(title !== undefined && user.title !== before.title && { title: [before.title, user.title] }),
+        ...(gender !== undefined && user.gender !== before.gender && { gender: [before.gender, user.gender] }),
+        ...(dateOfBirth && (user.dateOfBirth ? user.dateOfBirth.toISOString() : null) !== before.dateOfBirth && { dateOfBirth: [before.dateOfBirth, user.dateOfBirth] }),
+        ...(city !== undefined && user.location?.city !== before.city && { city: [before.city, user.location?.city] }),
+        ...(address !== undefined && user.location?.address !== before.address && { address: [before.address, user.location?.address] }),
+      };
+      const identityChanged = Object.keys(profileDiff).length > 0;
+
+      if (usernameChanged) {
+        await createNotification({ recipient: req.user.id, type: 'account_activity', message: 'Your username was updated.', io }).catch(() => {});
+        createRecord(req, { userId: req.user.id, action: 'USERNAME_CHANGE', oldValue: before.username, newValue: user.username });
       }
-      if (mobileNumber && user.mobileNumber !== before.mobileNumber) {
-        notifMessages.push('Your mobile number was updated.');
-      }
-      const identityChanged = (
-        (name !== undefined && user.name !== before.name) ||
-        (bio !== undefined && user.bio !== before.bio) ||
-        (title !== undefined && user.title !== before.title) ||
-        (gender !== undefined && user.gender !== before.gender) ||
-        (dateOfBirth && (user.dateOfBirth ? user.dateOfBirth.toISOString() : null) !== before.dateOfBirth) ||
-        (city !== undefined && user.location?.city !== before.city) ||
-        (address !== undefined && user.location?.address !== before.address) ||
-        (username && user.username !== before.username)
-      );
       if (identityChanged) {
-        notifMessages.push('Your profile was updated.');
-      }
-
-      for (const message of notifMessages) {
-        await createNotification({ recipient: req.user.id, type: 'account_activity', message, io }).catch(() => {});
+        await createNotification({ recipient: req.user.id, type: 'account_activity', message: 'Your profile was updated.', io }).catch(() => {});
+        const oldValue = {}, newValue = {};
+        for (const [field, [oldV, newV]] of Object.entries(profileDiff)) {
+          oldValue[field] = oldV;
+          newValue[field] = newV;
+        }
+        createRecord(req, { userId: req.user.id, action: 'PROFILE_UPDATE', oldValue, newValue });
       }
     } catch (notifyError) {
       console.error('Profile update notification error:', notifyError.message);

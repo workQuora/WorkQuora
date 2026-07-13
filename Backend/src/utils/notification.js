@@ -40,6 +40,17 @@ const createNotification = async ({ recipient, sender, type, message, relatedId,
       onModel,
     });
 
+    // Retention cap — max 99 per user, FIFO. Runs best-effort; a failure
+    // here must never break the notification that was just created.
+    Notification.countDocuments({ recipient })
+      .then(async (count) => {
+        const excess = count - 99;
+        if (excess <= 0) return;
+        const oldest = await Notification.find({ recipient }).sort({ createdAt: 1 }).limit(excess).select('_id');
+        await Notification.deleteMany({ _id: { $in: oldest.map((n) => n._id) } });
+      })
+      .catch((err) => console.error('Notification retention cap error:', err.message));
+
     const notificationData = notification.toObject();
 
     // Populate sender details if available
