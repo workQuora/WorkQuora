@@ -51,12 +51,38 @@ app.set('trust proxy', 1);
 
 // CORS must be at the very top to handle preflight OPTIONS requests before
 // other middleware (helmet, tracing, version managers) intercept or modify headers.
-// Allowed origins live in the CLIENT_URL env var (comma-separated) — not a
-// hardcoded array here — so adding a new frontend (e.g. the admin panel)
-// means updating CLIENT_URL wherever this runs (local .env AND Render's
-// dashboard env var; deploying code alone does not change Render's value).
+//
+// Known frontend origins are hardcoded here (not solely env-var driven) —
+// relying only on Render's CLIENT_URL dashboard value meant CORS silently
+// broke whenever a new frontend (e.g. the admin panel) was added but nobody
+// remembered to also update that separate setting. CLIENT_URL still works
+// as an ADDITIVE way to allow extra origins (e.g. a preview URL) without a
+// code change, but the ones below always work regardless of its value.
+const allowedOrigins = [
+  'https://workquora.com',
+  'https://www.workquora.com',
+  'https://app.workquora.com',
+  'https://admin.workquora.com',
+  'http://localhost:5173', // Frontend/ (client SPA) dev
+  'http://localhost:5174', // web/ dev
+  'http://localhost:5175', // admin/ dev
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map((o) => o.trim()).filter(Boolean) : []),
+];
+const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
+
 // credentials: true is required for admin's auth cookies to be sent cross-site.
-app.use(cors({ origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(','), credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // No Origin header at all (server-to-server calls, curl, the Flutter
+    // mobile app) — always allow; only browser cross-origin requests send one.
+    if (!origin || uniqueAllowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`❌ CORS blocked request from origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
 
 const compression = require('compression');
 app.use(compression());
