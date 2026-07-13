@@ -35,24 +35,6 @@ const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const phoneRegex = /^[6-9]\d{9}$/;
 const nameRegex = /^[a-zA-Z\s]{2,50}$/;
 
-const STRENGTH_LEVELS = [
-  { score: 0, label: '',       barColor: 'hsl(var(--border))', textColor: '' },
-  { score: 1, label: 'Weak',   barColor: '#EF4444', textColor: 'text-red-500' },
-  { score: 2, label: 'Fair',   barColor: '#F59E0B', textColor: 'text-amber-500' },
-  { score: 3, label: 'Good',   barColor: '#3B82F6', textColor: 'text-blue-500' },
-  { score: 4, label: 'Strong', barColor: '#10B981', textColor: 'text-emerald-500' },
-];
-
-const getPasswordStrength = (password) => {
-  if (!password) return STRENGTH_LEVELS[0];
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-  return STRENGTH_LEVELS[score];
-};
-
 /* ---- Google SDK loader ---- */
 const loadGoogleSDK = () =>
   new Promise((resolve) => {
@@ -140,12 +122,7 @@ const Auth = () => {
   const phoneValid = phoneRegex.test(mobileValue || '');
   const phoneTouched = !!touchedFields.mobileNumber;
 
-  const passwordStrength = getPasswordStrength(passwordValue || '');
-  const hasUpper = /[A-Z]/.test(passwordValue || '');
-  const hasNumber = /[0-9]/.test(passwordValue || '');
-  const hasSpecial = /[^A-Za-z0-9]/.test(passwordValue || '');
-
-  const isSubmitBlocked = !isLogin && (!emailValid || passwordStrength.score < 2 || !phoneValid || !agreedToTerms || !agreedToPrivacy);
+  const isSubmitBlocked = !isLogin && (!emailValid || (passwordValue || '').length < 6 || !phoneValid || !agreedToTerms || !agreedToPrivacy);
 
   useEffect(() => {
     if (isLogin || !usernameValue || usernameValue.length < 3) {
@@ -676,46 +653,6 @@ const Auth = () => {
                 </button>
               </div>
               {errors.password && <p className="text-red-500 text-xs mt-1 font-medium">{errors.password.message}</p>}
-
-              {!isLogin && passwordValue && (
-                <div className="mt-2 space-y-1">
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4].map((i) => (
-                      <motion.div
-                        key={i}
-                        className="h-1 flex-1 rounded-full"
-                        animate={{
-                          backgroundColor: i <= passwordStrength.score ? passwordStrength.barColor : 'hsl(var(--border))',
-                        }}
-                        transition={{ duration: 0.2 }}
-                      />
-                    ))}
-                  </div>
-                  <AnimatePresence mode="wait">
-                    <motion.p
-                      key={passwordStrength.label}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="text-xs text-muted-foreground"
-                    >
-                      {passwordStrength.label && (
-                        <>
-                          Password strength:{' '}
-                          <span className={passwordStrength.textColor}>{passwordStrength.label}</span>
-                        </>
-                      )}
-                      {passwordStrength.score < 3 && (
-                        <span className="text-muted-foreground ml-1">
-                          — add {!hasUpper && 'uppercase, '}
-                          {!hasNumber && 'numbers, '}
-                          {!hasSpecial && 'symbols'}
-                        </span>
-                      )}
-                    </motion.p>
-                  </AnimatePresence>
-                </div>
-              )}
             </div>
 
             {!isLogin && (
