@@ -182,7 +182,7 @@ const InfoPage = () => {
             <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Support Channels</h4>
             {[
               { icon: Mail, label: 'Email Support', val: 'support@workquora.com' },
-              { icon: Phone, label: 'Helpline', val: '+91 755 123 4567' },
+              { icon: Phone, label: 'Helpline', val: '+91 99817 89795' },
               { icon: MapPin, label: 'HQ Address', val: 'WorkQuora Labs, MP Nagar, Bhopal, India' },
             ].map((c, i) => (
               <div key={i} className="flex gap-3 items-center p-3 rounded-2xl bg-card border border-border">

@@ -215,7 +215,7 @@ const FreelancerProfile = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground w-full">
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         {!kycStatus && (
           <div className="mb-6 flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-2xl px-5 py-4">
             <AlertTriangle className="w-5 h-5 shrink-0" />
@@ -396,7 +396,7 @@ const FreelancerProfile = () => {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                       {displayProfile?.role !== 'CLIENT' && (
                         <div>
                           <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-1">Hourly Rate</h3>
@@ -505,7 +505,7 @@ const FreelancerProfile = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1.5">Date of Birth</label>
                     <input {...register('dateOfBirth')} type="date" max={new Date().toISOString().slice(0, 10)}
@@ -540,7 +540,7 @@ const FreelancerProfile = () => {
                     className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary resize-none transition-colors text-sm" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-1.5">City</label>
                     <input {...register('city')} placeholder="e.g. Bhopal"

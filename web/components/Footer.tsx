@@ -88,7 +88,7 @@ export function Footer() {
                 <span className="font-medium">support@workquora.com</span>
               </li>
               <li className="flex items-center justify-center gap-2 md:justify-start">
-                <span className="font-medium">+91 99999 99999</span>
+                <span className="font-medium">+91 99817 89795</span>
               </li>
               <li className="flex items-start justify-center gap-2 md:justify-start">
                 <span className="font-medium">WorkQuora HQ, Bhopal, Madhya Pradesh, India</span>

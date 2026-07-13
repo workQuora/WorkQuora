@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  IdCard, Lock, ShieldCheck, Bell, CreditCard, Eye, Briefcase, AlertTriangle, Loader2, CheckCircle2,
+  IdCard, Lock, ShieldCheck, Bell, CreditCard, Eye, Briefcase, AlertTriangle, Loader2, CheckCircle2, ChevronDown,
 } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
 
@@ -36,6 +36,8 @@ const Settings = () => {
   const { useGetProfile } = useProfile();
   const { data: profile, isLoading } = useGetProfile();
   const [activeSection, setActiveSection] = useState(getSectionFromHash());
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const mobileNavRef = useRef(null);
 
   useEffect(() => {
     window.location.hash = activeSection;
@@ -47,6 +49,14 @@ const Settings = () => {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  useEffect(() => {
+    const handler = (e) => {
+      if (mobileNavRef.current && !mobileNavRef.current.contains(e.target)) setMobileNavOpen(false);
+    };
+    if (mobileNavOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mobileNavOpen]);
+
   if (isLoading) {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center">
@@ -57,28 +67,10 @@ const Settings = () => {
 
   const role = (profile?.role || user?.role || '').toUpperCase();
 
-  const renderNavItem = (s, { mobile }) => {
+  const renderNavItem = (s) => {
     const isActive = activeSection === s.id;
     const isKycPending = s.id === 'kyc' && !profile?.isKycVerified;
     const isKycVerified = s.id === 'kyc' && profile?.isKycVerified;
-
-    if (mobile) {
-      return (
-        <button
-          key={s.id}
-          onClick={() => setActiveSection(s.id)}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors border ${
-            isActive
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : s.danger ? 'text-danger border-transparent' : 'text-muted-foreground border-transparent'
-          }`}
-        >
-          <s.icon className="w-3.5 h-3.5" />
-          {s.label}
-          {isKycPending && <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />}
-        </button>
-      );
-    }
 
     return (
       <motion.button
@@ -99,6 +91,9 @@ const Settings = () => {
 
   const nonDangerSections = SECTIONS.filter((s) => !s.danger);
   const dangerSection = SECTIONS.find((s) => s.danger);
+  const activeSectionMeta = SECTIONS.find((s) => s.id === activeSection) || SECTIONS[0];
+  const activeIsKycPending = activeSectionMeta.id === 'kyc' && !profile?.isKycVerified;
+  const activeIsKycVerified = activeSectionMeta.id === 'kyc' && profile?.isKycVerified;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 bg-background transition-colors duration-300">
@@ -107,27 +102,68 @@ const Settings = () => {
         <p className="text-muted-foreground mt-2 text-sm max-w-2xl">Manage your professional profile and security preferences.</p>
       </div>
 
-      {/* Mobile: horizontal scrollable tab strip */}
-      <div className="md:hidden mb-6 -mx-4 px-4 overflow-x-auto">
-        <div className="flex gap-2 w-max">
-          {SECTIONS.map((s) => renderNavItem(s, { mobile: true }))}
-        </div>
+      {/* Mobile: dropdown section picker — no horizontal scroll, fits at 380px */}
+      <div className="md:hidden mb-6 relative" ref={mobileNavRef}>
+        <button
+          onClick={() => setMobileNavOpen((p) => !p)}
+          className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-border bg-card text-sm font-bold text-foreground"
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <activeSectionMeta.icon className={`w-4 h-4 shrink-0 ${activeSectionMeta.danger ? 'text-danger' : 'text-primary'}`} />
+            <span className="truncate">{activeSectionMeta.label}</span>
+            {activeIsKycVerified && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
+            {activeIsKycPending && <span className="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0" />}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${mobileNavOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        <AnimatePresence>
+          {mobileNavOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+              className="absolute left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-xl z-20 p-1.5 space-y-0.5 max-h-[60vh] overflow-y-auto"
+            >
+              {SECTIONS.map((s) => {
+                const isActive = activeSection === s.id;
+                const isKycPending = s.id === 'kyc' && !profile?.isKycVerified;
+                const isKycVerified = s.id === 'kyc' && profile?.isKycVerified;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => { setActiveSection(s.id); setMobileNavOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors ${
+                      isActive ? 'bg-primary/10 text-primary' : s.danger ? 'text-danger hover:bg-danger/5' : 'text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <s.icon className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 truncate">{s.label}</span>
+                    {isKycVerified && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
+                    {isKycPending && <span className="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0" />}
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="flex flex-col md:flex-row gap-8">
         {/* Desktop sidebar */}
         <div className="hidden md:block w-72 shrink-0">
           <div className="sticky top-24 space-y-1">
-            {nonDangerSections.map((s) => renderNavItem(s, { mobile: false }))}
+            {nonDangerSections.map((s) => renderNavItem(s))}
             <div className="pt-2 mt-2 border-t border-border">
-              {renderNavItem(dangerSection, { mobile: false })}
+              {renderNavItem(dangerSection)}
             </div>
           </div>
         </div>
 
         {/* Active section content */}
         <div className="flex-1 min-w-0">
-          <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-sm min-h-[500px]">
+          <div className="bg-card border border-border rounded-2xl p-4 sm:p-8 shadow-sm min-h-[500px]">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeSection}
