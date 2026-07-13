@@ -9,6 +9,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <script>
+      // Runs before paint, before React mounts. Defaults to light
+      // unconditionally — system prefers-color-scheme is intentionally
+      // ignored; only an explicit localStorage 'theme'='dark' (set by the
+      // user via the theme toggle) switches to dark. Mirrors web/'s
+      // app/layout.tsx inline script so both apps behave identically.
+      (function () {
+        try {
+          if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
