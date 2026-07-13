@@ -51,6 +51,11 @@ app.set('trust proxy', 1);
 
 // CORS must be at the very top to handle preflight OPTIONS requests before
 // other middleware (helmet, tracing, version managers) intercept or modify headers.
+// Allowed origins live in the CLIENT_URL env var (comma-separated) — not a
+// hardcoded array here — so adding a new frontend (e.g. the admin panel)
+// means updating CLIENT_URL wherever this runs (local .env AND Render's
+// dashboard env var; deploying code alone does not change Render's value).
+// credentials: true is required for admin's auth cookies to be sent cross-site.
 app.use(cors({ origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(','), credentials: true }));
 
 const compression = require('compression');
