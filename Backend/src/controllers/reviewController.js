@@ -43,6 +43,57 @@ exports.addReview = async (req, res, next) => {
   }
 };
 
+// Turns "Prashant Jha" into "Prashant J." for public display — first name in
+// full, last name reduced to an initial.
+function maskReviewerName(fullName) {
+  if (!fullName) return 'WorkQuora User';
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}
+
+// @desc    Recent site-wide reviews for the public landing page — only for
+//          jobs that reached "completed" (i.e. paid out through escrow).
+// @route   GET /api/v1/reviews/public?limit=9
+// @access  Public
+exports.getPublicReviews = async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 9, 20);
+
+    const reviews = await Review.aggregate([
+      { $lookup: { from: 'jobs', localField: 'job', foreignField: '_id', as: 'jobDoc' } },
+      { $unwind: '$jobDoc' },
+      { $match: { 'jobDoc.status': 'completed' } },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit },
+      { $lookup: { from: 'users', localField: 'reviewer', foreignField: '_id', as: 'reviewerDoc' } },
+      { $unwind: '$reviewerDoc' },
+      {
+        $project: {
+          rating: 1,
+          comment: 1,
+          reviewerName: '$reviewerDoc.name',
+          reviewerCity: '$reviewerDoc.location.city',
+          reviewerAvatar: '$reviewerDoc.avatar',
+        },
+      },
+    ]);
+
+    const data = reviews.map((r) => ({
+      id: String(r._id),
+      name: maskReviewerName(r.reviewerName),
+      location: r.reviewerCity || null,
+      rating: r.rating,
+      text: r.comment,
+      avatarUrl: r.reviewerAvatar || null,
+    }));
+
+    res.status(200).json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get all reviews of a user (Freelancer profile par dikhane ke liye)
 // @route   GET /api/v1/reviews/:userId
 // @access  Public
