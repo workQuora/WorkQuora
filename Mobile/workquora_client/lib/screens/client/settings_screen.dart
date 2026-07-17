@@ -15,7 +15,6 @@ import '../../core/constants/app_languages.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/jobs_provider.dart';
-import '../../core/providers/kyc_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/providers/wallet_provider.dart';
 import '../../core/utils/error_helper.dart';
@@ -55,7 +54,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadPrivacySettings();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<KycProvider>().fetchStatus();
       context.read<WalletProvider>().fetchWallet();
     });
   }
@@ -549,17 +547,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget get _arrow => Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted);
 
-  Widget _progressBadge(int done, int total) => Container(
-    width: 36, height: 36,
-    decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.warning.withOpacity(0.15), border: Border.all(color: AppColors.warning, width: 2)),
-    child: Center(child: Text('$done/$total', style: TextStyle(color: AppColors.warning, fontSize: 10, fontWeight: FontWeight.bold))),
-  );
-
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user ?? {};
-    final isKycVerified = user['isKycVerified'] == true;
     final rating = (user['averageRating'] ?? 0.0).toDouble();
     final reviews = user['totalReviews'] ?? 0;
 
@@ -572,45 +563,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _sectionCard(id: 'account', icon: Icons.person_outline, iconColor: AppColors.primary, title: 'Account', children: [
             _tile(Icons.edit_outlined, 'Edit Profile', subtitle: user['name'], trailing: _arrow, onTap: _showEditProfileSheet),
             _tile(Icons.camera_alt_outlined, 'Change Photo', trailing: _arrow, onTap: _changePhoto),
-            _tile(Icons.verified_outlined, 'Verification Status',
-              subtitle: isKycVerified ? '✓ KYC Verified' : 'Pending KYC',
-              trailing: isKycVerified
-                  ? Icon(Icons.check_circle, color: AppColors.emerald, size: 20)
-                  : Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.warning),
-              onTap: () => context.push('/kyc')),
             _tile(Icons.star_outline, 'My Rating',
               subtitle: rating > 0 ? '${rating.toStringAsFixed(1)} ★  ($reviews reviews)' : 'No ratings yet',
               trailing: rating > 0
                   ? Text(rating.toStringAsFixed(1), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 18))
                   : null),
             _tile(Icons.lock_reset_outlined, 'Change Password', subtitle: 'Via OTP to your email', trailing: _arrow, onTap: _showChangePasswordSheet),
-          ]),
-
-          _sectionCard(id: 'kyc', icon: Icons.shield_outlined, iconColor: AppColors.emerald, title: 'KYC', children: [
-            Consumer<KycProvider>(builder: (ctx, kyc, _) {
-              final steps = [
-                ('Mobile', Icons.phone_outlined, kyc.isMobileVerified),
-                ('PAN Card', Icons.credit_card_outlined, kyc.isPanVerified),
-                ('Aadhaar', Icons.badge_outlined, kyc.isAadhaarVerified),
-                ('Bank Account', Icons.account_balance_outlined, kyc.isBankVerified),
-                ('Selfie', Icons.face_outlined, kyc.isSelfieVerified),
-              ];
-              final done = steps.where((s) => s.$3).length;
-
-              return Column(children: [
-                _tile(Icons.shield_outlined, 'KYC Status',
-                  subtitle: kyc.isFullyVerified ? 'Fully Verified ✓' : '$done of 5 steps completed',
-                  trailing: kyc.isFullyVerified ? Icon(Icons.check_circle, color: AppColors.emerald, size: 20) : _progressBadge(done, 5)),
-                if (!kyc.isFullyVerified)
-                  _tile(Icons.arrow_circle_right_outlined, 'Complete KYC',
-                    subtitle: 'Required for jobs & payments',
-                    titleColor: AppColors.primary,
-                    trailing: Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.primary),
-                    onTap: () { kyc.fetchStatus(); context.push('/kyc'); }),
-                ...steps.map((s) => _tile(s.$2, s.$1,
-                  trailing: Icon(s.$3 ? Icons.check_circle : Icons.radio_button_unchecked, color: s.$3 ? AppColors.emerald : AppColors.textMuted, size: 18))),
-              ]);
-            }),
           ]),
 
           _sectionCard(id: 'privacy', icon: Icons.lock_outline, iconColor: AppColors.primary, title: 'Privacy', children: [

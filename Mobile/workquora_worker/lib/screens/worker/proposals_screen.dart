@@ -84,9 +84,9 @@ class _ProposalsScreenState extends State<ProposalsScreen> with SingleTickerProv
             ),
             const SizedBox(height: 20),
             OutlinedButton(
-              onPressed: () => context.go('/jobs'),
+              onPressed: () => context.go('/home'),
               style: OutlinedButton.styleFrom(side: BorderSide(color: AppColors.primary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              child: Text('Browse Jobs', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+              child: Text('Back to Home', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
             ),
           ]),
         ),

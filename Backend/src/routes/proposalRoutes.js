@@ -15,7 +15,12 @@ router.post('/:jobId', protect, authorize('freelancer'), requireKyc, submitPropo
 router.get('/job/:jobId', protect, authorize('client'), getJobProposals);
 
 // Client accepts/rejects a proposal
-router.put('/:proposalId/accept', protect, authorize('client'), requireKyc, acceptProposal);
-router.put('/:proposalId/reject', protect, authorize('client'), requireKyc, rejectProposal);
+// DEPRECATED (Phase A): client-side KYC requirement removed from accept/reject.
+// Note: acceptProposal still runs its own inline check of the FREELANCER's
+// KYC (proposalController.js) — that one must stay, it's not this gate.
+// router.put('/:proposalId/accept', protect, authorize('client'), requireKyc, acceptProposal);
+// router.put('/:proposalId/reject', protect, authorize('client'), requireKyc, rejectProposal);
+router.put('/:proposalId/accept', protect, authorize('client'), acceptProposal);
+router.put('/:proposalId/reject', protect, authorize('client'), rejectProposal);
 
 module.exports = router;

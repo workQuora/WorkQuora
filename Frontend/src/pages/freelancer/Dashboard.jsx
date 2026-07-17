@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { IndianRupee, TrendingUp, Star, ArrowUpRight, Loader2, Briefcase, FileText, Wallet } from 'lucide-react';
+import { IndianRupee, TrendingUp, Star, ArrowUpRight, Loader2, Briefcase, Wallet } from 'lucide-react';
 import api from '../../services/api';
 import KycVerificationCard from '../../components/KycVerificationCard';
 import AdBanner from '../../components/shared/AdBanner';
@@ -39,15 +39,6 @@ const FreelancerDashboard = () => {
     enabled: canFetch,
   });
 
-  const { data: latestJobs = [], isLoading: jobsLoading } = useQuery({
-    queryKey: ['freelancer-dashboard-jobs'],
-    queryFn: () =>
-      api.get('/jobs', { params: { limit: 5, status: 'open' } })
-        .then((r) => Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.jobs ?? [])),
-    staleTime: 60_000,
-    enabled: canFetch,
-  });
-
   // Real fields from GET /dashboard/freelancer — note there's no "accepted proposals" or
   // "totalProposals" field on this endpoint, so Active Projects uses pendingTasks (tasks not
   // yet completed) and Completion Rate is computed from completedTasks/totalAssignedTasks —
@@ -68,9 +59,7 @@ const FreelancerDashboard = () => {
   ];
 
   const quickActions = [
-    { label: 'Browse Jobs', icon: Briefcase, onClick: () => navigate('/discover'), primary: true },
-    { label: 'My Proposals', icon: FileText, onClick: () => navigate('/discover') },
-    { label: 'Wallet', icon: Wallet, onClick: () => navigate('/shared/wallet') },
+    { label: 'Wallet', icon: Wallet, onClick: () => navigate('/shared/wallet'), primary: true },
   ];
 
   const subtext = rating > 4
@@ -219,52 +208,15 @@ const FreelancerDashboard = () => {
           )}
         </div>
 
-        {/* Latest Open Jobs */}
+        {/* Phase A: manual job browsing removed — matching engine (Phase B)
+            will push jobs directly instead. */}
         <div className="bg-card border border-border rounded-2xl p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-base font-bold text-foreground">Latest Open Contracts</h2>
-            <button onClick={() => navigate('/discover')} className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
-              View All <ArrowUpRight size={14} />
-            </button>
+          <h2 className="text-base font-bold text-foreground mb-4">Your Jobs</h2>
+          <div className="text-center py-10">
+            <Briefcase className="w-10 h-10 mx-auto text-muted-foreground opacity-20 mb-3" />
+            <p className="text-muted-foreground text-sm font-semibold mb-1">Jobs will appear here when matched</p>
+            <p className="text-muted-foreground text-xs">We're building smart job-matching — coming soon.</p>
           </div>
-
-          {jobsLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
-          ) : latestJobs.length === 0 ? (
-            <div className="text-center py-10">
-              <Briefcase className="w-10 h-10 mx-auto text-muted-foreground opacity-20 mb-3" />
-              <p className="text-muted-foreground text-sm">No open jobs right now. Check back soon!</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {latestJobs.map((job) => (
-                <div key={job._id}
-                  className="p-4 border border-border/60 hover:border-primary/40 rounded-xl transition-all bg-background/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
-                  <div>
-                    <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{job.title}</h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Budget: ₹{job.budgetRange?.min?.toLocaleString('en-IN') || '—'}
-                      {job.budgetRange?.max ? ` – ₹${job.budgetRange.max.toLocaleString('en-IN')}` : ''}
-                      {' '}• {job.category || 'General'}
-                    </p>
-                    {job.skillsRequired?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {job.skillsRequired.slice(0, 3).map((s) => (
-                          <span key={s} className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-md">{s}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => navigate(`/job/${job._id}`)}
-                    className="px-4 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 transition-all shrink-0 shadow-sm"
-                  >
-                    View Job
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </motion.div>

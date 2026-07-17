@@ -24,24 +24,34 @@ class _PickedImage {
 }
 
 class PostJobScreen extends StatefulWidget {
-  const PostJobScreen({super.key});
+  // Pre-selected from the Home category grid, if the client arrived here by
+  // tapping a category rather than a plain "Post a Job" CTA.
+  final String? initialCategory;
+  const PostJobScreen({super.key, this.initialCategory});
   @override State<PostJobScreen> createState() => _PostJobScreenState();
 }
 
 class _PostJobScreenState extends State<PostJobScreen> {
+  // Kept in sync with home_screen.dart's category grid.
+  final _categories = ['Electrician', 'Plumber', 'AC Repair', 'Painter', 'Maid', 'Cook', 'Mechanic'];
   final _titleCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
   final _budgetCtrl= TextEditingController();
-  String _category = 'Plumbing';
+  late String _category;
   String _budgetType = 'fixed';
   bool _loading = false;
-  final _categories = ['Plumbing', 'Electrical', 'Painting', 'Carpentry', 'Cleaning', 'Gardening', 'IT Help', 'Other'];
 
   double? _jobLat;
   double? _jobLng;
   String _jobLocationLabel = '';
 
   final List<_PickedImage> _selectedImages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _category = _categories.contains(widget.initialCategory) ? widget.initialCategory! : _categories.first;
+  }
 
   @override void dispose() { _titleCtrl.dispose(); _descCtrl.dispose(); _budgetCtrl.dispose(); super.dispose(); }
 

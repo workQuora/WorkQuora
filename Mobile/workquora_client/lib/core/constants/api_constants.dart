@@ -9,14 +9,6 @@ class ApiConstants {
   static const String me               = '/auth/me';
   static const String logout           = '/auth/logout';
 
-  static const String kycSendOtp       = '/kyc/otp/send';
-  static const String kycVerifyOtp     = '/kyc/otp/verify';
-  static const String kycSubmitPan     = '/kyc/pan/submit';
-  static const String kycSubmitAadhaar = '/kyc/aadhaar/submit';
-  static const String kycSubmitBank    = '/kyc/bank/submit';
-  static const String kycSubmitSelfie  = '/kyc/selfie/submit';
-  static const String kycStatus        = '/kyc/status';
-
   static const String jobs             = '/jobs';
   static const String myJobs           = '/jobs/my-jobs';
   static const String nearbyJobs       = '/geo/nearby-jobs';

@@ -9,7 +9,6 @@ import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
-import '../../core/providers/kyc_provider.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_text_field.dart';
 
@@ -39,12 +38,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // "GlobalKey was used multiple times" crashes in Flutter's Navigator.
   bool _editProfileSheetOpen = false;
   bool _uploadingPhoto = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<KycProvider>().fetchStatus());
-  }
 
   Future<void> _changePhoto() async {
     final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1024);
@@ -84,15 +77,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final kyc = context.watch<KycProvider>();
     final user = auth.user ?? {};
     final name = user['name'] ?? 'User';
     final email = user['email'] ?? '';
     final isEmail = user['isEmailVerified'] == true;
-    // The Kyc-model-level status (5-of-5 steps) is the live source of truth
-    // during the flow; fall back to the cached User.isKycVerified flag
-    // (core PAN+Aadhaar-driven) if KYC status hasn't loaded yet.
-    final isKyc = kyc.isFullyVerified || (kyc.status == null && user['isKycVerified'] == true);
     final rating = (user['averageRating'] ?? 0.0).toDouble();
     final totalReviews = user['totalReviews'] ?? 0;
     final photoUrl = (user['profilePic'] ?? user['avatar'] ?? '').toString();
@@ -174,40 +162,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             _badge(isEmail ? '✉ Email Verified' : '✉ Email Unverified', isEmail ? AppColors.emerald : AppColors.textMuted),
-            const SizedBox(width: 10),
-            _badge(isKyc ? '✓ KYC Verified' : '! KYC Pending', isKyc ? AppColors.emerald : AppColors.warning),
           ]),
           const SizedBox(height: 28),
           _tile(Icons.email_outlined, 'Email', email),
           _tile(Icons.phone_outlined, 'Mobile', user['mobileNumber'] ?? 'Not added'),
-          _tile(Icons.badge_outlined, 'Username', '@${user['username'] ?? ''}', verified: isKyc),
-          _tile(Icons.shield_outlined, 'KYC Status', isKyc ? 'Verified ✓' : 'Pending — Complete KYC'),
+          _tile(Icons.badge_outlined, 'Username', '@${user['username'] ?? ''}'),
           const SizedBox(height: 28),
-          if (isKyc)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.emerald.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.emerald),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.verified, color: AppColors.emerald, size: 16),
-                  SizedBox(width: 6),
-                  Text('KYC Verified', style: TextStyle(color: AppColors.emerald, fontWeight: FontWeight.bold)),
-                ]),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: AppButton(
-                label: '🔐 Complete KYC Verification',
-                onPressed: () { kyc.fetchStatus(); context.push('/kyc'); },
-              ),
-            ),
           AppButton(label: 'Logout', onPressed: () async { await auth.logout(); if (context.mounted) context.go('/login'); }, color: AppColors.error),
           const SizedBox(height: 20),
         ]))),

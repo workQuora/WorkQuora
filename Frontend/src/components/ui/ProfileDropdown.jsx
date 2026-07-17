@@ -66,11 +66,12 @@ const ProfileDropdown = () => {
           <span className="hidden sm:block text-xs font-semibold text-foreground/90 tracking-wide group-hover:text-foreground transition-colors max-w-[100px] truncate">
             {user?.name || 'User'}
           </span>
-          {user?.isKycVerified ? (
+          {/* KYC is freelancer-only (Phase A) — clients never see this badge. */}
+          {!isClient && (user?.isKycVerified ? (
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/10 shrink-0 hidden sm:block" />
           ) : (
             <ShieldX className="w-3.5 h-3.5 text-rose-500 shrink-0 hidden sm:block" />
-          )}
+          ))}
         </div>
         
         <ChevronDown 
@@ -103,38 +104,40 @@ const ProfileDropdown = () => {
                   <p className="text-[10px] font-semibold text-muted-foreground truncate tracking-wider">
                     @{user?.username || user?.name?.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'user'}
                   </p>
-                  {user?.isKycVerified ? (
+                  {!isClient && (user?.isKycVerified ? (
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/10 shrink-0" />
                   ) : (
                     <ShieldX className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/40">
               <span className={`inline-flex items-center text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
-                isClient 
-                  ? 'bg-primary/10 text-primary border-primary/20' 
+                isClient
+                  ? 'bg-primary/10 text-primary border-primary/20'
                   : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
               }`}>
                 {isClient ? 'Client' : 'Freelancer'}
               </span>
-              {/* Dynamic KYC verification badge */}
-              <button
-                onClick={() => handleNavigation('/shared/settings')}
-                title={user?.isKycVerified ? 'KYC Verified — Aadhaar & PAN done' : 'KYC incomplete — click to verify'}
-                className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
-                  user?.isKycVerified
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
-                    : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
-                }`}
-              >
-                {user?.isKycVerified
-                  ? <><ShieldCheck size={10} /> Verified</>
-                  : <><ShieldX size={10} /> Not Verified</>
-                }
-              </button>
+              {/* Dynamic KYC verification badge — freelancer-only (Phase A) */}
+              {!isClient && (
+                <button
+                  onClick={() => handleNavigation('/shared/settings')}
+                  title={user?.isKycVerified ? 'KYC Verified — Aadhaar & PAN done' : 'KYC incomplete — click to verify'}
+                  className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                    user?.isKycVerified
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                      : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
+                  }`}
+                >
+                  {user?.isKycVerified
+                    ? <><ShieldCheck size={10} /> Verified</>
+                    : <><ShieldX size={10} /> Not Verified</>
+                  }
+                </button>
+              )}
             </div>
           </div>
 

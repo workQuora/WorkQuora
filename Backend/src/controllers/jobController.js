@@ -11,20 +11,22 @@ require('../services/smartMatchingService');
 // @access  Private (Client Only)
 exports.createJob = async (req, res, next) => {
   try {
-    const Kyc = require('../models/Kyc');
     const User = require('../models/User');
 
-    // Enforce KYC check (Aadhaar, PAN)
-    const kyc = await Kyc.findOne({ userId: req.user.id });
-
-    const isKycVerified = kyc && kyc.aadhaarVerified && kyc.panVerified;
-
-    if (!isKycVerified) {
-      return res.status(400).json({
-        success: false,
-        message: 'KYC verification (Aadhaar and PAN) is required to post a new job. Please complete your profile and KYC verification first.',
-      });
-    }
+    // DEPRECATED (Phase A): client-side KYC requirement removed — clients can
+    // post jobs without KYC. Worker KYC remains mandatory elsewhere (see
+    // requireKyc middleware, still enforced on freelancer-only routes).
+    // Kept commented, not deleted, in case client KYC is ever reinstated.
+    //
+    // const Kyc = require('../models/Kyc');
+    // const kyc = await Kyc.findOne({ userId: req.user.id });
+    // const isKycVerified = kyc && kyc.aadhaarVerified && kyc.panVerified;
+    // if (!isKycVerified) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: 'KYC verification (Aadhaar and PAN) is required to post a new job. Please complete your profile and KYC verification first.',
+    //   });
+    // }
 
     const {
       title,

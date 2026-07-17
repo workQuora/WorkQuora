@@ -31,16 +31,10 @@ const Footer = () => {
             </h4>
             <ul className="space-y-2.5 text-xs text-muted-foreground">
               <li>
-                <a href="/discover" className="hover:text-primary transition-colors font-medium">Browse Open Jobs</a>
-              </li>
-              <li>
-                <a href="/discover" className="hover:text-primary transition-colors font-medium">Find Top Talent</a>
-              </li>
-              <li>
                 <a href="/client/post-job" className="hover:text-primary transition-colors font-medium">Post a Job Requirement</a>
               </li>
               <li>
-                <a href="/shared/wallet" className="hover:text-primary transition-colors font-medium">Smart Payouts & Wallet</a>
+                <a href="/freelancer/earnings" className="hover:text-primary transition-colors font-medium">Smart Payouts & Wallet</a>
               </li>
             </ul>
           </div>

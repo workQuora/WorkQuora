@@ -15,27 +15,32 @@ import PrivacySection from './settings/PrivacySection';
 import RoleSection from './settings/RoleSection';
 import DangerZoneSection from './settings/DangerZoneSection';
 
-const SECTIONS = [
+const ALL_SECTIONS = [
   { id: 'account', label: 'Account', icon: IdCard },
   { id: 'security', label: 'Account & Security', icon: Lock },
-  { id: 'kyc', label: 'KYC Verification', icon: ShieldCheck },
+  // KYC is freelancer-only (Phase A) — filtered out for clients below.
+  { id: 'kyc', label: 'KYC Verification', icon: ShieldCheck, freelancerOnly: true },
   { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'payment', label: 'Payment & Bank', icon: CreditCard },
+  { id: 'payment', label: 'Payment & Bank', icon: CreditCard, freelancerOnly: true },
   { id: 'privacy', label: 'Privacy & Preferences', icon: Eye },
   { id: 'role', label: 'Role Settings', icon: Briefcase },
   { id: 'danger', label: 'Danger Zone', icon: AlertTriangle, danger: true },
 ];
 
-const getSectionFromHash = () => {
+const getSectionFromHash = (sections) => {
   const hash = window.location.hash.replace('#', '');
-  return SECTIONS.some((s) => s.id === hash) ? hash : 'account';
+  return sections.some((s) => s.id === hash) ? hash : 'account';
 };
 
 const Settings = () => {
   const { user } = useSelector((s) => s.auth);
   const { useGetProfile } = useProfile();
   const { data: profile, isLoading } = useGetProfile();
-  const [activeSection, setActiveSection] = useState(getSectionFromHash());
+  const role = (profile?.role || user?.role || '').toUpperCase();
+  // KYC and bank-linking are freelancer-only (Phase A) — clients never had a
+  // withdrawal path, so both are filtered out of their Settings nav.
+  const SECTIONS = ALL_SECTIONS.filter((s) => !s.freelancerOnly || role === 'FREELANCER');
+  const [activeSection, setActiveSection] = useState(getSectionFromHash(SECTIONS));
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const mobileNavRef = useRef(null);
 
@@ -44,10 +49,10 @@ const Settings = () => {
   }, [activeSection]);
 
   useEffect(() => {
-    const onHashChange = () => setActiveSection(getSectionFromHash());
+    const onHashChange = () => setActiveSection(getSectionFromHash(SECTIONS));
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  }, [SECTIONS]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -64,8 +69,6 @@ const Settings = () => {
       </div>
     );
   }
-
-  const role = (profile?.role || user?.role || '').toUpperCase();
 
   const renderNavItem = (s) => {
     const isActive = activeSection === s.id;

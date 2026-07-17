@@ -13,7 +13,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { MapPin, Briefcase, DollarSign, Send, AlertCircle, ChevronDown, Tag } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useJobs } from '../../hooks/useJobs';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { Card, Button, Input, Badge } from '../../components/ui';
@@ -32,34 +32,32 @@ const jobSchema = z.object({
   path: ['maxBudget'],
 });
 
-const CATEGORIES = [
-  'Design & Creative',
-  'Development & IT',
-  'Writing & Translation',
-  'Marketing & Sales',
-  'Home Services',
-  'Teaching & Training',
-  'Legal & Finance',
-];
+// Kept in sync with Landing.jsx's SERVICE_CATEGORIES grid.
+const CATEGORIES = ['Electrician', 'Plumber', 'AC Repair', 'Painter', 'Maid', 'Cook', 'Mechanic'];
 
 const CATEGORY_ICON = {
-  'Design & Creative': '🎨',
-  'Development & IT': '💻',
-  'Writing & Translation': '✍️',
-  'Marketing & Sales': '📈',
-  'Home Services': '🛠️',
-  'Teaching & Training': '🎓',
-  'Legal & Finance': '💼',
+  Electrician: '⚡',
+  Plumber: '🔧',
+  'AC Repair': '❄️',
+  Painter: '🎨',
+  Maid: '🧹',
+  Cook: '🍳',
+  Mechanic: '🔩',
 };
 
 const PostJob = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { postJob, isPostingJob } = useJobs();
 
   // Real user location — no more hardcoded Delhi coords
   const geo = useGeolocation();
 
-  const [selectedCategory, setSelectedCategory] = React.useState('');
+  // Pre-selected from the Home category grid (Landing.jsx), if the client
+  // arrived here by tapping a category rather than the plain "Post a Job" CTA.
+  const preselectedCategory = CATEGORIES.includes(location.state?.category) ? location.state.category : '';
+
+  const [selectedCategory, setSelectedCategory] = React.useState(preselectedCategory);
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
   const dropdownRef = React.useRef(null);
 
@@ -75,7 +73,7 @@ const PostJob = () => {
 
   const { register, handleSubmit, setValue, trigger, formState: { errors } } = useForm({
     resolver: zodResolver(jobSchema),
-    defaultValues: { radius: 25 },
+    defaultValues: { radius: 25, category: preselectedCategory },
   });
 
   // Sync city name to field

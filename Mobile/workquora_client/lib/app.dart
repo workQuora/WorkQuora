@@ -11,7 +11,6 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/otp_screen.dart';
 import 'screens/client/home_screen.dart';
-import 'screens/client/discover_screen.dart';
 import 'screens/client/post_job_screen.dart';
 import 'screens/client/wallet_screen.dart';
 import 'screens/client/profile_screen.dart';
@@ -20,12 +19,6 @@ import 'screens/client/notifications_screen.dart';
 import 'screens/client/settings_screen.dart';
 import 'screens/chat/conversations_screen.dart';
 import 'screens/chat/chat_screen.dart';
-import 'screens/kyc/kyc_screen.dart';
-import 'screens/kyc/kyc_mobile_otp_screen.dart';
-import 'screens/kyc/kyc_pan_screen.dart';
-import 'screens/kyc/kyc_aadhaar_screen.dart';
-import 'screens/kyc/kyc_bank_screen.dart';
-import 'screens/kyc/kyc_selfie_screen.dart';
 import 'screens/client/job_detail_screen.dart';
 import 'screens/client/my_jobs_screen.dart';
 
@@ -88,10 +81,13 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
           routes: [
             GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
             GoRoute(
-                path: '/discover', builder: (_, __) => const DiscoverScreen()),
+              path: '/post-job',
+              builder: (context, state) => PostJobScreen(
+                initialCategory: (state.extra as Map?)?['category'] as String?,
+              ),
+            ),
             GoRoute(
-                path: '/post-job', builder: (_, __) => const PostJobScreen()),
-            GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
+                path: '/my-jobs', builder: (_, __) => const MyJobsScreen()),
             GoRoute(
                 path: '/profile', builder: (_, __) => const ProfileScreen()),
           ],
@@ -120,22 +116,15 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
             );
           },
         ),
-        GoRoute(path: '/kyc', builder: (_, __) => const KycScreen()),
-        GoRoute(
-            path: '/kyc/mobile-otp',
-            builder: (_, __) => const KycMobileOtpScreen()),
-        GoRoute(path: '/kyc/pan', builder: (_, __) => const KycPanScreen()),
-        GoRoute(
-            path: '/kyc/aadhaar', builder: (_, __) => const KycAadhaarScreen()),
-        GoRoute(path: '/kyc/bank', builder: (_, __) => const KycBankScreen()),
-        GoRoute(
-            path: '/kyc/selfie', builder: (_, __) => const KycSelfieScreen()),
+        // Phase A: client KYC removed. Wallet is reachable from Settings
+        // (balance/transaction history) but is no longer a bottom-nav tab —
+        // History (/my-jobs) replaced it, per the new nav.
+        GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
         GoRoute(
           path: '/job/:jobId',
           builder: (context, state) =>
               JobDetailScreen(jobId: state.pathParameters['jobId']!),
         ),
-        GoRoute(path: '/my-jobs', builder: (_, __) => const MyJobsScreen()),
       ],
     );
 
@@ -203,10 +192,10 @@ class ClientShell extends StatefulWidget {
 
 class _ClientShellState extends State<ClientShell> {
   int _currentIndex = 0;
-  // Chat (index 1) isn't a shell route — /conversations lives outside the
-  // ShellRoute (same as /notifications and /my-jobs), so it's pushed rather
-  // than switched to like the other persistent tabs. null marks that slot.
-  final _tabs = ['/home', null, '/post-job', '/wallet', '/profile'];
+  // Messages (index 1) isn't a shell route — /conversations lives outside
+  // the ShellRoute, so it's pushed rather than switched to like the other
+  // persistent tabs. null marks that slot.
+  final _tabs = ['/home', null, '/post-job', '/my-jobs', '/profile'];
 
   void _onTap(int i) {
     final path = _tabs[i];
@@ -241,14 +230,13 @@ class _ClientShellState extends State<ClientShell> {
             BottomNavigationBarItem(
                 icon: Icon(Icons.home_rounded), label: 'Home'),
             BottomNavigationBarItem(
-                icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
+                icon: Icon(Icons.chat_bubble_outline), label: 'Messages'),
             BottomNavigationBarItem(
                 icon: Icon(Icons.add_circle_rounded), label: 'Post Job'),
             BottomNavigationBarItem(
-                icon: Icon(Icons.account_balance_wallet_rounded),
-                label: 'Wallet'),
+                icon: Icon(Icons.history_rounded), label: 'History'),
             BottomNavigationBarItem(
-                icon: Icon(Icons.person_rounded), label: 'Me'),
+                icon: Icon(Icons.person_rounded), label: 'Profile'),
           ],
         ),
       ),

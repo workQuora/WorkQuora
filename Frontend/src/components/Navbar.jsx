@@ -4,9 +4,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import {
-  MapPin, Sun, Moon, MessageSquare, Compass,
-  ChevronDown, Crosshair, Search, Loader2, PlusCircle, Wallet, Home,
-  Menu, X, Shield, Briefcase, Award, TrendingUp, Users
+  MapPin, Sun, Moon, MessageSquare,
+  ChevronDown, Crosshair, Search, Loader2, PlusCircle, Wallet, Home, History, User,
+  Menu, X
 } from 'lucide-react';
 import ProfileDropdown from './ui/ProfileDropdown';
 import Logo from './Logo';
@@ -35,11 +35,6 @@ const Navbar = () => {
 
   // Mobile drawer states
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Search States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('jobs'); // 'jobs' or 'talent'
-  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
 
   // Fetch unread messages count
   const { data: conversations = [] } = useQuery({
@@ -169,13 +164,6 @@ const Navbar = () => {
     }
   };
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    navigate(`/discover?q=${encodeURIComponent(searchQuery.trim())}&type=${searchType}`);
-    setIsSearchDropdownOpen(false);
-  };
-
   const isDashboard = location.pathname === '/client/dashboard' || location.pathname === '/freelancer/dashboard';
 
   return (
@@ -201,18 +189,8 @@ const Navbar = () => {
               </NavLink>
             )}
             {user && (
-              <NavLink 
-                to="/discover" 
-                className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
-              >
-                <Compass size={14} /><span>Discover</span>
-              </NavLink>
-            )}
-            {user && (
-              <NavLink 
-                to="/shared/messages" 
+              <NavLink
+                to="/shared/messages"
                 className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all relative ${
                   isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
                 }`}
@@ -227,14 +205,32 @@ const Navbar = () => {
               </NavLink>
             )}
             {user?.role?.toLowerCase() === 'client' && (
-              <NavLink
-                to="/client/post-job"
-                className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
-              >
-                <PlusCircle size={14} className="text-primary dark:text-primary" /><span>Post Job</span>
-              </NavLink>
+              <>
+                <NavLink
+                  to="/client/post-job"
+                  className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                >
+                  <PlusCircle size={14} className="text-primary dark:text-primary" /><span>Post Job</span>
+                </NavLink>
+                <NavLink
+                  to="/client/history"
+                  className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                >
+                  <History size={14} /><span>History</span>
+                </NavLink>
+                <NavLink
+                  to="/profile"
+                  className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    isActive ? 'bg-white dark:bg-white/5 text-primary dark:text-white shadow-sm border border-slate-200 dark:border-white/10' : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                >
+                  <User size={14} /><span>Profile</span>
+                </NavLink>
+              </>
             )}
             {user?.role?.toLowerCase() === 'freelancer' && (
               <NavLink
@@ -376,11 +372,6 @@ const Navbar = () => {
                   </Link>
                 )}
                 {user && (
-                  <Link to="/discover" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">
-                    <Compass className="w-4 h-4" /> Discover Talent/Jobs
-                  </Link>
-                )}
-                {user && (
                   <Link to="/shared/messages" onClick={() => setMobileOpen(false)} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">
                     <div className="flex items-center gap-3">
                       <MessageSquare className="w-4 h-4" /> Messages
@@ -393,9 +384,17 @@ const Navbar = () => {
                   </Link>
                 )}
                 {user?.role?.toLowerCase() === 'client' && (
-                  <Link to="/client/post-job" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">
-                    <PlusCircle className="w-4 h-4 text-primary dark:text-primary" /> Post a Job
-                  </Link>
+                  <>
+                    <Link to="/client/post-job" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">
+                      <PlusCircle className="w-4 h-4 text-primary dark:text-primary" /> Post a Job
+                    </Link>
+                    <Link to="/client/history" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">
+                      <History className="w-4 h-4" /> History
+                    </Link>
+                    <Link to="/profile" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">
+                      <User className="w-4 h-4" /> Profile
+                    </Link>
+                  </>
                 )}
                 {user?.role?.toLowerCase() === 'freelancer' && (
                   <Link to="/freelancer/earnings" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-foreground transition-colors">

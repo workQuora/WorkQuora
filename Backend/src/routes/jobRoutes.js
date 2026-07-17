@@ -19,11 +19,21 @@ const { protect, authorize, optionalProtect } = require('../middlewares/authMidd
 const upload = require('../middlewares/uploadMiddleware');
 const { requireKyc } = require('../middlewares/requireKyc');
 
+// Phase A: client-side KYC requirement removed — freelancer KYC stays
+// mandatory. `/:id/complete` and `/:id/cancel` below are hit by BOTH roles,
+// so the gate is skipped only for clients rather than removed outright.
+const requireKycUnlessClient = (req, res, next) => {
+  if (req.user?.role?.toLowerCase() === 'client') return next();
+  return requireKyc(req, res, next);
+};
+
 // 🚨 WARNING: Specific routes jaise '/search' hamesha '/:id' ke upar hone chahiye!
 router.get('/stats', getLandingStats);
 router.get('/search', searchJobs);
 router.get('/my-jobs', protect, authorize('client'), getMyJobs);
-router.post('/upload-photo', protect, authorize('client'), requireKyc, upload.single('photo'), uploadJobPhoto);
+// DEPRECATED (Phase A): client KYC requirement removed from photo upload.
+// router.post('/upload-photo', protect, authorize('client'), requireKyc, upload.single('photo'), uploadJobPhoto);
+router.post('/upload-photo', protect, authorize('client'), upload.single('photo'), uploadJobPhoto);
 
 // Standard Routes
 router.route('/')
@@ -32,11 +42,13 @@ router.route('/')
 
 router.route('/:id')
   .get(optionalProtect, getJobById)
-  .put(protect, authorize('client'), requireKyc, updateJob)
+  // DEPRECATED (Phase A): client KYC requirement removed from job edits.
+  // .put(protect, authorize('client'), requireKyc, updateJob)
+  .put(protect, authorize('client'), updateJob)
   .delete(protect, authorize('client'), deleteJob);
 
-router.put('/:id/complete', protect, requireKyc, completeJob);
-router.put('/:id/cancel', protect, requireKyc, cancelJob);
+router.put('/:id/complete', protect, requireKycUnlessClient, completeJob);
+router.put('/:id/cancel', protect, requireKycUnlessClient, cancelJob);
 
 // Convenience: Apply to job (proxies to proposals)
 const { submitProposal } = require('../controllers/proposalController');

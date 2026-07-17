@@ -4,9 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
-  Briefcase, PlusCircle, Users, CheckCircle, IndianRupee, FileText, ArrowRight, Wallet, History,
+  Briefcase, PlusCircle, CheckCircle, IndianRupee, FileText, ArrowRight, History,
 } from 'lucide-react';
-import KycVerificationCard from '../../components/KycVerificationCard';
 import api from '../../services/api';
 import AdBanner from '../../components/shared/AdBanner';
 import { WelcomeOverlay } from '../../components/ui/WelcomeOverlay';
@@ -55,8 +54,6 @@ const ClientDashboard = () => {
   const quickActions = [
     { label: 'Post New Job', icon: PlusCircle, onClick: () => navigate('/client/post-job'), primary: true },
     { label: 'My Jobs', icon: Briefcase, onClick: () => navigate('/client/jobs') },
-    { label: 'Browse Freelancers', icon: Users, onClick: () => navigate('/discover') },
-    { label: 'Wallet', icon: Wallet, onClick: () => navigate('/shared/wallet') },
     { label: 'View History', icon: History, onClick: () => navigate('/client/history') },
   ];
 
@@ -73,8 +70,6 @@ const ClientDashboard = () => {
     >
       <WelcomeOverlay userId={user?._id || user?.id} message="Ready to find your next great hire? 🎯" />
       <div className="max-w-7xl mx-auto">
-        <KycVerificationCard />
-
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
@@ -146,8 +141,8 @@ const ClientDashboard = () => {
         <div className="bg-card border border-border rounded-2xl p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-base font-bold text-foreground">Your Job Postings</h2>
-            <button onClick={() => navigate('/discover')} className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
-              Discover Talent <ArrowRight size={14} />
+            <button onClick={() => navigate('/client/post-job')} className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
+              Post a Job <ArrowRight size={14} />
             </button>
           </div>
 

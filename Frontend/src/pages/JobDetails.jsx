@@ -154,7 +154,7 @@ const JobDetails = () => {
     <div className="min-h-screen bg-background text-foreground p-10 text-center">
       <Briefcase className="w-16 h-16 mx-auto text-muted-foreground opacity-20 mb-4" />
       <p className="text-muted-foreground text-lg mb-4">Job not found or failed to load.</p>
-      <button onClick={() => navigate('/discover')} className="text-primary hover:underline cursor-pointer">← Back to Discover</button>
+      <button onClick={() => navigate('/home')} className="text-primary hover:underline cursor-pointer">← Back to Home</button>
     </div>
   );
 

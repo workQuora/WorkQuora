@@ -7,6 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/jobs_provider.dart';
 import '../../core/providers/dashboard_provider.dart';
+import '../../core/providers/kyc_provider.dart';
 import '../../core/utils/time_utils.dart';
 
 class WorkerHomeScreen extends StatefulWidget {
@@ -23,6 +24,11 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   }
 
   Future<void> _load() async {
+    // Fresh KYC status on every home visit — the KYC hub already refreshes
+    // KycProvider after each step submits, but that only reaches this screen
+    // if we re-fetch here too, since AuthProvider.user's cached
+    // isKycVerified flag is only refreshed on cold start (see splash_screen).
+    context.read<KycProvider>().fetchStatus();
     context.read<DashboardProvider>().fetchDashboard();
     final pos = await _resolvePosition();
     if (!mounted) return;
@@ -59,11 +65,61 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     final auth = context.watch<AuthProvider>();
     final jobs = context.watch<JobsProvider>();
     final dash = context.watch<DashboardProvider>();
+    final kyc = context.watch<KycProvider>();
     final user = auth.user ?? {};
     final name = (user['name'] ?? 'Worker').toString().split(' ').first;
     final avail = user['isAvailable'] == true;
-    final isKyc = user['isKycVerified'] == true;
     final rating = (user['averageRating'] ?? 0.0).toDouble();
+
+    // Phase A: worker home is gated entirely behind KYC — no jobs, no tabs,
+    // nothing else until verified. Source of truth is KycProvider (fresh
+    // fetch above), not the possibly-stale AuthProvider.user['isKycVerified'].
+    if (kyc.status == null && kyc.isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+    if (!kyc.isFullyVerified) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 72, height: 72,
+                  decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.12), shape: BoxShape.circle),
+                  child: Icon(Icons.shield_outlined, color: AppColors.warning, size: 32),
+                ),
+                const SizedBox(height: 20),
+                Text('Complete Your KYC', style: TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 10),
+                Text(
+                  'Verify your mobile, PAN, Aadhaar, bank and selfie to unlock jobs, earnings, and everything else.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => context.push('/kyc'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text('Complete KYC Verification', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -101,27 +157,6 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                 ]),
               ),
             ),
-            if (!isKyc)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: GestureDetector(
-                    onTap: () => context.push('/kyc'),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.12), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.warning.withOpacity(0.4))),
-                      child: Row(children: [
-                        Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text('Complete KYC to start earning', style: TextStyle(color: AppColors.warning, fontSize: 13, fontWeight: FontWeight.w700)),
-                        ),
-                        Icon(Icons.chevron_right, color: AppColors.warning, size: 18),
-                      ]),
-                    ),
-                  ),
-                ),
-              ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -141,12 +176,20 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                 ),
               ),
             ),
+            // Today's Jobs — pushed here directly once the matching engine
+            // (Phase B) is live. Honest placeholder until then.
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Text("Today's Jobs", style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            SliverToBoxAdapter(child: _placeholderCard(Icons.bolt_outlined, "Jobs will appear here when matched")),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Text('Nearby Jobs', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
-                  GestureDetector(onTap: () => context.go('/jobs'), child: Text('See all', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w600))),
                 ]),
               ),
             ),
@@ -188,22 +231,64 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                           ),
                         ),
                       ),
+            // Highly Demanded Jobs — no backend endpoint yet; honest placeholder.
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Text('Highly Demanded Jobs', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            SliverToBoxAdapter(child: _placeholderCard(Icons.trending_up, 'Coming soon')),
+            // Today's Earnings — real data, already fetched via DashboardProvider.
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Text("Today's Earnings", style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.primary.withOpacity(0.2))),
+                  child: Row(children: [
+                    Icon(Icons.today_outlined, color: AppColors.primary, size: 22),
+                    const SizedBox(width: 12),
+                    Text(formatCurrency(dash.todayIncome), style: TextStyle(color: AppColors.primary, fontSize: 22, fontWeight: FontWeight.w900)),
+                    const SizedBox(width: 8),
+                    Text('earned today', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  ]),
+                ),
+              ),
+            ),
+            // Wallet — full functionality already lives at /earnings; this is
+            // a lightweight entry point, not a duplicate wallet UI.
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Text('Wallet', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: _quickAction(context, 'View Wallet & Earnings', Icons.account_balance_wallet_outlined, () => context.go('/earnings')),
+              ),
+            ),
+            // History — no dedicated screen yet; honest placeholder.
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Text('History', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            SliverToBoxAdapter(child: _placeholderCard(Icons.history, 'Your completed jobs will show up here')),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-                child: Column(children: [
-                  Row(children: [
-                    Expanded(child: _quickAction(context, 'Browse Jobs', Icons.work_outline, () => context.go('/jobs'))),
-                    const SizedBox(width: 12),
-                    Expanded(child: _quickAction(context, 'My Proposals', Icons.description_outlined, () => context.push('/proposals'))),
-                  ]),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: _quickAction(context, 'My Earnings', Icons.account_balance_wallet_outlined, () => context.go('/earnings'))),
-                    const SizedBox(width: 12),
-                    Expanded(child: Container()),
-                  ]),
-                ]),
+                child: _quickAction(context, 'My Proposals', Icons.description_outlined, () => context.push('/proposals')),
               ),
             ),
           ]),
@@ -211,6 +296,20 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       ),
     );
   }
+
+  Widget _placeholderCard(IconData icon, String message) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+          child: Column(children: [
+            Icon(icon, color: AppColors.textSecondary, size: 28),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          ]),
+        ),
+      );
 
   Widget _statCard(String label, String val, IconData icon, Color color) => Container(
         padding: const EdgeInsets.all(14),

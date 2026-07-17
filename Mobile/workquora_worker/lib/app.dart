@@ -4,12 +4,12 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/network/dio_client.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/kyc_provider.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/otp_screen.dart';
 import 'screens/worker/home_screen.dart';
-import 'screens/worker/jobs_screen.dart';
 import 'screens/worker/job_detail_screen.dart';
 import 'screens/worker/proposals_screen.dart';
 import 'screens/worker/active_work_screen.dart';
@@ -77,7 +77,6 @@ class _WorkQuoraWorkerAppState extends State<WorkQuoraWorkerApp> {
           builder: (context, state, child) => WorkerShell(child: child),
           routes: [
             GoRoute(path: '/home', builder: (_, __) => const WorkerHomeScreen()),
-            GoRoute(path: '/jobs', builder: (_, __) => const JobsScreen()),
             // "Active" tab lands on My Proposals — the closest thing to a
             // worker's active-work list until there's a dedicated multi-task
             // view; accepted proposals deep-link into /active-work/:taskId.
@@ -149,13 +148,28 @@ class WorkerShell extends StatefulWidget {
 
 class _WorkerShellState extends State<WorkerShell> {
   int _idx = 0;
-  final _tabs = ['/home', '/jobs', '/proposals', '/earnings', '/profile'];
+  // Phase A: "Jobs" (Discover/Search-style manual browsing) removed — jobs
+  // reach the worker via Home's Nearby/Today's Jobs sections instead.
+  final _tabs = ['/home', '/proposals', '/earnings', '/profile'];
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetched here too (in addition to WorkerHomeScreen) so the KYC gate
+    // is accurate even if some future entry point skips Home first.
+    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<KycProvider>().fetchStatus());
+  }
 
   @override
   Widget build(BuildContext context) {
+    final kyc = context.watch<KycProvider>();
+    // While KYC is incomplete, hide the bottom nav entirely — Home is the
+    // only reachable screen, and it renders the full-screen KYC prompt.
+    final showNav = kyc.isFullyVerified;
+
     return Scaffold(
       body: widget.child,
-      bottomNavigationBar: Container(
+      bottomNavigationBar: !showNav ? null : Container(
         decoration: BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.border, width: 0.5))),
         child: BottomNavigationBar(
           currentIndex: _idx, onTap: (i) { setState(() => _idx = i); context.go(_tabs[i]); },
@@ -163,7 +177,6 @@ class _WorkerShellState extends State<WorkerShell> {
           selectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold), unselectedLabelStyle: const TextStyle(fontSize: 10),
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.work_outline), label: 'Jobs'),
             BottomNavigationBarItem(icon: Icon(Icons.pending_actions_outlined), label: 'Active'),
             BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Earnings'),
             BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),

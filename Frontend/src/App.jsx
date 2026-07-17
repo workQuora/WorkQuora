@@ -14,9 +14,7 @@ import OnboardingOverlay from './components/OnboardingOverlay';
 
 // ── Lazy-loaded public pages ──────────────────────────────────────────────────
 const Landing               = lazy(() => import('./pages/Landing'));
-const Discover              = lazy(() => import('./pages/Discover'));
 const JobDetails            = lazy(() => import('./pages/JobDetails'));
-const SearchPage            = lazy(() => import('./pages/SearchPage'));
 const FreelancerPublicProfile = lazy(() => import('./pages/FreelancerPublicProfile'));
 const InfoPage              = lazy(() => import('./pages/shared/InfoPage'));
 const NotFound = lazy(() => import('./pages/shared/NotFound'));
@@ -78,6 +76,14 @@ const authLoader = () => {
   return null;
 };
 
+// Phase A: wallet withdrawal is freelancer-only — clients only fund escrow.
+const freelancerOnlyLoader = () => {
+  const { isAuthenticated, role } = store.getState().auth;
+  if (!isAuthenticated) return redirect('/auth');
+  if (role?.toLowerCase() !== 'freelancer') return redirect('/home');
+  return null;
+};
+
 /* ── Root layout ──────────────────────────────────────
    Wraps every route so OnboardingOverlay renders inside the
    router context (useNavigate requires a <Router> ancestor). */
@@ -100,16 +106,14 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/auth" replace /> },
           { path: 'home', element: <Landing /> },
-          { path: 'discover', element: <Discover /> },
           { path: 'job/:id', element: <JobDetails /> },
-          { path: 'search', element: <SearchPage /> },
           { path: 'freelancer/:userId', element: <FreelancerPublicProfile /> },
 
           // Protected shared routes
           { path: 'profile', loader: authLoader, element: <Profile /> },
           { path: 'shared/messages', loader: authLoader, element: <Messages /> },
           { path: 'shared/settings', loader: authLoader, element: <Settings /> },
-          { path: 'shared/wallet',   loader: authLoader, element: <Wallet /> },
+          { path: 'shared/wallet',   loader: freelancerOnlyLoader, element: <Wallet /> },
           { path: 'reviews/:userId', loader: authLoader, element: <Reviews /> },
           { path: 'freelancer/earnings', loader: freelancerLoader, element: <Earnings /> },
           { path: 'client/post-job', loader: clientLoader, element: <PostJob /> },

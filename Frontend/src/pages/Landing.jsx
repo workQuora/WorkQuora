@@ -4,10 +4,11 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Search, Shield, Zap, Users, Briefcase, ArrowRight, ArrowUpRight,
-  ChevronDown, X, ExternalLink, Sparkles, Star, MessageSquare, FileText, Check,
-  ClipboardList, UserCheck, UserPlus, Award, Compass, Rocket,
-  PlusCircle, LayoutDashboard, Wallet, MapPin
+  Shield, ShieldAlert, Zap, Users, Briefcase, ArrowRight, ArrowUpRight,
+  ChevronDown, Sparkles, Star, MessageSquare, FileText, Check,
+  ClipboardList, UserCheck, UserPlus, Award, Rocket, Compass,
+  PlusCircle, LayoutDashboard, Wallet,
+  Droplet, Snowflake, PaintRoller, ChefHat, Wrench,
 } from 'lucide-react';
 import api from '../services/api';
 import AdBanner from '../components/shared/AdBanner';
@@ -19,19 +20,22 @@ import { Card, Button, Badge } from '../components/ui';
 
 const JOB_STATUS_VARIANT = { open: 'success', 'in-progress': 'warning', completed: 'info', cancelled: 'danger' };
 
-const CATEGORIES = [
-  { label: 'Design', emoji: '🎨' },
-  { label: 'Development', emoji: '💻' },
-  { label: 'Writing', emoji: '✍️' },
-  { label: 'Marketing', emoji: '📣' },
-  { label: 'Plumbing', emoji: '🔧' },
-  { label: 'Electrical', emoji: '⚡' },
+// Client home's service-category grid — tapping a category jumps straight
+// into the job-posting flow with that category pre-selected. Keep this list
+// in sync with PostJob.jsx's CATEGORIES.
+const SERVICE_CATEGORIES = [
+  { label: 'Electrician', icon: Zap },
+  { label: 'Plumber', icon: Droplet },
+  { label: 'AC Repair', icon: Snowflake },
+  { label: 'Painter', icon: PaintRoller },
+  { label: 'Maid', icon: Sparkles },
+  { label: 'Cook', icon: ChefHat },
+  { label: 'Mechanic', icon: Wrench },
 ];
 
 const Landing = () => {
   const navigate = useNavigate();
   const { isAuthenticated, role, user, onboarding } = useSelector((s) => s.auth);
-  const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('clients'); // 'clients' | 'freelancers'
 
   const scrollToHowItWorks = (tab) => {
@@ -98,23 +102,11 @@ const Landing = () => {
   };
 
   // ── Normal Landing Page Queries ──
-  const { data: jobsData, isLoading: jobsLoading } = useQuery({
-    queryKey: ['landing-jobs'],
-    queryFn: () => api.get('/jobs', { params: { limit: 6, status: 'open' } }).then((r) => r.data?.data ?? r.data ?? {}),
-    enabled: isAuthenticated,
-    staleTime: 60_000,
-  });
-
   const { data: statsData } = useQuery({
     queryKey: ['landing-public-stats'],
     queryFn: () => api.get('/stats/public').then((r) => r.data?.data ?? r.data ?? {}),
     staleTime: 30_000,
   });
-
-  const featuredJobs = Array.isArray(jobsData) ? jobsData.slice(0, 6) : (jobsData?.data ?? jobsData?.jobs ?? []).slice(0, 6);
-
-  // City used for the freelancer hero subtitle — same source Navbar/Discover use
-  const homeCity = useSelector((s) => s.client?.details?.currentLocation?.city) || user?.location?.city;
 
   // Client's own posted jobs + proposal stats for the client-role home view
   const { data: clientDashData } = useQuery({
@@ -123,11 +115,6 @@ const Landing = () => {
     enabled: isAuthenticated && role === 'CLIENT' && onboarding?.onboardingComplete === true,
     staleTime: 60_000,
   });
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    navigate(`/discover${searchQuery.trim() ? `?keyword=${encodeURIComponent(searchQuery.trim())}` : ''}`);
-  };
 
   // ── Render Logged-In Home View (role-aware) ──
   if (isAuthenticated) {
@@ -143,17 +130,37 @@ const Landing = () => {
 
     const activeMilestones = dashData?.stats?.pendingTasks ?? 4;
 
-    // Directly use real DB jobs — no fallbacks. Empty DB = empty UI.
-    const jobList = featuredJobs || [];
-    const firstJob = jobList[0] || null;
-    const secondJob = jobList[1] || null;
-    const premiumJob = jobList[2] || null;
-
     const clientJobs = clientDashData?.recentJobs ?? [];
     const pendingProposals = clientDashData?.stats?.pendingProposals ?? 0;
 
     // Only show real ads from DB — no hardcoded fallback ad
     const featuredAd = visibleAds && visibleAds.length > 0 ? visibleAds[0] : null;
+
+    // Worker home is gated entirely behind KYC (Phase A) — nothing else
+    // renders (no jobs, no widgets) until verified. Client KYC is not
+    // required at all.
+    if (!isClientHome && !user?.isKycVerified) {
+      return (
+        <div className="bg-slate-50/50 dark:bg-[#07070c] w-full min-h-screen flex items-center justify-center p-6 transition-colors duration-300">
+          <div className="max-w-md w-full text-center bg-white dark:bg-[#0d0d15] border border-slate-200/60 dark:border-white/5 rounded-3xl shadow-sm p-8 sm:p-10">
+            <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <ShieldAlert className="w-8 h-8 text-amber-500" />
+            </div>
+            <h1 className="text-2xl font-extrabold text-foreground mb-2">Complete Your KYC</h1>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-8">
+              Verify your Aadhaar and PAN to unlock your WorkQuora home — jobs, earnings, and
+              everything else stays hidden until your KYC is complete.
+            </p>
+            <button
+              onClick={() => navigate('/freelancer/dashboard')}
+              className="w-full py-3.5 bg-primary hover:opacity-90 text-primary-foreground font-bold rounded-xl transition-all shadow-md shadow-primary/20 cursor-pointer"
+            >
+              Complete KYC Verification
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="bg-slate-50/50 dark:bg-[#07070c] text-slate-800 dark:text-foreground w-full min-h-screen py-8 transition-colors duration-300">
@@ -177,41 +184,25 @@ const Landing = () => {
               </motion.h1>
               <motion.p variants={fadeInUp} className="text-sm text-slate-500 dark:text-muted-foreground mb-6">
                 {isClientHome
-                  ? 'Find the right talent for your next job'
-                  : `Find work near you${homeCity ? ` in ${homeCity}` : ''}`}
+                  ? 'What do you need help with today?'
+                  : "You're KYC verified — jobs will appear here as they're matched to you"}
               </motion.p>
 
-              {/* Search input */}
-              <motion.form
-                variants={fadeInUp}
-                onSubmit={handleSearch}
-                className="relative flex items-center gap-2 bg-slate-100 dark:bg-white/[0.03] border border-transparent focus-within:border-primary/30 rounded-full px-5 py-3 mb-5 shadow-sm transition-colors"
-              >
-                <Search className="w-4 h-4 text-slate-400 dark:text-muted-foreground mr-1 shrink-0" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={isClientHome ? 'Search for talent, skills…' : 'Search for open contracts, gigs…'}
-                  className="bg-transparent text-slate-850 dark:text-foreground w-full focus:outline-none placeholder:text-slate-400 dark:placeholder:text-muted-foreground/60 text-sm font-medium"
-                />
-                <button type="submit" className="text-xs text-primary font-bold hover:underline px-2 shrink-0 cursor-pointer">
-                  Search Gigs
-                </button>
-              </motion.form>
-
-              {/* Categories quick-chips */}
-              <motion.div variants={fadeInUp} className="flex flex-wrap justify-center gap-2">
-                {CATEGORIES.slice(0, 4).map((cat) => (
-                  <button
-                    key={cat.label}
-                    onClick={() => navigate(`/discover?category=${cat.label.toLowerCase()}`)}
-                    className="px-4 py-1.5 bg-primary/10 hover:bg-primary/15 text-primary border-none text-xs font-semibold rounded-full transition-colors cursor-pointer"
-                  >
-                    {cat.emoji} {cat.label}
-                  </button>
-                ))}
-              </motion.div>
+              {/* Service-category grid — client home's primary action */}
+              {isClientHome && (
+                <motion.div variants={fadeInUp} className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
+                  {SERVICE_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.label}
+                      onClick={() => navigate('/client/post-job', { state: { category: cat.label } })}
+                      className="flex flex-col items-center gap-2 px-2 py-4 bg-primary/5 hover:bg-primary/10 border border-primary/10 hover:border-primary/30 rounded-2xl transition-colors cursor-pointer"
+                    >
+                      <cat.icon className="w-5 h-5 text-primary" />
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-foreground text-center leading-tight">{cat.label}</span>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
             </motion.div>
           </section>
 
@@ -273,116 +264,22 @@ const Landing = () => {
                     </div>
                   )}
 
-                  <Card className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Need more hands?</h3>
-                      <p className="text-xs text-muted-foreground">Browse verified freelancers ready to help nearby.</p>
-                    </div>
-                    <Button variant="secondary" size="sm" onClick={() => navigate('/discover')} className="shrink-0">
-                      Find Talent Nearby <ArrowRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </Card>
                 </>
               ) : (
                 <>
-                  {/* Freelancer header */}
+                  {/* Freelancer header — Phase A: manual job browsing removed.
+                      Matching engine (Phase B) will push jobs here directly. */}
                   <div className="flex items-center justify-between">
                     <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Recommended Jobs for You
+                      Your Jobs
                     </h2>
-                    <button
-                      onClick={() => navigate('/discover')}
-                      className="text-xs font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      View All &rarr;
-                    </button>
                   </div>
 
-                  {/* Two Column cards — 100% real DB data */}
-                  {jobsLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      {[0, 1].map((i) => (
-                        <div key={i} className="bg-white dark:bg-[#0f0f18] border border-slate-200/80 dark:border-white/5 rounded-2xl p-6 animate-pulse h-52">
-                          <div className="h-5 bg-slate-200 dark:bg-white/10 rounded w-1/3 mb-4" />
-                          <div className="h-4 bg-slate-200 dark:bg-white/10 rounded w-3/4 mb-3" />
-                          <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-full mb-2" />
-                          <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-2/3" />
-                        </div>
-                      ))}
-                    </div>
-                  ) : jobList.length === 0 ? (
-                    <Card className="flex flex-col items-center justify-center py-16 text-center">
-                      <Briefcase className="w-12 h-12 text-slate-300 dark:text-white/20 mb-4" />
-                      <p className="text-sm font-semibold text-slate-500 dark:text-muted-foreground mb-1">No jobs in database right now</p>
-                      <p className="text-xs text-slate-400 dark:text-muted-foreground/60 mb-5">New jobs will appear here as soon as clients post them.</p>
-                      <Button variant="primary" size="sm" onClick={() => navigate('/discover')}>Browse All Jobs</Button>
-                    </Card>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      {[firstJob, secondJob].filter(Boolean).map((job) => (
-                        <Card key={job._id} hover className="flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between mb-4">
-                              <span className="text-lg font-extrabold text-[#1E00A9] dark:text-[#10B981]">
-                                ₹{job.budgetRange?.min?.toLocaleString('en-IN') || job.budget?.toLocaleString('en-IN') || '—'}
-                              </span>
-                              <Badge variant="success">{job.category}</Badge>
-                            </div>
-                            <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug mb-2 line-clamp-1">
-                              {job.title}
-                            </h3>
-                            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mb-3">
-                              {job.description}
-                            </p>
-                            {job.distance && (
-                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-3">
-                                <MapPin className="w-3 h-3" /> {job.distance} away
-                              </div>
-                            )}
-                            {job.skillsRequired?.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mb-4">
-                                {job.skillsRequired.slice(0, 2).map((skill) => (
-                                  <span key={skill} className="px-2.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded-md text-[10px] font-semibold text-slate-500 dark:text-muted-foreground">
-                                    {skill}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <Button variant="primary" size="sm" className="w-full" onClick={() => navigate(`/job/${job._id}`)}>
-                            Apply Now
-                          </Button>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Premium Listing block card — only shown if there's a 3rd DB job */}
-                  {premiumJob && (
-                    <Card className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-amber-500/20 transition-colors group">
-                      <div className="flex-1">
-                        <span className="inline-flex items-center text-[9px] font-extrabold uppercase px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-500 rounded border border-amber-500/20 mb-3 tracking-wider">
-                          Premium Listing
-                        </span>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-primary transition-colors">
-                          {premiumJob.title}
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed max-w-xl mb-4 line-clamp-2">
-                          {premiumJob.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground font-semibold">
-                          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
-                            💰 ₹{premiumJob.budgetRange?.min?.toLocaleString('en-IN') || premiumJob.budget?.toLocaleString('en-IN') || '—'}
-                            {premiumJob.budgetRange?.max ? ` – ₹${premiumJob.budgetRange.max.toLocaleString('en-IN')}` : ''}
-                          </span>
-                          <span>⏱️ {premiumJob.duration || '2 Months'}</span>
-                        </div>
-                      </div>
-                      <Button variant="secondary" size="sm" onClick={() => navigate(`/job/${premiumJob._id}`)} className="shrink-0">
-                        View Detailed Brief
-                      </Button>
-                    </Card>
-                  )}
+                  <Card className="flex flex-col items-center justify-center py-16 text-center">
+                    <Briefcase className="w-12 h-12 text-slate-300 dark:text-white/20 mb-4" />
+                    <p className="text-sm font-semibold text-slate-500 dark:text-muted-foreground mb-1">Jobs will appear here when matched</p>
+                    <p className="text-xs text-slate-400 dark:text-muted-foreground/60">We're building smart job-matching — coming soon.</p>
+                  </Card>
                 </>
               )}
 
@@ -524,30 +421,6 @@ const Landing = () => {
           <motion.p variants={fadeInUp} className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
             Connect with verified clients and skilled freelancers. Secure escrow payments, real-time chat, KYC-verified profiles.
           </motion.p>
-
-          {/* Search */}
-          <motion.div variants={fadeInUp} className="relative max-w-2xl mx-auto mb-6 group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-[#1E00A9] via-[#6366F1] to-[#10B981] rounded-full opacity-10 blur-lg group-hover:opacity-15 transition-opacity duration-300 pointer-events-none" />
-            <form onSubmit={handleSearch} className="relative flex items-center bg-[hsl(var(--surface))] p-1.5 pl-4 rounded-full shadow-lg transition-all focus-within:shadow-xl border border-border">
-              <Search className="w-5 h-5 text-muted-foreground mr-3 shrink-0" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search jobs, skills, or freelancers..."
-                className="bg-transparent text-foreground w-full focus:outline-none placeholder:text-muted-foreground/60 text-sm font-semibold py-3"
-              />
-              {searchQuery && (
-                <button type="button" onClick={() => setSearchQuery('')} className="p-1.5 mr-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-              <button type="submit" className="bg-primary hover:opacity-90 text-white font-bold py-3 px-6 rounded-full transition-all flex items-center gap-1.5 shrink-0 active:scale-95 shadow-md border-none cursor-pointer">
-                <span>Search</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
-          </motion.div>
 
           <motion.div variants={fadeInUp} className="flex flex-wrap gap-4 justify-center mb-16">
             <motion.button
