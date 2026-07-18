@@ -23,10 +23,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _init() async {
-    await Future.delayed(const Duration(milliseconds: 1800));
-    if (!mounted) return;
+    // The branding delay and the token-validation network call used to run
+    // serially (1800ms dead time, then the request) — now concurrent, so
+    // total wait is max(1800ms, request time) instead of the sum. Keeps the
+    // splash animation's minimum visible time on a fast network without
+    // taxing a slow one with an extra 1.8s on top of the request itself.
+    final minDelay = Future.delayed(const Duration(milliseconds: 1800));
     final auth = context.read<AuthProvider>();
     final valid = await auth.validateToken();
+    await minDelay;
     if (!mounted) return;
     if (valid) {
       context.go('/home');
