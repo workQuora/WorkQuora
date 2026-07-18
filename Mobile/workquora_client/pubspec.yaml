@@ -25,6 +25,7 @@ dependencies:
   socket_io_client: ^2.0.3+1
   image_picker: ^1.0.7
   image_cropper: ^8.1.0
+  flutter_svg: ^2.0.0
   geolocator: ^13.0.1
   web: ^1.1.0
   share_plus: ^10.0.0
@@ -47,13 +48,21 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icons/client_icon.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#1E00A9"
+  adaptive_icon_background: "#2E1CA8"
   adaptive_icon_foreground: "assets/icons/client_icon_fg.png"
+  # client_icon.png has transparent corners outside its rounded-square shape
+  # (from the SVG's clipPath) — the App Store rejects icons with any alpha
+  # channel, since iOS applies its own corner mask at the OS level. This
+  # flattens iOS's copy to opaque; Android's adaptive icon (which wants the
+  # transparent corners, masked by the OS's own adaptive-icon shape) is
+  # untouched.
+  remove_alpha_ios: true
 
 flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
+    - assets/logos/
     - assets/images/categories/
   fonts:
     - family: PlusJakartaSans

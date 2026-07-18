@@ -1,0 +1,13 @@
+<svg width="480" height="160" viewBox="0 0 480 160" xmlns="http://www.w3.org/2000/svg">
+  <!-- WQ script mark -->
+  <g transform="translate(10, 45) scale(0.5)" fill="none" stroke="#2E1CA8" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0,10 C15,60 20,100 35,130 C50,100 55,70 70,55 C85,70 90,100 105,130 C120,100 125,60 140,10"/>
+    <circle cx="195" cy="65" r="55"/>
+    <path d="M228,98 C240,108 248,118 258,128"/>
+    <path d="M258,128 L246,122"/>
+    <path d="M258,128 L253,113"/>
+  </g>
+
+  <text x="155" y="92" font-family="PlusJakartaSans" font-weight="700" font-size="52" fill="#2E1CA8">WorkQuora</text>
+  <text x="157" y="118" font-family="PlusJakartaSans" font-weight="600" font-size="14" letter-spacing="3" fill="#2E1CA8" opacity="0.75">CONNECT &#8226; WORK &#8226; GROW</text>
+</svg>

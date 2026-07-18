@@ -1,0 +1,14 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Android adaptive-icon foreground: WQ mark only, no background fill,
+       kept within the ~66% center safe zone (the OS mask crops the rest). -->
+  <!-- Thicker stroke than logo_splash.svg's mark (16) — a small adaptive
+       icon needs proportionally bolder strokes than a full-size hero
+       graphic to stay legible once scaled down to 48dp. -->
+  <g transform="translate(172, 328) scale(2.63)" fill="none" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0,10 C15,60 20,100 35,130 C50,100 55,70 70,55 C85,70 90,100 105,130 C120,100 125,60 140,10"/>
+    <circle cx="195" cy="65" r="55"/>
+    <path d="M228,98 C240,108 248,118 258,128"/>
+    <path d="M258,128 L246,122"/>
+    <path d="M258,128 L253,113"/>
+  </g>
+</svg>
