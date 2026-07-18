@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/auth_provider.dart';
@@ -12,12 +13,15 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _fade;
+  late Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
-    _fade = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+    final curve = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _fade = Tween<double>(begin: 0, end: 1).animate(curve);
+    _scale = Tween<double>(begin: 0.85, end: 1.0).animate(curve);
     _ctrl.forward();
     _init();
   }
@@ -45,45 +49,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = theme.extension<AppTokens>()!;
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      // Fixed brand indigo, deliberately the same in both themes and
+      // matching the native launch_background.xml exactly — no color flash
+      // between the native splash and this one taking over.
+      backgroundColor: AppColors.brand,
       body: Center(
         child: FadeTransition(
           opacity: _fade,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 90, height: 90,
-                decoration: BoxDecoration(
-                  // Fixed brand gradient — deliberately the same in both
-                  // themes, same precedent as the Google/Facebook button
-                  // marks (a brief, always-on-brand splash treatment, not a
-                  // themed surface).
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF4F46E5), Color(0xFF8B5CF6), Color(0xFF06B6D4)],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.4), blurRadius: 30, spreadRadius: 4)],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Image.asset('assets/logo.png', fit: BoxFit.cover),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text('WorkQuora', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface, letterSpacing: -1)),
-              const SizedBox(height: 6),
-              Text('Find Trusted Workers Near You', style: TextStyle(fontSize: 14, color: tokens.muted, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 60),
-              SizedBox(
-                width: 28, height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: theme.colorScheme.primary.withValues(alpha: 0.7)),
-              ),
-            ],
+          child: ScaleTransition(
+            scale: _scale,
+            child: SvgPicture.asset('assets/logos/logo_splash.svg', width: 220, height: 220),
           ),
         ),
       ),
