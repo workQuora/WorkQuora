@@ -1,12 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../core/providers/auth_provider.dart';
 import '../core/providers/notifications_provider.dart';
 import '../theme/app_theme.dart';
 
-/// Standard app bar: "WorkQuora" wordmark · bell w/ unread dot · profile
+/// Standard app bar: mono wordmark logo · bell w/ unread dot · profile
 /// avatar (was a hamburger that pushed Settings — Profile is reachable from
 /// there instead, and the avatar is a more direct affordance than a generic
 /// menu icon for a destination that's always the same screen).
@@ -28,11 +29,16 @@ class AppBarBrand extends StatelessWidget implements PreferredSizeWidget {
     final user = context.watch<AuthProvider>().user ?? {};
     final name = (user['name'] ?? '').toString();
     final photoUrl = (user['profilePic'] ?? user['avatar'] ?? '').toString();
+    // Theme.of(context).brightness (not MediaQuery's platformBrightness) —
+    // this app has its own Light/Dark/System toggle in Settings, so the
+    // logo needs to match whatever's actually rendered, not the raw OS
+    // setting a user may have overridden.
+    final logoAsset = theme.brightness == Brightness.dark ? 'assets/logos/logo_mono_dark.svg' : 'assets/logos/logo_mono_light.svg';
 
     return AppBar(
       centerTitle: false,
       automaticallyImplyLeading: false,
-      title: Text('WorkQuora', style: theme.appBarTheme.titleTextStyle),
+      title: SvgPicture.asset(logoAsset, height: 28, alignment: Alignment.centerLeft),
       actions: [
         Stack(
           clipBehavior: Clip.none,
