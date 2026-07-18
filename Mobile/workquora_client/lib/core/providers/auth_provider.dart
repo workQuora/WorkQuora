@@ -243,6 +243,20 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Pull-to-refresh on Profile — unlike validateToken(), doesn't touch the
+  // socket or log out on failure; just re-syncs the cached user against the
+  // backend (rating, verified status, etc. can change server-side).
+  Future<void> refreshUser() async {
+    try {
+      final res = await DioClient.instance.dio.get(ApiConstants.me);
+      _user = res.data['data'];
+      await _prefs.setString('user', jsonEncode(_user));
+      notifyListeners();
+    } catch (_) {
+      // Non-fatal — keep showing the cached profile on a failed refresh.
+    }
+  }
+
   Future<bool> validateToken() async {
     final token = await DioClient.instance.getToken();
     if (token == null) return false;

@@ -3,13 +3,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/utils/error_helper.dart';
-import '../../core/utils/reverify.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/primary_button.dart';
 
@@ -46,6 +46,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _sendingEmailOtp = false;
   bool _sendingMobileOtp = false;
 
+  // Inline OTP verification — null when no verification is in progress,
+  // otherwise 'email' or 'mobile' identifies which field's OTP box is open
+  // right on this screen (no navigation to a separate OTP screen).
+  String? _verifyingField;
+  final _otpCtrl = TextEditingController();
+  bool _submittingOtp = false;
+  String? _otpError;
+
+  @override
+  void dispose() {
+    _otpCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _changePhoto() async {
     final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1024);
     if (image == null) return;
@@ -64,7 +78,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         final tokens = Theme.of(context).extension<AppTokens>()!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: tokens.danger));
+        final message = kVerboseErrors ? ErrorHelper.debugDetail(e) : ErrorHelper.extractError(e);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: tokens.danger));
       }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
@@ -85,16 +100,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _editProfileSheetOpen = false;
   }
 
-  Future<void> _verifyEmail(String email) async {
-    setState(() => _sendingEmailOtp = true);
-    await startEmailReverification(context, email);
-    if (mounted) setState(() => _sendingEmailOtp = false);
+  Future<void> _startVerify(String field, String email) async {
+    setState(() {
+      if (field == 'email') {
+        _sendingEmailOtp = true;
+      } else {
+        _sendingMobileOtp = true;
+      }
+    });
+    final auth = context.read<AuthProvider>();
+    final ok = field == 'email'
+        ? await auth.resendEmailVerificationOtp(email)
+        : await auth.sendMobileVerificationOtp(email);
+    if (!mounted) return;
+    setState(() {
+      _sendingEmailOtp = false;
+      _sendingMobileOtp = false;
+      if (ok) {
+        _verifyingField = field;
+        _otpCtrl.clear();
+        _otpError = null;
+      }
+    });
+    if (!ok) _showSnack(auth.error ?? 'Could not send OTP. Try again.', danger: true);
   }
 
-  Future<void> _verifyMobile(String email) async {
-    setState(() => _sendingMobileOtp = true);
-    await startMobileReverification(context, email);
-    if (mounted) setState(() => _sendingMobileOtp = false);
+  Future<void> _submitOtp(String email) async {
+    final field = _verifyingField;
+    if (field == null) return;
+    if (_otpCtrl.text.trim().length != 6) {
+      setState(() => _otpError = 'Enter the 6-digit code');
+      return;
+    }
+    setState(() { _submittingOtp = true; _otpError = null; });
+    final auth = context.read<AuthProvider>();
+    final ok = field == 'email'
+        ? await auth.verifyEmailReverification(email, _otpCtrl.text.trim())
+        : await auth.verifyMobileReverification(email, _otpCtrl.text.trim());
+    if (!mounted) return;
+    setState(() {
+      _submittingOtp = false;
+      if (ok) {
+        _verifyingField = null;
+        _otpCtrl.clear();
+      } else {
+        _otpError = auth.error ?? 'Invalid OTP';
+      }
+    });
+    if (ok) _showSnack('${field == 'email' ? 'Email' : 'Mobile'} verified', danger: false);
+  }
+
+  void _cancelVerify() {
+    setState(() { _verifyingField = null; _otpError = null; _otpCtrl.clear(); });
+  }
+
+  void _showSnack(String message, {required bool danger}) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: danger ? tokens.danger : tokens.success));
   }
 
   String? _memberSince(dynamic iso) {
@@ -126,7 +188,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           IconButton(icon: const Icon(Icons.share_outlined), onPressed: () => _shareProfile(context, user)),
         ],
       ),
-      body: ListView(
+      body: RefreshIndicator(
+        color: theme.colorScheme.primary,
+        backgroundColor: theme.colorScheme.surface,
+        onRefresh: () => auth.refreshUser(),
+        child: ListView(
         padding: const EdgeInsets.all(AppSpace.xl),
         children: [
           // Header
@@ -194,14 +260,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
               const SizedBox(height: AppSpace.md),
               Wrap(spacing: AppSpace.sm, runSpacing: AppSpace.sm, alignment: WrapAlignment.center, children: [
-                _VerifyBadge(label: 'Email', verified: isEmailVerified, loading: _sendingEmailOtp, onTap: email.isEmpty ? null : () => _verifyEmail(email)),
+                _VerifyBadge(label: 'Email', verified: isEmailVerified, loading: _sendingEmailOtp, onTap: email.isEmpty ? null : () => _startVerify('email', email)),
                 _VerifyBadge(
                   label: 'Mobile',
                   verified: isMobileVerified,
                   loading: _sendingMobileOtp,
-                  onTap: mobile.isEmpty || email.isEmpty ? null : () => _verifyMobile(email),
+                  // Backend requires email verified before mobile can be —
+                  // gated here so tapping doesn't send an OTP that's
+                  // guaranteed to fail verification at the last step.
+                  onTap: mobile.isEmpty || email.isEmpty
+                      ? null
+                      : (!isEmailVerified
+                          ? () => _showSnack('Verify your email first', danger: true)
+                          : () => _startVerify('mobile', email)),
                 ),
               ]),
+              if (_verifyingField != null) ...[
+                const SizedBox(height: AppSpace.md),
+                _InlineOtpBox(
+                  label: _verifyingField == 'email' ? 'Email' : 'Mobile',
+                  controller: _otpCtrl,
+                  error: _otpError,
+                  submitting: _submittingOtp,
+                  onSubmit: () => _submitOtp(email),
+                  onCancel: _cancelVerify,
+                  onResend: () => _startVerify(_verifyingField!, email),
+                ),
+              ],
             ]),
           ),
           const SizedBox(height: AppSpace.xl),
@@ -225,7 +310,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
         ],
+        ),
       ),
+    );
+  }
+}
+
+class _InlineOtpBox extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final String? error;
+  final bool submitting;
+  final VoidCallback onSubmit;
+  final VoidCallback onCancel;
+  final VoidCallback onResend;
+  const _InlineOtpBox({
+    required this.label,
+    required this.controller,
+    required this.error,
+    required this.submitting,
+    required this.onSubmit,
+    required this.onCancel,
+    required this.onResend,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    final defaultPinTheme = PinTheme(
+      width: 44,
+      height: 48,
+      textStyle: theme.textTheme.titleMedium,
+      decoration: BoxDecoration(color: theme.scaffoldBackgroundColor, borderRadius: BorderRadius.circular(AppRadius.button), border: Border.all(color: tokens.border)),
+    );
+    final focusedPinTheme = defaultPinTheme.copyWith(decoration: defaultPinTheme.decoration!.copyWith(border: Border.all(color: theme.colorScheme.primary, width: 2)));
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpace.md),
+      decoration: BoxDecoration(color: tokens.brandSoft, borderRadius: BorderRadius.circular(AppRadius.card), border: Border.all(color: tokens.border, width: 0.5)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Enter the 6-digit code sent for $label verification', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+        const SizedBox(height: AppSpace.sm),
+        Center(child: Pinput(length: 6, controller: controller, defaultPinTheme: defaultPinTheme, focusedPinTheme: focusedPinTheme)),
+        if (error != null) ...[
+          const SizedBox(height: AppSpace.xs),
+          Text(error!, style: theme.textTheme.labelSmall?.copyWith(color: tokens.danger)),
+        ],
+        const SizedBox(height: AppSpace.md),
+        Row(children: [
+          Expanded(child: PrimaryButton(label: 'Submit', loading: submitting, onPressed: onSubmit)),
+          const SizedBox(width: AppSpace.sm),
+          TextButton(onPressed: submitting ? null : onCancel, child: const Text('Cancel')),
+        ]),
+        Center(child: TextButton(onPressed: submitting ? null : onResend, child: Text('Resend code', style: TextStyle(color: theme.colorScheme.primary)))),
+      ]),
     );
   }
 }
