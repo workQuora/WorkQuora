@@ -1,31 +1,46 @@
-import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/constants/api_constants.dart';
-import '../../core/constants/app_languages.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/jobs_provider.dart';
 import '../../core/providers/theme_provider.dart';
-import '../../core/providers/wallet_provider.dart';
 import '../../core/utils/error_helper.dart';
 import '../../core/utils/location_picker.dart';
-import '../../widgets/app_button.dart';
-import '../../widgets/app_text_field.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/primary_button.dart';
 import 'profile_screen.dart' show EditProfileSheet;
+
+// The 12 real categories on Backend/src/models/NotificationPreference.js,
+// each with {email, sms, push, inApp} channels
+// (Backend/src/controllers/settingsController.js). Only the push channel is
+// exposed here — a 12x4 toggle grid would be unreadable on a phone — but
+// the endpoint accepts partial per-channel updates, so email/sms/inApp can
+// be added as rows later with no backend change.
+const _kNotifCategories = [
+  (key: 'jobs', icon: Icons.work_outline_rounded, label: 'Job Updates'),
+  (key: 'proposals', icon: Icons.description_outlined, label: 'Proposals'),
+  (key: 'messages', icon: Icons.chat_bubble_outline_rounded, label: 'Messages'),
+  (key: 'chat', icon: Icons.forum_outlined, label: 'Chat'),
+  (key: 'payments', icon: Icons.payments_outlined, label: 'Payments'),
+  (key: 'wallet', icon: Icons.account_balance_wallet_outlined, label: 'Wallet Activity'),
+  (key: 'escrow', icon: Icons.shield_outlined, label: 'Escrow Updates'),
+  (key: 'security', icon: Icons.security_outlined, label: 'Security Alerts'),
+  (key: 'systemUpdates', icon: Icons.system_update_outlined, label: 'System Updates'),
+  (key: 'aiSuggestions', icon: Icons.auto_awesome_outlined, label: 'AI Suggestions'),
+  (key: 'marketing', icon: Icons.campaign_outlined, label: 'Marketing'),
+  (key: 'promotions', icon: Icons.local_offer_outlined, label: 'Promotions'),
+];
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
-  @override State<SettingsScreen> createState() => _SettingsScreenState();
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
@@ -37,25 +52,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _showEarnings = false;
   String _profileVisibility = 'public';
 
-  bool _emailNotifs = true;
-  bool _smsAlerts = true;
-  bool _jobAlerts = true;
-  bool _paymentAlerts = true;
-  bool _messageAlerts = true;
+  bool _notifPrefsLoaded = false;
+  Map<String, dynamic> _notifPrefs = {};
 
   double _searchRadius = 25.0;
-
-  String _currentLanguage = 'en';
 
   @override
   void initState() {
     super.initState();
-    _loadNotifPrefs();
     _loadPrivacySettings();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<WalletProvider>().fetchWallet();
-    });
+    _loadNotificationPrefs();
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: tokens.danger));
   }
 
   Future<void> _loadPrivacySettings() async {
@@ -75,101 +87,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _loadNotifPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _emailNotifs = prefs.getBool('emailNotifs') ?? true;
-      _smsAlerts = prefs.getBool('smsAlerts') ?? true;
-      _jobAlerts = prefs.getBool('jobAlerts') ?? true;
-      _paymentAlerts = prefs.getBool('paymentAlerts') ?? true;
-      _messageAlerts = prefs.getBool('messageAlerts') ?? true;
-      _currentLanguage = prefs.getString('app_language') ?? 'en';
-    });
-  }
-
   Future<void> _updatePrivacy(Map<String, dynamic> updates) async {
     try {
       await DioClient.instance.dio.put(ApiConstants.privacySettings, data: updates);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save — try again'), backgroundColor: AppColors.error));
+      _showError('Failed to save — try again');
     }
   }
 
-  Future<void> _saveNotifPref(String key, bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
+  Future<void> _loadNotificationPrefs() async {
+    try {
+      final res = await DioClient.instance.dio.get(ApiConstants.notificationPrefs);
+      final data = Map<String, dynamic>.from(res.data['data'] ?? {});
+      if (!mounted) return;
+      setState(() {
+        _notifPrefs = data;
+        _notifPrefsLoaded = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _notifPrefsLoaded = true);
+    }
   }
 
-  bool _languagePickerOpen = false;
+  bool _notifPush(String category) {
+    final entry = _notifPrefs[category];
+    if (entry is Map) return entry['push'] != false; // schema default is true
+    return true;
+  }
 
-  Future<void> _showLanguagePicker() async {
-    if (_languagePickerOpen) return;
-    _languagePickerOpen = true;
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.5,
-        expand: false,
-        builder: (ctx, scrollController) => Column(children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2))),
-          ),
-          Text('Choose Language', style: TextStyle(color: AppColors.text, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text('App text will display in your selected language', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              child: ListView.builder(
-                controller: scrollController,
-                itemCount: supportedLanguages.length,
-                itemBuilder: (ctx, i) {
-                  final lang = supportedLanguages[i];
-                  final isSelected = _currentLanguage == lang.code;
-                  return ListTile(
-                    leading: Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary.withOpacity(0.15) : AppColors.textMuted.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Center(child: Text(
-                        lang.nativeName.characters.first,
-                        style: TextStyle(color: isSelected ? AppColors.primary : AppColors.textMuted, fontSize: 16, fontWeight: FontWeight.bold),
-                      )),
-                    ),
-                    title: Text(lang.nativeName, style: TextStyle(color: AppColors.text, fontSize: 15)),
-                    subtitle: Text(lang.name, style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                    trailing: isSelected ? Icon(Icons.check_circle, color: AppColors.primary, size: 22) : null,
-                    onTap: () async {
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setString('app_language', lang.code);
-                      if (mounted) setState(() => _currentLanguage = lang.code);
-                      if (ctx.mounted) Navigator.of(ctx).pop();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Language set to ${lang.name}. Full translation coming in next update.'),
-                        ));
-                      }
-                    },
-                  );
-                },
-              ),
-            ),
-          ),
-        ]),
-      ),
-    );
-    _languagePickerOpen = false;
+  Future<void> _updateNotifPref(String category, bool value) async {
+    setState(() {
+      final current = Map<String, dynamic>.from((_notifPrefs[category] as Map?) ?? {});
+      current['push'] = value;
+      _notifPrefs = {..._notifPrefs, category: current};
+    });
+    try {
+      await DioClient.instance.dio.put(ApiConstants.notificationPrefs, data: {
+        category: {'push': value},
+      });
+    } catch (_) {
+      _showError('Failed to save — try again');
+    }
   }
 
   bool _editProfileSheetOpen = false;
@@ -177,11 +135,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _showEditProfileSheet() async {
     if (_editProfileSheetOpen) return;
     _editProfileSheetOpen = true;
+    final theme = Theme.of(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
       builder: (_) => const EditProfileSheet(),
     );
     _editProfileSheetOpen = false;
@@ -193,39 +152,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_changePasswordSheetOpen) return;
     _changePasswordSheetOpen = true;
     final email = context.read<AuthProvider>().user?['email'] ?? '';
+    final theme = Theme.of(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
       builder: (_) => _ChangePasswordSheet(email: email),
     );
     _changePasswordSheetOpen = false;
   }
 
+  bool _changeContactSheetOpen = false;
+
+  Future<void> _showChangeContactSheet({required bool isEmail}) async {
+    if (_changeContactSheetOpen) return;
+    _changeContactSheetOpen = true;
+    final theme = Theme.of(context);
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
+      builder: (_) => _ChangeContactSheet(isEmail: isEmail),
+    );
+    _changeContactSheetOpen = false;
+  }
+
+  bool _sessionsSheetOpen = false;
+
+  Future<void> _showSessionsSheet() async {
+    if (_sessionsSheetOpen) return;
+    _sessionsSheetOpen = true;
+    final theme = Theme.of(context);
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
+      builder: (_) => const _SessionsSheet(),
+    );
+    _sessionsSheetOpen = false;
+  }
+
   bool _photoSheetOpen = false;
+  bool _uploadingPhoto = false;
 
   Future<void> _changePhoto() async {
     if (_photoSheetOpen) return;
     _photoSheetOpen = true;
     final picker = ImagePicker();
+    final theme = Theme.of(context);
     await showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
       builder: (_) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
-            leading: Icon(Icons.camera_alt, color: AppColors.primary),
-            title: Text('Take Photo', style: TextStyle(color: AppColors.text)),
-            onTap: () async { Navigator.pop(context); await _uploadPhoto(await picker.pickImage(source: ImageSource.camera, imageQuality: 70, maxWidth: 800)); },
+            leading: Icon(Icons.camera_alt_rounded, color: theme.colorScheme.primary),
+            title: const Text('Take Photo'),
+            onTap: () async {
+              Navigator.pop(context);
+              await _uploadPhoto(await picker.pickImage(source: ImageSource.camera, imageQuality: 70, maxWidth: 800));
+            },
           ),
           ListTile(
-            leading: Icon(Icons.photo_library, color: AppColors.primary),
-            title: Text('Choose from Gallery', style: TextStyle(color: AppColors.text)),
-            onTap: () async { Navigator.pop(context); await _uploadPhoto(await picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 800)); },
+            leading: Icon(Icons.photo_library_rounded, color: theme.colorScheme.primary),
+            title: const Text('Choose from Gallery'),
+            onTap: () async {
+              Navigator.pop(context);
+              await _uploadPhoto(await picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 800));
+            },
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpace.sm),
         ]),
       ),
     );
@@ -237,6 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // File/MultipartFile.fromFile do not work on web).
   Future<void> _uploadPhoto(XFile? image) async {
     if (image == null) return;
+    setState(() => _uploadingPhoto = true);
     final bytes = await image.readAsBytes();
     try {
       final formData = FormData.fromMap({'photo': MultipartFile.fromBytes(bytes, filename: image.name)});
@@ -245,108 +246,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       if (url != null) {
         context.read<AuthProvider>().patchUser({'profilePic': url, 'avatar': url});
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Photo updated'), backgroundColor: AppColors.success));
+        final tokens = Theme.of(context).extension<AppTokens>()!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Photo updated'), backgroundColor: tokens.success));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: AppColors.error));
+      _showError(ErrorHelper.extractError(e));
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
     }
   }
 
-  // Guards against a rapid double-tap on the tile calling showModalBottomSheet
-  // twice before the first sheet's route has settled — a known source of
-  // "GlobalKey was used multiple times" crashes in Flutter's Navigator.
-  bool _pinSheetOpen = false;
-
-  Future<void> _showSetPinSheet() async {
-    if (_pinSheetOpen) return;
-    _pinSheetOpen = true;
-    final newPinCtrl = TextEditingController();
-    final oldPinCtrl = TextEditingController();
-    bool submitting = false;
-
-    final defaultPinTheme = PinTheme(
-      width: 44, height: 48,
-      textStyle: TextStyle(color: AppColors.text, fontSize: 18, fontWeight: FontWeight.bold),
-      decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-    );
-    final focusedPinTheme = defaultPinTheme.copyWith(
-      decoration: defaultPinTheme.decoration!.copyWith(border: Border.all(color: AppColors.primary, width: 2)),
-    );
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) {
-          Future<void> submit() async {
-            setSheetState(() => submitting = true);
-            try {
-              await DioClient.instance.dio.post(ApiConstants.setWithdrawalPin, data: {
-                'pin': newPinCtrl.text,
-                if (oldPinCtrl.text.isNotEmpty) 'oldPin': oldPinCtrl.text,
-              });
-              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Withdrawal PIN set'), backgroundColor: AppColors.success));
-              }
-            } catch (e) {
-              setSheetState(() => submitting = false);
-              ScaffoldMessenger.of(sheetContext).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: AppColors.error));
-            }
-          }
-
-          return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Set Withdrawal PIN', style: TextStyle(color: AppColors.text, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text('4-digit PIN used to confirm withdrawals', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                const SizedBox(height: 20),
-                Text('Current PIN (leave blank if none set yet)', style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Pinput(length: 4, controller: oldPinCtrl, obscureText: true, defaultPinTheme: defaultPinTheme, focusedPinTheme: focusedPinTheme),
-                const SizedBox(height: 20),
-                Text('New PIN', style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Pinput(length: 4, controller: newPinCtrl, obscureText: true, defaultPinTheme: defaultPinTheme, focusedPinTheme: focusedPinTheme),
-                const SizedBox(height: 24),
-                AppButton(label: 'Save PIN', loading: submitting, onPressed: submit),
-                const SizedBox(height: 12),
-              ]),
-            ),
-          );
-        },
-      ),
-    );
-    newPinCtrl.dispose();
-    oldPinCtrl.dispose();
-    _pinSheetOpen = false;
-  }
-
   Future<void> _showVisibilityDialog() async {
+    final theme = Theme.of(context);
     final selected = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Profile Visibility', style: TextStyle(color: AppColors.text)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          RadioListTile<String>(value: 'public', groupValue: _profileVisibility, activeColor: AppColors.primary,
-            title: Text('Public', style: TextStyle(color: AppColors.text)),
-            subtitle: Text('Anyone can view your profile', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
-            onChanged: (v) => Navigator.of(dialogContext).pop(v)),
-          RadioListTile<String>(value: 'registered', groupValue: _profileVisibility, activeColor: AppColors.primary,
-            title: Text('Registered Users Only', style: TextStyle(color: AppColors.text)),
-            onChanged: (v) => Navigator.of(dialogContext).pop(v)),
-          RadioListTile<String>(value: 'private', groupValue: _profileVisibility, activeColor: AppColors.primary,
-            title: Text('Private', style: TextStyle(color: AppColors.text)),
-            onChanged: (v) => Navigator.of(dialogContext).pop(v)),
-        ]),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+        title: const Text('Profile Visibility'),
+        content: RadioGroup<String>(
+          groupValue: _profileVisibility,
+          onChanged: (v) => Navigator.of(dialogContext).pop(v),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            RadioListTile<String>(
+              value: 'public',
+              activeColor: theme.colorScheme.primary,
+              title: const Text('Public'),
+              subtitle: const Text('Anyone can view your profile', style: TextStyle(fontSize: 11)),
+            ),
+            RadioListTile<String>(
+              value: 'registered',
+              activeColor: theme.colorScheme.primary,
+              title: const Text('Registered Users Only'),
+            ),
+            RadioListTile<String>(
+              value: 'private',
+              activeColor: theme.colorScheme.primary,
+              title: const Text('Private'),
+            ),
+          ]),
+        ),
       ),
     );
     if (selected == null || selected == _profileVisibility || !mounted) return;
@@ -355,16 +294,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _confirmLogout() async {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Logout?', style: TextStyle(color: AppColors.text)),
-        content: Text('You will need to sign in again to continue.', style: TextStyle(color: AppColors.textMuted)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+        title: const Text('Logout?'),
+        content: const Text('You will need to sign in again to continue.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text('Logout', style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.bold))),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text('Cancel', style: TextStyle(color: tokens.muted))),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text('Logout', style: TextStyle(color: tokens.warning, fontWeight: FontWeight.bold))),
         ],
       ),
     );
@@ -375,16 +315,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _confirmLogoutAll() async {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Logout all devices?', style: TextStyle(color: AppColors.text)),
-        content: Text('This will sign you out everywhere, including this device.', style: TextStyle(color: AppColors.textMuted)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+        title: const Text('Logout all devices?'),
+        content: const Text('This will sign you out everywhere, including this device.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text('Logout All', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold))),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text('Cancel', style: TextStyle(color: tokens.muted))),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text('Logout All', style: TextStyle(color: tokens.danger, fontWeight: FontWeight.bold))),
         ],
       ),
     );
@@ -401,6 +342,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _confirmDeleteAccount() async {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final controller = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -408,30 +351,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (dialogContext, setDialogState) {
           final canDelete = controller.text == 'DELETE';
           return AlertDialog(
-            backgroundColor: AppColors.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text('Delete Account', style: TextStyle(color: AppColors.error)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+            title: Text('Delete Account', style: TextStyle(color: tokens.danger)),
             content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('This action cannot be undone. Type DELETE to confirm.', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-              const SizedBox(height: 14),
+              const Text('This action cannot be undone. Type DELETE to confirm.', style: TextStyle(fontSize: 13)),
+              const SizedBox(height: AppSpace.md),
               TextField(
                 controller: controller,
                 onChanged: (_) => setDialogState(() {}),
-                style: TextStyle(color: AppColors.text),
-                decoration: InputDecoration(
-                  hintText: 'DELETE',
-                  hintStyle: TextStyle(color: AppColors.textMuted),
-                  filled: true,
-                  fillColor: AppColors.bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
-                ),
+                decoration: const InputDecoration(hintText: 'DELETE'),
               ),
             ]),
             actions: [
-              TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
+              TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text('Cancel', style: TextStyle(color: tokens.muted))),
               TextButton(
                 onPressed: canDelete ? () => Navigator.of(dialogContext).pop(true) : null,
-                child: Text('Delete', style: TextStyle(color: canDelete ? AppColors.error : AppColors.textMuted, fontWeight: FontWeight.bold)),
+                child: Text('Delete', style: TextStyle(color: canDelete ? tokens.danger : tokens.muted, fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -449,16 +384,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context.go('/login');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: AppColors.error));
+      _showError(ErrorHelper.extractError(e));
     }
   }
 
   Future<void> _launchLink(String url) async {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open $url'), backgroundColor: AppColors.error));
-    }
+    if (!ok && mounted) _showError('Could not open $url');
   }
 
   // ── Reusable pieces ──────────────────────────────────────────────
@@ -466,46 +399,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _sectionCard({
     required String id,
     required IconData icon,
-    required Color iconColor,
     required String title,
     required List<Widget> children,
   }) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final isExpanded = _expanded.contains(id);
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xs),
       // Only the border lives on this outer decoration — a DecoratedBox with
       // a background color sitting between a ListTile and its nearest
       // Material ancestor hides the ListTile's ink splashes (Flutter flags
       // this at runtime). The actual surface color comes from the Material
       // below instead, which is also the correct ink/splash ancestor.
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(AppRadius.card), border: Border.all(color: tokens.border, width: 0.5)),
       child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card),
         clipBehavior: Clip.antiAlias,
         child: Column(children: [
           // Only the header toggles expand/collapse — wrapping the whole card
           // (including the tiles/switches/slider inside) would make every tap
           // on the content also risk collapsing the section.
           InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadius.card),
             onTap: () => setState(() {
-              if (isExpanded) _expanded.remove(id); else _expanded.add(id);
+              if (isExpanded) {
+                _expanded.remove(id);
+              } else {
+                _expanded.add(id);
+              }
             }),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpace.lg),
               child: Row(children: [
                 Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(color: iconColor.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-                  child: Icon(icon, color: iconColor, size: 20),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: tokens.chipBg, borderRadius: BorderRadius.circular(AppRadius.button)),
+                  child: Icon(icon, color: theme.colorScheme.primary, size: 20),
                 ),
-                const SizedBox(width: 12),
-                Expanded(child: Text(title, style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontSize: 15))),
+                const SizedBox(width: AppSpace.md),
+                Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
                 AnimatedRotation(
                   turns: isExpanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted, size: 20),
+                  child: Icon(Icons.keyboard_arrow_down_rounded, color: tokens.muted, size: 20),
                 ),
               ]),
             ),
@@ -515,9 +454,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             curve: Curves.easeInOut,
             child: isExpanded
                 ? Column(children: [
-                    Divider(color: AppColors.border, height: 1),
+                    Divider(color: tokens.border, height: 1),
                     ...children,
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpace.sm),
                   ])
                 : const SizedBox.shrink(),
           ),
@@ -526,188 +465,484 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _tile(IconData icon, String title, {String? subtitle, Widget? trailing, Color? leadingColor, Color? titleColor, VoidCallback? onTap}) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-    leading: Icon(icon, color: leadingColor ?? AppColors.textMuted, size: 20),
-    title: Text(title, style: TextStyle(color: titleColor ?? AppColors.text, fontSize: 14)),
-    subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: AppColors.textMuted, fontSize: 12)) : null,
-    trailing: trailing,
-    onTap: onTap,
-  );
+  Widget _tile(IconData icon, String title, {String? subtitle, Widget? trailing, Color? leadingColor, Color? titleColor, VoidCallback? onTap}) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: 2),
+      leading: Icon(icon, color: leadingColor ?? tokens.muted, size: 20),
+      title: Text(title, style: theme.textTheme.bodyMedium?.copyWith(color: titleColor)),
+      subtitle: subtitle != null ? Text(subtitle, style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)) : null,
+      trailing: trailing,
+      onTap: onTap,
+    );
+  }
 
-  Widget _toggle(IconData icon, String title, {String? subtitle, required bool value, required ValueChanged<bool> onChanged}) => SwitchListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-    secondary: Icon(icon, color: AppColors.textMuted, size: 20),
-    title: Text(title, style: TextStyle(color: AppColors.text, fontSize: 14)),
-    subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: AppColors.textMuted, fontSize: 12)) : null,
-    value: value,
-    onChanged: onChanged,
-    activeThumbColor: AppColors.primary,
-  );
+  Widget _toggle(IconData icon, String title, {String? subtitle, required bool value, required ValueChanged<bool> onChanged}) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    return SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+      secondary: Icon(icon, color: tokens.muted, size: 20),
+      title: Text(title, style: theme.textTheme.bodyMedium),
+      subtitle: subtitle != null ? Text(subtitle, style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)) : null,
+      value: value,
+      onChanged: onChanged,
+      activeThumbColor: theme.colorScheme.primary,
+    );
+  }
 
-  Widget get _arrow => Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted);
+  Widget get _arrow => Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Theme.of(context).extension<AppTokens>()!.muted);
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final auth = context.watch<AuthProvider>();
     final user = auth.user ?? {};
-    final rating = (user['averageRating'] ?? 0.0).toDouble();
-    final reviews = user['totalReviews'] ?? 0;
+    final email = user['email']?.toString() ?? '';
+    final mobile = user['mobileNumber']?.toString() ?? '';
+    final themeProvider = context.watch<ThemeProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(title: const Text('Settings'), backgroundColor: AppColors.bg, elevation: 0),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
         children: [
-          _sectionCard(id: 'account', icon: Icons.person_outline, iconColor: AppColors.primary, title: 'Account', children: [
-            _tile(Icons.edit_outlined, 'Edit Profile', subtitle: user['name'], trailing: _arrow, onTap: _showEditProfileSheet),
-            _tile(Icons.camera_alt_outlined, 'Change Photo', trailing: _arrow, onTap: _changePhoto),
-            _tile(Icons.star_outline, 'My Rating',
-              subtitle: rating > 0 ? '${rating.toStringAsFixed(1)} ★  ($reviews reviews)' : 'No ratings yet',
-              trailing: rating > 0
-                  ? Text(rating.toStringAsFixed(1), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 18))
-                  : null),
+          _sectionCard(id: 'account', icon: Icons.person_outline_rounded, title: 'Account', children: [
+            _tile(Icons.edit_outlined, 'Edit Profile', subtitle: user['name']?.toString(), trailing: _arrow, onTap: _showEditProfileSheet),
+            _tile(
+              Icons.camera_alt_outlined,
+              'Change Photo',
+              trailing: _uploadingPhoto
+                  ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.primary))
+                  : _arrow,
+              onTap: _uploadingPhoto ? null : _changePhoto,
+            ),
+            _tile(Icons.email_outlined, 'Change Email', subtitle: email.isEmpty ? null : email, trailing: _arrow, onTap: () => _showChangeContactSheet(isEmail: true)),
+            _tile(Icons.phone_outlined, 'Change Mobile', subtitle: mobile.isEmpty ? 'Not added' : mobile, trailing: _arrow, onTap: () => _showChangeContactSheet(isEmail: false)),
             _tile(Icons.lock_reset_outlined, 'Change Password', subtitle: 'Via OTP to your email', trailing: _arrow, onTap: _showChangePasswordSheet),
           ]),
-
-          _sectionCard(id: 'privacy', icon: Icons.lock_outline, iconColor: AppColors.primary, title: 'Privacy', children: [
+          _sectionCard(id: 'privacy', icon: Icons.lock_outline_rounded, title: 'Privacy', children: [
             if (!_privacyLoaded)
-              Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2)))
+              Padding(padding: const EdgeInsets.all(AppSpace.lg), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary, strokeWidth: 2)))
             else ...[
-              _toggle(Icons.email_outlined, 'Show Email', subtitle: 'Let others see your email', value: _showEmail,
-                onChanged: (v) { setState(() => _showEmail = v); _updatePrivacy({'showEmail': v}); }),
-              _toggle(Icons.phone_outlined, 'Show Phone', subtitle: 'Let others see your mobile number', value: _showPhone,
-                onChanged: (v) { setState(() => _showPhone = v); _updatePrivacy({'showPhone': v}); }),
-              _toggle(Icons.payments_outlined, 'Show Earnings', subtitle: 'Display your earnings publicly', value: _showEarnings,
-                onChanged: (v) { setState(() => _showEarnings = v); _updatePrivacy({'showEarnings': v}); }),
-              _tile(Icons.visibility_outlined, 'Profile Visibility',
-                subtitle: _profileVisibility == 'public' ? 'Public' : _profileVisibility == 'registered' ? 'Registered Users Only' : 'Private',
-                trailing: _arrow, onTap: _showVisibilityDialog),
+              _toggle(Icons.email_outlined, 'Show Email', subtitle: 'Let others see your email', value: _showEmail, onChanged: (v) {
+                setState(() => _showEmail = v);
+                _updatePrivacy({'showEmail': v});
+              }),
+              _toggle(Icons.phone_outlined, 'Show Phone', subtitle: 'Let others see your mobile number', value: _showPhone, onChanged: (v) {
+                setState(() => _showPhone = v);
+                _updatePrivacy({'showPhone': v});
+              }),
+              _toggle(Icons.payments_outlined, 'Show Earnings', subtitle: 'Display your earnings publicly', value: _showEarnings, onChanged: (v) {
+                setState(() => _showEarnings = v);
+                _updatePrivacy({'showEarnings': v});
+              }),
+              _tile(
+                Icons.visibility_outlined,
+                'Profile Visibility',
+                subtitle: _profileVisibility == 'public'
+                    ? 'Public'
+                    : _profileVisibility == 'registered'
+                        ? 'Registered Users Only'
+                        : 'Private',
+                trailing: _arrow,
+                onTap: _showVisibilityDialog,
+              ),
             ],
           ]),
-
-          _sectionCard(id: 'notifications', icon: Icons.notifications_outlined, iconColor: AppColors.warning, title: 'Notifications', children: [
-            Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text('Preferences saved on this device', style: TextStyle(color: AppColors.textMuted.withOpacity(0.8), fontSize: 11))),
-            _toggle(Icons.email_outlined, 'Email Notifications', value: _emailNotifs,
-              onChanged: (v) { setState(() => _emailNotifs = v); _saveNotifPref('emailNotifs', v); }),
-            _toggle(Icons.sms_outlined, 'SMS Alerts', value: _smsAlerts,
-              onChanged: (v) { setState(() => _smsAlerts = v); _saveNotifPref('smsAlerts', v); }),
-            _toggle(Icons.work_outline, 'Job Match Alerts', value: _jobAlerts,
-              onChanged: (v) { setState(() => _jobAlerts = v); _saveNotifPref('jobAlerts', v); }),
-            _toggle(Icons.payments_outlined, 'Payment Alerts', value: _paymentAlerts,
-              onChanged: (v) { setState(() => _paymentAlerts = v); _saveNotifPref('paymentAlerts', v); }),
-            _toggle(Icons.chat_outlined, 'Message Alerts', value: _messageAlerts,
-              onChanged: (v) { setState(() => _messageAlerts = v); _saveNotifPref('messageAlerts', v); }),
+          _sectionCard(id: 'notifications', icon: Icons.notifications_outlined, title: 'Notifications', children: [
+            if (!_notifPrefsLoaded)
+              Padding(padding: const EdgeInsets.all(AppSpace.lg), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary, strokeWidth: 2)))
+            else
+              for (final cat in _kNotifCategories)
+                _toggle(cat.icon, cat.label, value: _notifPush(cat.key), onChanged: (v) => _updateNotifPref(cat.key, v)),
           ]),
-
-          _sectionCard(id: 'payments', icon: Icons.account_balance_wallet_outlined, iconColor: AppColors.emerald, title: 'Payments', children: [
-            Consumer<WalletProvider>(builder: (ctx, wallet, _) => Column(children: [
-              _tile(Icons.account_balance_wallet_outlined, 'Wallet Balance',
-                subtitle: '₹${wallet.balance.toStringAsFixed(2)}',
-                trailing: TextButton(onPressed: () => context.push('/wallet'), child: Text('Open', style: TextStyle(color: AppColors.primary)))),
-              _tile(Icons.pin_outlined, 'Set Withdrawal PIN', subtitle: 'Secure your withdrawals', trailing: _arrow, onTap: _showSetPinSheet),
-              _tile(Icons.history_outlined, 'Transaction History', trailing: _arrow, onTap: () => context.push('/wallet')),
-            ])),
-          ]),
-
-          _sectionCard(id: 'location', icon: Icons.location_on_outlined, iconColor: AppColors.primary, title: 'Location', children: [
-            Consumer<JobsProvider>(builder: (ctx, jobs, _) => Column(children: [
-              _tile(Icons.my_location, 'Current Location',
-                subtitle: jobs.locationLabel.isNotEmpty ? jobs.locationLabel : 'Not set',
-                trailing: _arrow, onTap: () => showLocationPicker(context)),
-              _tile(Icons.radar, 'Search Radius', subtitle: '${_searchRadius.round()} km'),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: AppColors.primary,
-                    thumbColor: AppColors.primary,
-                    inactiveTrackColor: AppColors.border,
-                  ),
-                  child: Slider(
-                    value: _searchRadius, min: 5, max: 50, divisions: 9,
-                    label: '${_searchRadius.round()} km',
-                    onChanged: (v) => setState(() => _searchRadius = v),
-                    onChangeEnd: (v) => jobs.fetchNearbyWorkers(radius: v.round()),
+          _sectionCard(id: 'location', icon: Icons.location_on_outlined, title: 'Location', children: [
+            Consumer<JobsProvider>(builder: (ctx, jobs, _) {
+              return Column(children: [
+                _tile(Icons.my_location_rounded, 'Current Location', subtitle: jobs.locationLabel.isNotEmpty ? jobs.locationLabel : 'Not set', trailing: _arrow, onTap: () => showLocationPicker(context)),
+                _tile(Icons.radar_rounded, 'Nearby Worker Search Radius', subtitle: '${_searchRadius.round()} km'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(activeTrackColor: theme.colorScheme.primary, thumbColor: theme.colorScheme.primary, inactiveTrackColor: tokens.border),
+                    child: Slider(
+                      value: _searchRadius,
+                      min: 5,
+                      max: 50,
+                      divisions: 9,
+                      label: '${_searchRadius.round()} km',
+                      onChanged: (v) => setState(() => _searchRadius = v),
+                      onChangeEnd: (v) => jobs.fetchNearbyWorkers(radius: v.round()),
+                    ),
                   ),
                 ),
-              ),
-            ])),
+              ]);
+            }),
           ]),
-
-          _sectionCard(id: 'security', icon: Icons.security_outlined, iconColor: AppColors.error, title: 'Security', children: [
-            _tile(Icons.devices_outlined, 'Current Session',
-              subtitle: kIsWeb ? 'Web Browser · Active now' : Platform.isAndroid ? 'Android · Active now' : 'iOS · Active now',
-              trailing: Container(width: 8, height: 8, decoration: BoxDecoration(color: AppColors.emerald, shape: BoxShape.circle))),
+          _sectionCard(id: 'security', icon: Icons.security_outlined, title: 'Security', children: [
+            _tile(Icons.devices_outlined, 'Active Sessions', subtitle: 'Manage devices signed in to your account', trailing: _arrow, onTap: _showSessionsSheet),
             _tile(Icons.logout_outlined, 'Logout All Devices', subtitle: 'Sign out from all sessions', trailing: _arrow, onTap: _confirmLogoutAll),
           ]),
-
-          _sectionCard(id: 'preferences', icon: Icons.tune_outlined, iconColor: AppColors.textMuted, title: 'App Preferences', children: [
-            Consumer<ThemeProvider>(builder: (ctx, theme, _) => _toggle(
-              theme.isDarkMode ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
-              'Theme',
-              subtitle: theme.isDarkMode ? 'Dark' : 'Light',
-              value: theme.isDarkMode,
-              onChanged: (v) => ctx.read<ThemeProvider>().setDarkMode(v),
-            )),
-            _tile(Icons.language_outlined, 'Language',
-              subtitle: supportedLanguages.firstWhere((l) => l.code == _currentLanguage, orElse: () => supportedLanguages.first).name,
-              trailing: _arrow,
-              onTap: _showLanguagePicker),
-          ]),
-
-          _sectionCard(id: 'about', icon: Icons.info_outline, iconColor: AppColors.textMuted, title: 'About', children: [
-            _tile(Icons.info_outline, 'App Version', subtitle: 'WorkQuora v1.0.0'),
-            _tile(Icons.person_pin_outlined, 'Share My Profile', subtitle: 'Share your profile link',
-              trailing: Icon(Icons.share_outlined, color: AppColors.textMuted, size: 18),
-              onTap: () {
-                final id = user['_id'] ?? user['id'];
-                Share.share('Check out my profile on WorkQuora!\nhttps://workquora.com/freelancer/$id', subject: '${user['name']} on WorkQuora');
-              }),
-            _tile(Icons.description_outlined, 'Terms of Service',
-              trailing: Icon(Icons.open_in_new, size: 14, color: AppColors.textMuted),
-              onTap: () => _launchLink('https://workquora.com/info/terms')),
-            _tile(Icons.privacy_tip_outlined, 'Privacy Policy',
-              trailing: Icon(Icons.open_in_new, size: 14, color: AppColors.textMuted),
-              onTap: () => _launchLink('https://workquora.com/info/privacy')),
-            _tile(Icons.support_agent_outlined, 'Contact Support', subtitle: 'support@workquora.com',
-              trailing: Icon(Icons.open_in_new, size: 14, color: AppColors.textMuted),
-              onTap: () => _launchLink('mailto:support@workquora.com')),
-          ]),
-
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.error.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.error.withOpacity(0.3)),
+          _sectionCard(id: 'preferences', icon: Icons.tune_rounded, title: 'App Preferences', children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpace.lg, AppSpace.sm, AppSpace.lg, AppSpace.md),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Theme', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: AppSpace.sm),
+                Row(children: [
+                  Expanded(child: _ThemeModeChip(mode: ThemeMode.light, current: themeProvider.mode, icon: Icons.light_mode_rounded, label: 'Light')),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(child: _ThemeModeChip(mode: ThemeMode.dark, current: themeProvider.mode, icon: Icons.dark_mode_rounded, label: 'Dark')),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(child: _ThemeModeChip(mode: ThemeMode.system, current: themeProvider.mode, icon: Icons.brightness_auto_rounded, label: 'System')),
+                ]),
+              ]),
             ),
+          ]),
+          _sectionCard(id: 'about', icon: Icons.info_outline_rounded, title: 'About', children: [
+            _tile(Icons.info_outline_rounded, 'App Version', subtitle: 'WorkQuora v1.0.0'),
+            _tile(Icons.description_outlined, 'Terms & Conditions', trailing: _arrow, onTap: () => context.push('/terms')),
+            _tile(Icons.support_agent_outlined, 'Contact Support', subtitle: 'support@workquora.com', trailing: Icon(Icons.open_in_new_rounded, size: 14, color: tokens.muted), onTap: () => _launchLink('mailto:support@workquora.com')),
+          ]),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xs),
+            decoration: BoxDecoration(color: tokens.danger.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(AppRadius.card), border: Border.all(color: tokens.danger.withValues(alpha: 0.3))),
             clipBehavior: Clip.antiAlias,
             child: Material(
               color: Colors.transparent,
               child: Column(children: [
                 ListTile(
-                  leading: Icon(Icons.logout, color: AppColors.warning),
-                  title: Text('Logout', style: TextStyle(color: AppColors.warning, fontSize: 14)),
+                  leading: Icon(Icons.logout_rounded, color: tokens.warning),
+                  title: Text('Logout', style: theme.textTheme.bodyMedium?.copyWith(color: tokens.warning)),
                   trailing: _arrow,
                   onTap: _confirmLogout,
                 ),
-                Divider(color: AppColors.error.withOpacity(0.2), height: 1),
+                Divider(color: tokens.danger.withValues(alpha: 0.2), height: 1),
                 ListTile(
-                  leading: Icon(Icons.delete_forever, color: AppColors.error),
-                  title: Text('Delete Account', style: TextStyle(color: AppColors.error, fontSize: 14)),
-                  subtitle: Text('Permanently delete your data', style: TextStyle(color: AppColors.error.withOpacity(0.7), fontSize: 11)),
+                  leading: Icon(Icons.delete_forever_rounded, color: tokens.danger),
+                  title: Text('Delete Account', style: theme.textTheme.bodyMedium?.copyWith(color: tokens.danger)),
+                  subtitle: Text('Permanently delete your data', style: theme.textTheme.labelSmall?.copyWith(color: tokens.danger)),
                   trailing: _arrow,
                   onTap: _confirmDeleteAccount,
                 ),
               ]),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpace.xl),
         ],
+      ),
+    );
+  }
+}
+
+class _ThemeModeChip extends StatelessWidget {
+  final ThemeMode mode;
+  final ThemeMode current;
+  final IconData icon;
+  final String label;
+  const _ThemeModeChip({required this.mode, required this.current, required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    final selected = mode == current;
+
+    return GestureDetector(
+      onTap: () => context.read<ThemeProvider>().setMode(mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+        decoration: BoxDecoration(
+          color: selected ? theme.colorScheme.primary : theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppRadius.button),
+          border: Border.all(color: selected ? theme.colorScheme.primary : tokens.border),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 18, color: selected ? Colors.white : tokens.muted),
+          const SizedBox(height: 2),
+          Text(label, style: theme.textTheme.labelSmall?.copyWith(color: selected ? Colors.white : tokens.muted, fontWeight: FontWeight.bold)),
+        ]),
+      ),
+    );
+  }
+}
+
+// Shared by "Change Email" and "Change Mobile" — identical idle → enter →
+// otp flow (matching Frontend/src/pages/shared/settings/AccountSection.jsx),
+// differing only in validation, endpoint, and payload field name.
+class _ChangeContactSheet extends StatefulWidget {
+  final bool isEmail;
+  const _ChangeContactSheet({required this.isEmail});
+  @override
+  State<_ChangeContactSheet> createState() => _ChangeContactSheetState();
+}
+
+class _ChangeContactSheetState extends State<_ChangeContactSheet> {
+  String _step = 'enter'; // 'enter' | 'otp'
+  bool _loading = false;
+  String? _error;
+  final _valueCtrl = TextEditingController();
+  final _otpCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _valueCtrl.dispose();
+    _otpCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _requestOtp() async {
+    final value = _valueCtrl.text.trim();
+    final valid = widget.isEmail ? RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value) : RegExp(r'^[6-9]\d{9}$').hasMatch(value);
+    if (!valid) {
+      setState(() => _error = widget.isEmail ? 'Enter a valid email' : 'Enter a valid 10-digit mobile number');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await DioClient.instance.dio.post(
+        widget.isEmail ? ApiConstants.requestEmailChangeOtp : ApiConstants.requestMobileChangeOtp,
+        data: widget.isEmail ? {'newEmail': value} : {'newMobile': value},
+      );
+      if (!mounted) return;
+      setState(() {
+        _step = 'otp';
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = ErrorHelper.extractError(e);
+      });
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final value = _valueCtrl.text.trim();
+    try {
+      await DioClient.instance.dio.post(
+        widget.isEmail ? ApiConstants.verifyEmailChange : ApiConstants.verifyMobileChange,
+        data: widget.isEmail ? {'otp': _otpCtrl.text, 'newEmail': value} : {'otp': _otpCtrl.text, 'newMobile': value},
+      );
+      if (!mounted) return;
+      context.read<AuthProvider>().patchUser(
+            widget.isEmail ? {'email': value, 'isEmailVerified': true} : {'mobileNumber': value, 'isMobileVerified': true},
+          );
+      final tokens = Theme.of(context).extension<AppTokens>()!;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${widget.isEmail ? 'Email' : 'Mobile number'} updated'), backgroundColor: tokens.success));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = ErrorHelper.extractError(e);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    final label = widget.isEmail ? 'Email' : 'Mobile Number';
+
+    final defaultPinTheme = PinTheme(
+      width: 44,
+      height: 48,
+      textStyle: theme.textTheme.titleMedium,
+      decoration: BoxDecoration(color: theme.scaffoldBackgroundColor, borderRadius: BorderRadius.circular(AppRadius.button), border: Border.all(color: tokens.border)),
+    );
+    final focusedPinTheme = defaultPinTheme.copyWith(decoration: defaultPinTheme.decoration!.copyWith(border: Border.all(color: theme.colorScheme.primary, width: 2)));
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.xl),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: tokens.border, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: AppSpace.lg),
+          Text(_step == 'enter' ? 'Change $label' : 'Verify New $label', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: AppSpace.md),
+          if (_error != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpace.md),
+              margin: const EdgeInsets.only(bottom: AppSpace.md),
+              decoration: BoxDecoration(color: tokens.danger.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(AppRadius.button), border: Border.all(color: tokens.danger.withValues(alpha: 0.3))),
+              child: Text(_error!, style: theme.textTheme.bodySmall?.copyWith(color: tokens.danger)),
+            ),
+          if (_step == 'enter') ...[
+            Text('Enter your new $label — we\'ll send a code to confirm it.', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+            const SizedBox(height: AppSpace.lg),
+            TextField(
+              controller: _valueCtrl,
+              keyboardType: widget.isEmail ? TextInputType.emailAddress : TextInputType.phone,
+              decoration: InputDecoration(hintText: widget.isEmail ? 'new@email.com' : '10-digit mobile number', prefixIcon: Icon(widget.isEmail ? Icons.email_outlined : Icons.phone_outlined)),
+            ),
+            const SizedBox(height: AppSpace.xl),
+            PrimaryButton(label: 'Send OTP', loading: _loading, onPressed: _requestOtp),
+          ] else ...[
+            Text('Enter the 6-digit code sent to your new $label', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+            const SizedBox(height: AppSpace.md),
+            Center(child: Pinput(length: 6, controller: _otpCtrl, defaultPinTheme: defaultPinTheme, focusedPinTheme: focusedPinTheme)),
+            const SizedBox(height: AppSpace.xl),
+            PrimaryButton(label: 'Confirm', loading: _loading, onPressed: _verifyOtp),
+            const SizedBox(height: AppSpace.sm),
+            Center(child: TextButton(onPressed: _loading ? null : _requestOtp, child: Text('Resend OTP', style: TextStyle(color: theme.colorScheme.primary)))),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+class _SessionsSheet extends StatefulWidget {
+  const _SessionsSheet();
+  @override
+  State<_SessionsSheet> createState() => _SessionsSheetState();
+}
+
+class _SessionsSheetState extends State<_SessionsSheet> {
+  List<dynamic> _sessions = [];
+  bool _loading = true;
+  String? _error;
+  String? _revokingId;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final res = await DioClient.instance.dio.get(ApiConstants.sessions);
+      _sessions = res.data['data'] as List? ?? [];
+    } catch (e) {
+      _error = ErrorHelper.extractError(e);
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _revoke(String sessionId) async {
+    setState(() => _revokingId = sessionId);
+    try {
+      await DioClient.instance.dio.delete('${ApiConstants.sessions}/$sessionId');
+      if (!mounted) return;
+      setState(() {
+        _sessions = _sessions.where((s) => s['sessionId'] != sessionId).toList();
+        _revokingId = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _revokingId = null);
+      final tokens = Theme.of(context).extension<AppTokens>()!;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: tokens.danger));
+    }
+  }
+
+  String _timeAgo(String? iso) {
+    final dt = DateTime.tryParse(iso ?? '');
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      maxChildSize: 0.9,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (ctx, scrollController) => Padding(
+        padding: const EdgeInsets.all(AppSpace.xl),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: tokens.border, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: AppSpace.lg),
+          Text('Active Sessions', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: 4),
+          Text('Devices currently signed in to your account', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+          const SizedBox(height: AppSpace.lg),
+          Expanded(
+            child: _loading
+                ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
+                : _error != null
+                    ? Center(
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          Text(_error!, style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+                          const SizedBox(height: AppSpace.sm),
+                          TextButton(onPressed: _load, child: Text('Retry', style: TextStyle(color: theme.colorScheme.primary))),
+                        ]),
+                      )
+                    : ListView.separated(
+                        controller: scrollController,
+                        itemCount: _sessions.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: AppSpace.sm),
+                        itemBuilder: (_, i) {
+                          final s = _sessions[i];
+                          final isCurrent = s['isCurrent'] == true;
+                          final sessionId = s['sessionId']?.toString() ?? '';
+                          final device = s['deviceName']?.toString() ?? s['operatingSystem']?.toString() ?? 'Unknown device';
+                          final location = [s['city'], s['country']].where((v) => v != null && v.toString().isNotEmpty).join(', ');
+                          final revoking = _revokingId == sessionId;
+
+                          return Container(
+                            padding: const EdgeInsets.all(AppSpace.md),
+                            decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(AppRadius.card), border: Border.all(color: tokens.border, width: 0.5)),
+                            child: Row(children: [
+                              Icon(Icons.devices_rounded, color: isCurrent ? tokens.success : tokens.muted, size: 22),
+                              const SizedBox(width: AppSpace.md),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text(device, style: theme.textTheme.bodyMedium),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    [if (s['browser'] != null) s['browser'].toString(), if (location.isNotEmpty) location, _timeAgo(s['lastUsedAt']?.toString())].where((e) => e.isNotEmpty).join(' · '),
+                                    style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted),
+                                  ),
+                                ]),
+                              ),
+                              if (isCurrent)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 4),
+                                  decoration: BoxDecoration(color: tokens.success.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(AppRadius.chip)),
+                                  child: Text('This device', style: theme.textTheme.labelSmall?.copyWith(color: tokens.success, fontWeight: FontWeight.bold)),
+                                )
+                              else
+                                TextButton(
+                                  onPressed: revoking || sessionId.isEmpty ? null : () => _revoke(sessionId),
+                                  child: revoking
+                                      ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: tokens.danger))
+                                      : Text('Revoke', style: TextStyle(color: tokens.danger, fontWeight: FontWeight.bold)),
+                                ),
+                            ]),
+                          );
+                        },
+                      ),
+          ),
+        ]),
       ),
     );
   }
@@ -716,7 +951,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 class _ChangePasswordSheet extends StatefulWidget {
   final String email;
   const _ChangePasswordSheet({required this.email});
-  @override State<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
+  @override
+  State<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
 }
 
 class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
@@ -739,14 +975,23 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
   }
 
   Future<void> _sendOtp() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       await DioClient.instance.dio.post(ApiConstants.forgotPassword, data: {'email': widget.email});
       if (!mounted) return;
-      setState(() { _step = 2; _loading = false; });
+      setState(() {
+        _step = 2;
+        _loading = false;
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _loading = false; _error = ErrorHelper.extractError(e); });
+      setState(() {
+        _loading = false;
+        _error = ErrorHelper.extractError(e);
+      });
     }
   }
 
@@ -759,7 +1004,10 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
       setState(() => _error = 'Passwords do not match');
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       await DioClient.instance.dio.post(ApiConstants.resetPassword, data: {
         'email': widget.email,
@@ -767,79 +1015,84 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
         'newPassword': _newPasswordCtrl.text,
       });
       if (!mounted) return;
+      final tokens = Theme.of(context).extension<AppTokens>()!;
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Password changed successfully!'), backgroundColor: AppColors.success));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Password changed successfully!'), backgroundColor: tokens.success));
     } catch (e) {
       if (!mounted) return;
-      setState(() { _loading = false; _error = ErrorHelper.extractError(e); });
+      setState(() {
+        _loading = false;
+        _error = ErrorHelper.extractError(e);
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final defaultPinTheme = PinTheme(
-      width: 44, height: 48,
-      textStyle: TextStyle(color: AppColors.text, fontSize: 18, fontWeight: FontWeight.bold),
-      decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
+      width: 44,
+      height: 48,
+      textStyle: theme.textTheme.titleMedium,
+      decoration: BoxDecoration(color: theme.scaffoldBackgroundColor, borderRadius: BorderRadius.circular(AppRadius.button), border: Border.all(color: tokens.border)),
     );
-    final focusedPinTheme = defaultPinTheme.copyWith(
-      decoration: defaultPinTheme.decoration!.copyWith(border: Border.all(color: AppColors.primary, width: 2)),
-    );
+    final focusedPinTheme = defaultPinTheme.copyWith(decoration: defaultPinTheme.decoration!.copyWith(border: Border.all(color: theme.colorScheme.primary, width: 2)));
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpace.xl),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 20),
-          Text(_step == 1 ? 'Change Password' : 'Enter OTP & New Password', style: TextStyle(color: AppColors.text, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: tokens.border, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: AppSpace.lg),
+          Text(_step == 1 ? 'Change Password' : 'Enter OTP & New Password', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: AppSpace.md),
           if (_error != null)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.error.withOpacity(0.3))),
-              child: Text(_error!, style: TextStyle(color: AppColors.error, fontSize: 13)),
+              padding: const EdgeInsets.all(AppSpace.md),
+              margin: const EdgeInsets.only(bottom: AppSpace.md),
+              decoration: BoxDecoration(color: tokens.danger.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(AppRadius.button), border: Border.all(color: tokens.danger.withValues(alpha: 0.3))),
+              child: Text(_error!, style: theme.textTheme.bodySmall?.copyWith(color: tokens.danger)),
             ),
           if (_step == 1) ...[
-            Text('We will send a one-time code to ${widget.email}', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-            const SizedBox(height: 24),
-            AppButton(label: 'Send OTP', loading: _loading, onPressed: _sendOtp),
+            Text('We will send a one-time code to ${widget.email}', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+            const SizedBox(height: AppSpace.xl),
+            PrimaryButton(label: 'Send OTP', loading: _loading, onPressed: _sendOtp),
           ] else ...[
-            Text('Enter the 6-digit code sent to your email', style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+            Text('Enter the 6-digit code sent to your email', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: AppSpace.sm),
             Pinput(length: 6, controller: _otpCtrl, defaultPinTheme: defaultPinTheme, focusedPinTheme: focusedPinTheme),
-            const SizedBox(height: 20),
-            Text('New Password', style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            AppTextField(
-              controller: _newPasswordCtrl, hint: 'At least 8 characters', icon: Icons.lock_outline, obscure: _obscureNew,
-              suffix: IconButton(
-                icon: Icon(_obscureNew ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.textMuted, size: 20),
-                onPressed: () => setState(() => _obscureNew = !_obscureNew),
+            const SizedBox(height: AppSpace.lg),
+            Text('New Password', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: AppSpace.sm),
+            TextField(
+              controller: _newPasswordCtrl,
+              obscureText: _obscureNew,
+              decoration: InputDecoration(
+                hintText: 'At least 8 characters',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(icon: Icon(_obscureNew ? Icons.visibility_outlined : Icons.visibility_off_outlined), onPressed: () => setState(() => _obscureNew = !_obscureNew)),
               ),
             ),
-            const SizedBox(height: 12),
-            Text('Confirm New Password', style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            AppTextField(
-              controller: _confirmPasswordCtrl, hint: 'Re-enter new password', icon: Icons.lock_outline, obscure: _obscureConfirm,
-              suffix: IconButton(
-                icon: Icon(_obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.textMuted, size: 20),
-                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+            const SizedBox(height: AppSpace.md),
+            Text('Confirm New Password', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: AppSpace.sm),
+            TextField(
+              controller: _confirmPasswordCtrl,
+              obscureText: _obscureConfirm,
+              decoration: InputDecoration(
+                hintText: 'Re-enter new password',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(icon: Icon(_obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined), onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm)),
               ),
             ),
-            const SizedBox(height: 24),
-            AppButton(label: 'Change Password', loading: _loading, onPressed: _resetPassword),
-            const SizedBox(height: 8),
-            Center(child: TextButton(
-              onPressed: _loading ? null : _sendOtp,
-              child: Text('Resend OTP', style: TextStyle(color: AppColors.primary)),
-            )),
+            const SizedBox(height: AppSpace.xl),
+            PrimaryButton(label: 'Change Password', loading: _loading, onPressed: _resetPassword),
+            const SizedBox(height: AppSpace.sm),
+            Center(child: TextButton(onPressed: _loading ? null : _sendOtp, child: Text('Resend OTP', style: TextStyle(color: theme.colorScheme.primary)))),
           ],
-          const SizedBox(height: 12),
         ]),
       ),
     );

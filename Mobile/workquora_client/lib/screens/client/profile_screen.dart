@@ -6,11 +6,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants/api_constants.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
-import '../../widgets/app_button.dart';
-import '../../widgets/app_text_field.dart';
+import '../../core/utils/reverify.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/primary_button.dart';
+
+const _kMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 void _shareProfile(BuildContext context, Map user) {
   final userId = user['_id'] ?? user['id'];
@@ -22,14 +24,16 @@ Find skilled workers near you.
 Profile: https://workquora.com/freelancer/$userId
 
 Download WorkQuora: https://workquora.com
-'''.trim();
+'''
+      .trim();
 
   Share.share(shareText, subject: '$name on WorkQuora');
 }
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
-  @override State<ProfileScreen> createState() => _ProfileScreenState();
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
@@ -38,6 +42,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // "GlobalKey was used multiple times" crashes in Flutter's Navigator.
   bool _editProfileSheetOpen = false;
   bool _uploadingPhoto = false;
+  bool _sendingEmailOtp = false;
+  bool _sendingMobileOtp = false;
 
   Future<void> _changePhoto() async {
     final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1024);
@@ -55,7 +61,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         context.read<AuthProvider>().patchUser({'profilePic': url, 'avatar': url});
       }
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to upload photo'), backgroundColor: AppColors.error));
+      if (mounted) {
+        final tokens = Theme.of(context).extension<AppTokens>()!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Failed to upload photo'), backgroundColor: tokens.danger));
+      }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
     }
@@ -64,141 +73,234 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _showEditProfileSheet() async {
     if (_editProfileSheetOpen) return;
     _editProfileSheetOpen = true;
+    final theme = Theme.of(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
       builder: (_) => const EditProfileSheet(),
     );
     _editProfileSheetOpen = false;
   }
 
+  Future<void> _verifyEmail(String email) async {
+    setState(() => _sendingEmailOtp = true);
+    await startEmailReverification(context, email);
+    if (mounted) setState(() => _sendingEmailOtp = false);
+  }
+
+  Future<void> _verifyMobile(String email) async {
+    setState(() => _sendingMobileOtp = true);
+    await startMobileReverification(context, email);
+    if (mounted) setState(() => _sendingMobileOtp = false);
+  }
+
+  String? _memberSince(dynamic iso) {
+    final dt = DateTime.tryParse(iso?.toString() ?? '');
+    if (dt == null) return null;
+    return 'Member since ${_kMonths[dt.month - 1]} ${dt.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final auth = context.watch<AuthProvider>();
     final user = auth.user ?? {};
-    final name = user['name'] ?? 'User';
-    final email = user['email'] ?? '';
-    final isEmail = user['isEmailVerified'] == true;
+    final name = user['name']?.toString() ?? 'User';
+    final email = user['email']?.toString() ?? '';
+    final mobile = user['mobileNumber']?.toString() ?? '';
+    final isEmailVerified = user['isEmailVerified'] == true;
+    final isMobileVerified = user['isMobileVerified'] == true;
     final rating = (user['averageRating'] ?? 0.0).toDouble();
     final totalReviews = user['totalReviews'] ?? 0;
     final photoUrl = (user['profilePic'] ?? user['avatar'] ?? '').toString();
+    final memberSince = _memberSince(user['createdAt']);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: CustomScrollView(slivers: [
-        SliverAppBar(
-          backgroundColor: AppColors.bg, expandedHeight: 200, pinned: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.share_outlined, color: Colors.white),
-              onPressed: () => _shareProfile(context, user),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, color: Colors.white),
-              onPressed: _showEditProfileSheet,
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings_outlined, color: Colors.white),
-              onPressed: () => context.push('/settings'),
-            ),
-          ],
-          flexibleSpace: FlexibleSpaceBar(
-            background: Container(
-              decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, Color(0xFF7C3AED), Color(0xFF06B6D4)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const SizedBox(height: 40),
-                GestureDetector(
-                  onTap: _uploadingPhoto ? null : _changePhoto,
-                  child: Stack(children: [
-                    Container(
-                      width: 80, height: 80,
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.4), width: 2)),
-                      child: ClipOval(
-                        child: _uploadingPhoto
-                            ? const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : (photoUrl.isNotEmpty
-                                ? CachedNetworkImage(imageUrl: photoUrl, fit: BoxFit.cover, width: 80, height: 80,
-                                    errorWidget: (_, __, ___) => Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold))))
-                                : Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)))),
-                      ),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          IconButton(icon: const Icon(Icons.share_outlined), onPressed: () => _shareProfile(context, user)),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(AppSpace.xl),
+        children: [
+          // Header
+          Center(
+            child: Column(children: [
+              GestureDetector(
+                onTap: _uploadingPhoto ? null : _changePhoto,
+                child: Stack(children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(color: tokens.brandSoft, shape: BoxShape.circle, border: Border.all(color: tokens.border, width: 0.5)),
+                    child: ClipOval(
+                      child: _uploadingPhoto
+                          ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary, strokeWidth: 2))
+                          : (photoUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: photoUrl,
+                                  fit: BoxFit.cover,
+                                  width: 88,
+                                  height: 88,
+                                  errorWidget: (_, __, ___) => Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold))),
+                                )
+                              : Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold)))),
                     ),
-                    Positioned(
-                      bottom: 0, right: 0,
-                      child: Container(
-                        width: 26, height: 26,
-                        decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                      ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle, border: Border.all(color: theme.colorScheme.surface, width: 2)),
+                      child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
                     ),
-                  ]),
-                ),
-                const SizedBox(height: 10),
-                Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: AppSpace.md),
+              Text(name, style: theme.textTheme.headlineMedium),
+              const SizedBox(height: 2),
+              Text('Client', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted, letterSpacing: 1)),
+              const SizedBox(height: AppSpace.sm),
+              if (rating > 0)
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  ...List.generate(5, (i) {
+                    final icon = i < rating.floor()
+                        ? Icons.star_rounded
+                        : (i < rating.ceil() && rating % 1 > 0)
+                            ? Icons.star_half_rounded
+                            : Icons.star_border_rounded;
+                    return Icon(icon, color: tokens.warning, size: 16);
+                  }),
+                  const SizedBox(width: AppSpace.xs),
+                  Text(rating.toStringAsFixed(1), style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(' ($totalReviews reviews)', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+                ])
+              else
+                Text('No ratings yet', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+              if (memberSince != null) ...[
                 const SizedBox(height: 4),
-                const Text('Client', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1)),
-                const SizedBox(height: 6),
-                if (rating > 0)
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    ...List.generate(5, (i) {
-                      final icon = i < rating.floor()
-                          ? Icons.star
-                          : (i < rating.ceil() && rating % 1 > 0)
-                              ? Icons.star_half
-                              : Icons.star_border;
-                      return Icon(icon, color: Colors.amber, size: 14);
-                    }),
-                    const SizedBox(width: 6),
-                    Text(rating.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    Text(' ($totalReviews reviews)', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                  ])
-                else
-                  const Text('No ratings yet', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                Text(memberSince, style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+              ],
+              const SizedBox(height: AppSpace.md),
+              Wrap(spacing: AppSpace.sm, runSpacing: AppSpace.sm, alignment: WrapAlignment.center, children: [
+                _VerifyBadge(label: 'Email', verified: isEmailVerified, loading: _sendingEmailOtp, onTap: email.isEmpty ? null : () => _verifyEmail(email)),
+                _VerifyBadge(
+                  label: 'Mobile',
+                  verified: isMobileVerified,
+                  loading: _sendingMobileOtp,
+                  onTap: mobile.isEmpty || email.isEmpty ? null : () => _verifyMobile(email),
+                ),
               ]),
-            ),
+            ]),
           ),
-        ),
-        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _badge(isEmail ? '✉ Email Verified' : '✉ Email Unverified', isEmail ? AppColors.emerald : AppColors.textMuted),
-          ]),
-          const SizedBox(height: 28),
-          _tile(Icons.email_outlined, 'Email', email),
-          _tile(Icons.phone_outlined, 'Mobile', user['mobileNumber'] ?? 'Not added'),
-          _tile(Icons.badge_outlined, 'Username', '@${user['username'] ?? ''}'),
-          const SizedBox(height: 28),
-          AppButton(label: 'Logout', onPressed: () async { await auth.logout(); if (context.mounted) context.go('/login'); }, color: AppColors.error),
-          const SizedBox(height: 20),
-        ]))),
-      ]),
+          const SizedBox(height: AppSpace.xl),
+          Divider(color: tokens.border, height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          // Sections
+          _SectionRow(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: _showEditProfileSheet),
+          _SectionRow(icon: Icons.work_outline_rounded, label: 'My Jobs', onTap: () => context.push('/my-jobs')),
+          // Wallet already shows transaction history inline — a separate
+          // "Payments/Transactions" row would point at the same screen, so
+          // it's folded into this one row rather than duplicated.
+          _SectionRow(icon: Icons.account_balance_wallet_outlined, label: 'Wallet & Payments', onTap: () => context.push('/wallet')),
+          _SectionRow(icon: Icons.notifications_outlined, label: 'Notifications', onTap: () => context.push('/notifications')),
+          _SectionRow(icon: Icons.settings_outlined, label: 'Settings', onTap: () => context.push('/settings')),
+          _SectionRow(icon: Icons.description_outlined, label: 'Terms & Conditions', onTap: () => context.push('/terms')),
+          const SizedBox(height: AppSpace.md),
+          _SectionRow(
+            icon: Icons.logout_rounded,
+            label: 'Logout',
+            danger: true,
+            onTap: () async {
+              await auth.logout();
+              if (context.mounted) context.go('/login');
+            },
+          ),
+        ],
+      ),
     );
   }
+}
 
-  Widget _badge(String label, Color color) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-    decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(0.3))),
-    child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)));
+class _VerifyBadge extends StatelessWidget {
+  final String label;
+  final bool verified;
+  final bool loading;
+  final VoidCallback? onTap;
+  const _VerifyBadge({required this.label, required this.verified, required this.loading, required this.onTap});
 
-  Widget _tile(IconData icon, String label, String value, {bool verified = false}) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-    child: Row(children: [
-      Icon(icon, color: AppColors.textMuted, size: 18), const SizedBox(width: 14),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(value, style: TextStyle(color: AppColors.text, fontSize: 14, fontWeight: FontWeight.w600)),
-          if (verified) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.verified, color: AppColors.emerald, size: 16),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    final color = verified ? tokens.success : tokens.warning;
+
+    return GestureDetector(
+      onTap: verified ? null : (loading ? null : onTap),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 6),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(AppRadius.chip), border: Border.all(color: color.withValues(alpha: 0.3))),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (loading)
+            SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.5, color: color))
+          else
+            Icon(verified ? Icons.check_circle_rounded : Icons.error_outline_rounded, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            verified ? '$label Verified' : (onTap == null ? '$label Unverified' : 'Verify $label'),
+            style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.bold),
+          ),
         ]),
-      ])),
-    ]));
+      ),
+    );
+  }
+}
+
+class _SectionRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool danger;
+  const _SectionRow({required this.icon, required this.label, required this.onTap, this.danger = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    final color = danger ? tokens.danger : theme.colorScheme.onSurface;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.button),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+          child: Row(children: [
+            Icon(icon, size: 20, color: danger ? tokens.danger : tokens.muted),
+            const SizedBox(width: AppSpace.md),
+            Expanded(child: Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: color, fontWeight: danger ? FontWeight.w600 : FontWeight.normal))),
+            if (!danger) Icon(Icons.chevron_right_rounded, color: tokens.muted, size: 20),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 class EditProfileSheet extends StatefulWidget {
-  const EditProfileSheet();
-  @override State<EditProfileSheet> createState() => EditProfileSheetState();
+  const EditProfileSheet({super.key});
+  @override
+  State<EditProfileSheet> createState() => EditProfileSheetState();
 }
 
 class EditProfileSheetState extends State<EditProfileSheet> {
@@ -218,7 +320,12 @@ class EditProfileSheetState extends State<EditProfileSheet> {
   }
 
   @override
-  void dispose() { _nameCtrl.dispose(); _bioCtrl.dispose(); _skillsCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _nameCtrl.dispose();
+    _bioCtrl.dispose();
+    _skillsCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _save() async {
     setState(() => _saving = true);
@@ -230,34 +337,38 @@ class EditProfileSheetState extends State<EditProfileSheet> {
     });
     if (!mounted) return;
     setState(() => _saving = false);
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     if (ok) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile updated'), backgroundColor: AppColors.success));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Profile updated'), backgroundColor: tokens.success));
     } else {
       final err = context.read<AuthProvider>().error ?? 'Failed to update profile';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: AppColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: tokens.danger));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpace.xl),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 20),
-          Text('Edit Profile', style: TextStyle(color: AppColors.text, fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          AppTextField(controller: _nameCtrl, hint: 'Full Name', icon: Icons.person_outline),
-          const SizedBox(height: 12),
-          AppTextField(controller: _bioCtrl, hint: 'Bio', icon: Icons.info_outline, maxLines: 3),
-          const SizedBox(height: 12),
-          AppTextField(controller: _skillsCtrl, hint: 'Skills (comma separated)', icon: Icons.star_outline),
-          const SizedBox(height: 24),
-          AppButton(label: 'Save Changes', loading: _saving, onPressed: _save),
-          const SizedBox(height: 12),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: tokens.border, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: AppSpace.lg),
+          Text('Edit Profile', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: AppSpace.lg),
+          TextField(controller: _nameCtrl, decoration: const InputDecoration(hintText: 'Full Name', prefixIcon: Icon(Icons.person_outline))),
+          const SizedBox(height: AppSpace.md),
+          TextField(controller: _bioCtrl, maxLines: 3, decoration: const InputDecoration(hintText: 'Bio', prefixIcon: Icon(Icons.info_outline))),
+          const SizedBox(height: AppSpace.md),
+          TextField(controller: _skillsCtrl, decoration: const InputDecoration(hintText: 'Skills (comma separated)', prefixIcon: Icon(Icons.star_outline))),
+          const SizedBox(height: AppSpace.xl),
+          PrimaryButton(label: 'Save Changes', loading: _saving, onPressed: _save),
+          const SizedBox(height: AppSpace.sm),
         ]),
       ),
     );
