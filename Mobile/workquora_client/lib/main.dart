@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/chat_provider.dart';
 import 'core/providers/jobs_provider.dart';
 import 'core/providers/wallet_provider.dart';
 import 'core/providers/job_detail_provider.dart';
+import 'core/providers/notifications_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/network/dio_client.dart';
 
@@ -26,6 +28,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => JobsProvider()),
         ChangeNotifierProvider(create: (_) => WalletProvider()),
         ChangeNotifierProvider(create: (_) => JobDetailProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider(prefs)),
       ],
       child: const WorkQuoraClientApp(),

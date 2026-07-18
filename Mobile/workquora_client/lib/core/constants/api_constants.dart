@@ -2,7 +2,9 @@ class ApiConstants {
   static const String baseUrl = 'https://workquora.onrender.com/api/v1';
 
   static const String login            = '/auth/login';
+  static const String socialLogin      = '/auth/social';
   static const String register         = '/auth/register';
+  static const String resendOtp        = '/auth/resend-otp';
   static const String verifyRegistration = '/auth/verify-registration';
   static const String verifyMobile     = '/auth/verify-mobile';
   static const String sendMobileOtp    = '/auth/send-mobile-otp';
@@ -10,6 +12,7 @@ class ApiConstants {
   static const String logout           = '/auth/logout';
 
   static const String jobs             = '/jobs';
+  static const String jobsSearch       = '/jobs/search';
   static const String myJobs           = '/jobs/my-jobs';
   static const String nearbyJobs       = '/geo/nearby-jobs';
   static const String nearbyFreelancers= '/geo/nearby-freelancers';
@@ -36,6 +39,14 @@ class ApiConstants {
   static const String markAllRead      = '/notifications/read-all';
 
   static const String privacySettings  = '/settings/privacy';
+  static const String notificationPrefs = '/settings/notifications';
+  static const String currentTerms     = '/terms/current';
+
+  static const String sessions              = '/auth/sessions';
+  static const String requestEmailChangeOtp = '/auth/request-email-change-otp';
+  static const String verifyEmailChange     = '/auth/verify-email-change';
+  static const String requestMobileChangeOtp = '/auth/request-mobile-change-otp';
+  static const String verifyMobileChange    = '/auth/verify-mobile-change';
 
   static const String myTasks          = '/tasks/my-tasks';
   static const String postJob          = '/jobs';

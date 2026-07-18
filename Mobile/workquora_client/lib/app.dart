@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'core/constants/app_colors.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/chat_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/network/dio_client.dart';
+import 'theme/app_theme.dart';
+import 'widgets/bottom_nav.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -20,7 +22,9 @@ import 'screens/client/settings_screen.dart';
 import 'screens/chat/conversations_screen.dart';
 import 'screens/chat/chat_screen.dart';
 import 'screens/client/job_detail_screen.dart';
+import 'screens/client/job_tracking_screen.dart';
 import 'screens/client/my_jobs_screen.dart';
+import 'screens/client/terms_screen.dart';
 
 class WorkQuoraClientApp extends StatefulWidget {
   const WorkQuoraClientApp({super.key});
@@ -73,6 +77,7 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
               title: extra['title'] as String,
               subtitle: extra['subtitle'] as String,
               isMobileOtp: extra['isMobileOtp'] as bool,
+              reverifyEmail: extra['reverifyEmail'] as String?,
             );
           },
         ),
@@ -101,6 +106,7 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
             path: '/notifications',
             builder: (_, __) => const NotificationsScreen()),
         GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+        GoRoute(path: '/terms', builder: (_, __) => const TermsScreen()),
         GoRoute(
             path: '/conversations',
             builder: (_, __) => const ConversationsScreen()),
@@ -125,6 +131,11 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
           builder: (context, state) =>
               JobDetailScreen(jobId: state.pathParameters['jobId']!),
         ),
+        GoRoute(
+          path: '/job/:jobId/track',
+          builder: (context, state) =>
+              JobTrackingScreen(jobId: state.pathParameters['jobId']!),
+        ),
       ],
     );
 
@@ -136,7 +147,8 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<ThemeProvider>().isDarkMode;
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.isDarkMode;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: isDark
@@ -153,29 +165,9 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
       child: MaterialApp.router(
         title: 'WorkQuora Client',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          brightness: isDark ? Brightness.dark : Brightness.light,
-          scaffoldBackgroundColor: AppColors.bg,
-          colorScheme: isDark
-              ? ColorScheme.dark(
-                  primary: AppColors.primary,
-                  surface: AppColors.surface,
-                  error: AppColors.error,
-                )
-              : ColorScheme.light(
-                  primary: AppColors.primary,
-                  surface: AppColors.surface,
-                  error: AppColors.error,
-                ),
-          appBarTheme: AppBarTheme(
-            backgroundColor: AppColors.bg,
-            elevation: 0,
-            iconTheme: IconThemeData(color: AppColors.text),
-            titleTextStyle: TextStyle(
-                color: AppColors.text, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: themeProvider.themeMode,
         routerConfig: _router,
       ),
     );
@@ -197,10 +189,13 @@ class _ClientShellState extends State<ClientShell> {
   // persistent tabs. null marks that slot.
   final _tabs = ['/home', null, '/post-job', '/my-jobs', '/profile'];
 
-  void _onTap(int i) {
+  void _onTap(int i) async {
     final path = _tabs[i];
     if (path == null) {
-      context.push('/conversations');
+      // Not a shell route — pushed on top instead of switched to. Refresh
+      // on return so the badge reflects whatever got read while it was open.
+      await context.push('/conversations');
+      if (mounted) context.read<ChatProvider>().fetchConversations();
       return;
     }
     setState(() => _currentIndex = i);
@@ -209,37 +204,10 @@ class _ClientShellState extends State<ClientShell> {
 
   @override
   Widget build(BuildContext context) {
+    final unreadMessages = context.watch<ChatProvider>().totalUnreadCount;
     return Scaffold(
       body: widget.child,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: _onTap,
-          backgroundColor: AppColors.surface,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textMuted,
-          type: BottomNavigationBarType.fixed,
-          selectedLabelStyle:
-              const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-          unselectedLabelStyle: const TextStyle(fontSize: 10),
-          items: const [
-            BottomNavigationBarItem(
-                icon: Icon(Icons.home_rounded), label: 'Home'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.chat_bubble_outline), label: 'Messages'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.add_circle_rounded), label: 'Post Job'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.history_rounded), label: 'History'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.person_rounded), label: 'Profile'),
-          ],
-        ),
-      ),
+      bottomNavigationBar: BottomNav(currentIndex: _currentIndex, onTap: _onTap, unreadMessages: unreadMessages),
     );
   }
 }
