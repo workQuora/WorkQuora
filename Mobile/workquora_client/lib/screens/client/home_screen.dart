@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../core/constants/categories.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/chat_provider.dart';
 import '../../core/providers/jobs_provider.dart';
@@ -16,7 +17,6 @@ import '../../widgets/primary_button.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/shimmer_list.dart';
 import '../../widgets/status_chip.dart';
-import 'search_results_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,20 +24,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-// Kept in sync with post_job_screen.dart's CATEGORIES.
-const _kCategories = [
-  (label: 'Electrician', icon: Icons.bolt_rounded, image: 'assets/images/categories/electrician.jpg'),
-  (label: 'Plumber', icon: Icons.plumbing_rounded, image: 'assets/images/categories/plumber.jpg'),
-  (label: 'AC Repair', icon: Icons.ac_unit_rounded, image: 'assets/images/categories/ac_repair.jpg'),
-  (label: 'Painter', icon: Icons.format_paint_rounded, image: 'assets/images/categories/painter.jpg'),
-  (label: 'Maid', icon: Icons.cleaning_services_rounded, image: 'assets/images/categories/maid.jpg'),
-  (label: 'Cook', icon: Icons.restaurant_rounded, image: 'assets/images/categories/cook.jpg'),
-  (label: 'Mechanic', icon: Icons.build_rounded, image: 'assets/images/categories/mechanic.jpg'),
-];
-
 class _HomeScreenState extends State<HomeScreen> {
-  final _searchCtrl = TextEditingController();
-
   String? _areaName;
   double? _geocodedLat;
   double? _geocodedLng;
@@ -50,16 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _init());
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _init() async {
-    context.read<NotificationsProvider>().fetchNotifications();
-    context.read<ChatProvider>().fetchConversations();
-    context.read<JobsProvider>().fetchMyJobs();
+  Future<void> _init({bool force = false}) async {
+    context.read<NotificationsProvider>().fetchNotifications(force: force);
+    context.read<ChatProvider>().fetchConversations(force: force);
+    context.read<JobsProvider>().fetchMyJobs(force: force);
 
     final pos = await getPlatformLocation();
     if (!mounted) return;
@@ -94,12 +75,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _locating = false);
   }
 
-  void _submitSearch(String value) {
-    final query = value.trim();
-    if (query.isEmpty) return;
-    showSearchResults(context, query);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -127,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: RefreshIndicator(
           color: theme.colorScheme.primary,
           backgroundColor: theme.colorScheme.surface,
-          onRefresh: _init,
+          onRefresh: () => _init(force: true),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(AppSpace.lg, AppSpace.md, AppSpace.lg, AppSpace.xl),
             children: [
@@ -164,29 +139,13 @@ class _HomeScreenState extends State<HomeScreen> {
               Text("What do you need help with today?", style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)),
               const SizedBox(height: AppSpace.xl),
 
-              // Search bar
-              TextField(
-                controller: _searchCtrl,
-                onSubmitted: _submitSearch,
-                style: theme.textTheme.bodyMedium,
-                decoration: InputDecoration(
-                  hintText: 'Search for a service or worker…',
-                  prefixIcon: Icon(Icons.search_rounded, color: tokens.muted),
-                  suffixIcon: IconButton(
-                    icon: Icon(Icons.arrow_forward_rounded, color: theme.colorScheme.primary),
-                    onPressed: () => _submitSearch(_searchCtrl.text),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpace.xl),
-
               // Categories
               const SectionHeader(title: 'Categories'),
               const SizedBox(height: AppSpace.md),
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _kCategories.length,
+                itemCount: kCategories.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   mainAxisSpacing: AppSpace.md,
@@ -194,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   childAspectRatio: 1.5,
                 ),
                 itemBuilder: (_, i) {
-                  final cat = _kCategories[i];
+                  final cat = kCategories[i];
                   return CategoryTile(
                     label: cat.label,
                     imagePath: cat.image,
