@@ -6,3 +6,5 @@ export { SectionHeader } from './SectionHeader';
 export { Pagination } from './Pagination';
 export { Badge } from './Badge';
 export { Select } from './Select';
+export { default as CategoryIcon } from './CategoryIcon';
+export { default as JobCard } from './JobCard';

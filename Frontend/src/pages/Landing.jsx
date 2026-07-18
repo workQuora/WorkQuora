@@ -4,22 +4,18 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Shield, ShieldAlert, Zap, Users, Briefcase, ArrowRight, ArrowUpRight,
-  ChevronDown, Sparkles, Star, MessageSquare, FileText, Check,
+  Shield, ShieldAlert, ShieldCheck, Zap, Users, Briefcase, ArrowRight,
+  ChevronDown, ChevronRight, Sparkles, MessageSquare, FileText,
   ClipboardList, UserCheck, UserPlus, Award, Rocket, Compass,
-  PlusCircle, LayoutDashboard,
+  PlusCircle, LayoutDashboard, MoreHorizontal,
   Droplet, Snowflake, PaintRoller, ChefHat, Wrench, HardHat, Hammer,
 } from 'lucide-react';
 import api from '../services/api';
 import { categoriesApi } from '../api/endpoints';
-import AdBanner from '../components/shared/AdBanner';
 import { GradientBlob } from '../components/ui/GradientBlob';
-import { AnimatedCard } from '../components/ui/AnimatedCard';
 import { StatCounter } from '../components/ui/StatCounter';
 import { fadeInUp, staggerContainer } from '../utils/animations';
-import { Card, Button, Badge } from '../components/ui';
-
-const JOB_STATUS_VARIANT = { open: 'success', 'in-progress': 'warning', completed: 'info', cancelled: 'danger' };
+import { Card, Button, CategoryIcon, JobCard } from '../components/ui';
 
 // Client home's service-category grid — tapping a category jumps straight
 // into the job-posting flow with that category pre-selected. Keep this list
@@ -144,7 +140,7 @@ const Landing = () => {
   });
 
   // Client's own posted jobs + proposal stats for the client-role home view
-  const { data: clientDashData } = useQuery({
+  const { data: clientDashData, isLoading: clientDashLoading } = useQuery({
     queryKey: ['client-dashboard-home'],
     queryFn: () => api.get('/dashboard/client').then((r) => r.data?.data ?? r.data),
     enabled: isAuthenticated && role === 'CLIENT' && onboarding?.onboardingComplete === true,
@@ -175,11 +171,260 @@ const Landing = () => {
 
     const activeMilestones = dashData?.stats?.pendingTasks ?? 4;
 
-    const clientJobs = clientDashData?.recentJobs ?? [];
-    const pendingProposals = clientDashData?.stats?.pendingProposals ?? 0;
+    // Active contracts (Task docs, populated with job + freelancer) drive the
+    // client home's job cards — richer than the raw job list, since it's the
+    // only source with an assigned worker name and a real in-progress status.
+    const activeContracts = clientDashData?.activeContracts ?? [];
+    const firstName = user?.name?.split(' ')[0] || 'there';
+    const heroCategories = displayCategories.slice(0, 6);
+    const categoryImageFor = (categoryName) =>
+      displayCategories.find((c) => c.name?.toLowerCase() === categoryName?.toLowerCase())?.imageUrl || null;
 
     // Only show real ads from DB — no hardcoded fallback ad
     const featuredAd = visibleAds && visibleAds.length > 0 ? visibleAds[0] : null;
+
+    if (isClientHome) {
+      return (
+        <div className="bg-background text-foreground w-full min-h-screen">
+          {/* Hero */}
+          <section className="max-w-6xl mx-auto px-6 py-12 md:py-16">
+            <div className="flex flex-col lg:flex-row items-center gap-12">
+              <div className="flex-1 space-y-8 w-full">
+                <div>
+                  <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-bold mb-6 tracking-wide">
+                    WELCOME BACK, {firstName.toUpperCase()}
+                  </span>
+                  <h1 className="text-4xl md:text-5xl font-extrabold text-primary leading-tight tracking-tight">
+                    Expert Services for your <br className="hidden sm:block" />
+                    <span className="text-[#6366F1]">Home &amp; Business.</span>
+                  </h1>
+                  <p className="text-muted-foreground mt-4 max-w-lg leading-relaxed">
+                    Get connected with top-rated professionals instantly. Secure, reliable, and efficient service delivery at your doorstep.
+                  </p>
+                </div>
+
+                {/* Categories row */}
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-4">
+                  {categoriesLoading ? (
+                    Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="flex flex-col items-center gap-2">
+                        <div className="w-14 h-14 rounded-2xl bg-muted animate-pulse" />
+                        <div className="w-10 h-2 rounded bg-muted animate-pulse" />
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      {heroCategories.map((cat) => (
+                        <CategoryIcon
+                          key={cat.slug || cat.name}
+                          label={cat.name}
+                          imageUrl={cat.imageUrl}
+                          fallbackIcon={SLUG_ICONS[cat.slug] || Briefcase}
+                          onClick={() => navigate('/client/post-job', { state: { category: cat.name } })}
+                        />
+                      ))}
+                      <CategoryIcon label="More" fallbackIcon={MoreHorizontal} onClick={() => navigate('/client/post-job')} />
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Dashboard preview image */}
+              <div className="flex-1 relative w-full lg:w-auto">
+                <div className="relative w-full aspect-square max-w-md mx-auto">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-full h-[80%] bg-card rounded-3xl shadow-2xl p-6 border border-border overflow-hidden transform rotate-3">
+                      <img
+                        className="w-full h-full object-cover rounded-xl"
+                        alt="WorkQuora dashboard preview"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCv3T3m-lZxmADxXd9UpftJwhv2zKvPFwdDwQNNqEtsc01mEVi8LyWcwGTKvYP0rTFCmNfPc4YBnH6Zsu7lLmzNaZjT4RJ6t98_VpB4RkzEci7ElKTDeAho43MhR5EAef7jNIv3SQglhjhkyfzBkY7gZ-vXFw6yDrbWMMAPD2p1By6atJwzqV4ekJzzW_9UBxpsQbR179G4nV27C-0HcRsUU9eEggBShNUboFTVuDzSvrqebMsUYJByexgrXcufC7FpyJYpd5vej5T8"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Active Jobs + Quick Actions */}
+          <section className="max-w-6xl mx-auto px-6 py-16">
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Left: Active Jobs */}
+              <div className="lg:w-2/3">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-xl md:text-2xl font-extrabold text-primary tracking-tight">Your Active Jobs</h2>
+                  <button
+                    onClick={() => navigate('/client/jobs')}
+                    className="text-[#6366F1] text-sm font-bold flex items-center gap-1.5 hover:underline cursor-pointer"
+                  >
+                    View all active <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {clientDashLoading ? (
+                  <div className="space-y-5">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-44 rounded-3xl bg-muted animate-pulse" />
+                    ))}
+                  </div>
+                ) : activeContracts.length === 0 ? (
+                  <Card className="flex flex-col items-center justify-center py-16 text-center">
+                    <Briefcase className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                    <p className="text-sm font-semibold text-muted-foreground mb-1">No active jobs right now</p>
+                    <p className="text-xs text-muted-foreground/70 mb-5">Jobs in progress will appear here with live tracking.</p>
+                    <Button variant="primary" size="sm" onClick={() => navigate('/client/post-job')}>
+                      <PlusCircle className="w-3.5 h-3.5" /> Post a New Job
+                    </Button>
+                  </Card>
+                ) : (
+                  <div className="space-y-5">
+                    {activeContracts.slice(0, 4).map((contract) => (
+                      <JobCard
+                        key={contract._id}
+                        contract={contract}
+                        categoryImageUrl={categoryImageFor(contract.job?.category)}
+                        categoryIcon={SLUG_ICONS[contract.job?.category?.toLowerCase()] || Briefcase}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Quick Actions */}
+              <div className="lg:w-1/3 space-y-6">
+                {(adsLoading || featuredAd) && (
+                  <Card>
+                    <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">Promoted</span>
+                    {adsLoading ? (
+                      <div className="aspect-video bg-muted rounded-2xl animate-pulse mt-3" />
+                    ) : (
+                      <div className="mt-3">
+                        <div className="bg-muted border border-border/50 rounded-2xl overflow-hidden mb-3 relative aspect-video flex flex-col justify-end p-4">
+                          {featuredAd.mediaUrl && (
+                            <img src={featuredAd.mediaUrl} alt={featuredAd.title} className="absolute inset-0 w-full h-full object-cover" />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+                          <div className="relative z-10 text-left">
+                            <span className="inline-flex text-[8px] font-extrabold bg-primary text-white uppercase px-1.5 py-0.5 rounded mb-1">
+                              {featuredAd.brandName || 'Sponsored'}
+                            </span>
+                            <h4 className="text-xs font-bold text-white leading-tight">{featuredAd.title}</h4>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed mb-4">{featuredAd.description}</p>
+                        <Button variant="secondary" size="sm" className="w-full" onClick={() => handleAdClick(featuredAd)}>
+                          Learn More
+                        </Button>
+                      </div>
+                    )}
+                  </Card>
+                )}
+
+                <h2 className="text-xl md:text-2xl font-extrabold text-primary tracking-tight">Quick Actions</h2>
+                <div className="bg-muted/40 p-6 rounded-3xl space-y-4">
+                  {[
+                    { icon: PlusCircle, label: 'Post a Job', sub: 'Post a job for bidding', to: '/client/post-job' },
+                    { icon: LayoutDashboard, label: 'Go to Dashboard', sub: 'Stats, activity & history', to: '/client/dashboard' },
+                    { icon: ShieldCheck, label: 'Security Settings', sub: 'Manage your privacy', to: '/shared/settings' },
+                  ].map((action) => (
+                    <button
+                      key={action.label}
+                      onClick={() => navigate(action.to)}
+                      className="w-full flex items-center justify-between p-4 bg-card rounded-2xl border border-border hover:border-primary hover:shadow-md transition-all group cursor-pointer"
+                    >
+                      <span className="flex items-center gap-4 text-left">
+                        <span className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                          <action.icon className="w-5 h-5" />
+                        </span>
+                        <span>
+                          <span className="block font-bold text-sm text-foreground">{action.label}</span>
+                          <span className="block text-xs text-muted-foreground">{action.sub}</span>
+                        </span>
+                      </span>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Popular Professional Services */}
+          <section className="py-16 bg-card border-y border-border">
+            <div className="max-w-6xl mx-auto px-6">
+              <div className="text-center mb-12">
+                <h2 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight">Popular Professional Services</h2>
+                <p className="text-muted-foreground mt-2">Vetted experts ready to tackle your projects</p>
+              </div>
+              <div className="flex gap-6 overflow-x-auto pb-2 -mx-1 px-1">
+                {categoriesLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="shrink-0 w-64 h-72 rounded-3xl bg-muted animate-pulse" />
+                  ))
+                ) : (
+                  displayCategories.map((cat) => (
+                    <div
+                      key={cat.slug || cat.name}
+                      className="group shrink-0 w-64 bg-background rounded-3xl overflow-hidden border border-border hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 shadow-sm"
+                    >
+                      <div className="h-40 relative overflow-hidden bg-muted">
+                        <CategoryImage
+                          slug={cat.slug}
+                          name={cat.name}
+                          imageUrl={cat.imageUrl}
+                          className="w-10 h-10 text-primary m-auto mt-14"
+                        />
+                      </div>
+                      <div className="p-5 space-y-3">
+                        <h3 className="font-bold text-foreground">{cat.name}</h3>
+                        <button
+                          onClick={() => navigate('/client/post-job', { state: { category: cat.name } })}
+                          className="w-full py-2.5 bg-muted text-primary font-bold text-sm rounded-xl hover:bg-primary hover:text-primary-foreground transition-all cursor-pointer"
+                        >
+                          Post Job
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Empowering secure project collaborations */}
+          <section className="max-w-6xl mx-auto px-6 py-16">
+            <div className="bg-primary rounded-[40px] px-8 md:px-20 py-16 md:py-20 relative overflow-hidden shadow-2xl">
+              <div className="relative z-10 max-w-2xl">
+                <div className="flex items-center gap-2 mb-6">
+                  <ShieldCheck className="w-5 h-5 text-[#a5a1ff]" />
+                  <span className="font-bold tracking-widest text-xs uppercase text-white/90">Secure Escrow System</span>
+                </div>
+                <h2 className="text-3xl md:text-4xl font-extrabold mb-6 text-white leading-tight">
+                  Empowering secure project collaborations.
+                </h2>
+                <p className="text-white/80 leading-relaxed mb-10">
+                  Your payments are protected. Funds are only released when you're 100% satisfied with the service delivered. Experience peace of mind with WorkQuora's multi-layered security.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <button
+                    onClick={() => navigate('/client/post-job')}
+                    className="px-8 py-4 bg-white text-primary rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl cursor-pointer"
+                  >
+                    Get Started Securely
+                  </button>
+                  <button
+                    onClick={() => navigate('/info/trust-safety')}
+                    className="px-8 py-4 border border-white/30 text-white rounded-2xl font-bold hover:bg-white/10 transition-all cursor-pointer"
+                  >
+                    How it Works
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      );
+    }
 
     // Worker home is gated entirely behind KYC (Phase A) — nothing else
     // renders (no jobs, no widgets) until verified. Client KYC is not
@@ -228,150 +473,30 @@ const Landing = () => {
                 Welcome back, {user?.name?.split(' ')[0] || 'there'}
               </motion.h1>
               <motion.p variants={fadeInUp} className="text-sm text-slate-500 dark:text-muted-foreground mb-6">
-                {isClientHome
-                  ? 'What do you need help with today?'
-                  : "You're KYC verified — jobs will appear here as they're matched to you"}
+                You're KYC verified — jobs will appear here as they're matched to you
               </motion.p>
-
-              {/* Service-category grid — client home's primary action */}
-              {isClientHome && (
-                <motion.div variants={fadeInUp} className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                  {categoriesLoading ? (
-                    Array.from({ length: 7 }).map((_, i) => (
-                      <div key={i} className="flex flex-col items-center gap-2 px-2 py-4 bg-primary/5 border border-primary/10 rounded-2xl animate-pulse">
-                        <div className="w-5 h-5 rounded-full bg-primary/20" />
-                        <div className="w-10 h-2 rounded bg-primary/20" />
-                      </div>
-                    ))
-                  ) : (
-                    displayCategories.map((cat) => (
-                      <button
-                        key={cat.slug || cat.name}
-                        onClick={() => navigate('/client/post-job', { state: { category: cat.name } })}
-                        className="flex flex-col items-center gap-2 px-2 py-4 bg-primary/5 hover:bg-primary/10 border border-primary/10 hover:border-primary/30 rounded-2xl transition-colors cursor-pointer"
-                      >
-                        <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-primary/10 shrink-0">
-                          <CategoryImage slug={cat.slug} name={cat.name} imageUrl={cat.imageUrl} className="w-5 h-5 text-primary" />
-                        </div>
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-foreground text-center leading-tight">{cat.name}</span>
-                      </button>
-                    ))
-                  )}
-                </motion.div>
-              )}
             </motion.div>
           </section>
 
-          {/* 2. Grid Layout: Left Column (Recommended / Jobs) & Right Column (Widgets) */}
+          {/* 2. Grid Layout: Left Column (Jobs) & Right Column (Widgets) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {/* Left Column (2/3 width) */}
             <div className="lg:col-span-2 flex flex-col gap-6">
 
-              {isClientHome ? (
-                <>
-                  {/* Client header + primary CTA */}
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Your Active Jobs
-                    </h2>
-                    <Button variant="primary" size="sm" onClick={() => navigate('/client/post-job')}>
-                      <PlusCircle className="w-3.5 h-3.5" /> Post a New Job
-                    </Button>
-                  </div>
+              {/* Freelancer header — Phase A: manual job browsing removed.
+                  Matching engine (Phase B) will push jobs here directly. */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Your Jobs
+                </h2>
+              </div>
 
-                  {clientJobs.length === 0 ? (
-                    <Card className="flex flex-col items-center justify-center py-16 text-center">
-                      <Briefcase className="w-12 h-12 text-slate-300 dark:text-white/20 mb-4" />
-                      <p className="text-sm font-semibold text-slate-500 dark:text-muted-foreground mb-1">You haven't posted any jobs yet</p>
-                      <p className="text-xs text-slate-400 dark:text-muted-foreground/60 mb-5">Post a job to start receiving proposals from freelancers.</p>
-                      <Button variant="primary" size="sm" onClick={() => navigate('/client/post-job')}>
-                        <PlusCircle className="w-3.5 h-3.5" /> Post a New Job
-                      </Button>
-                    </Card>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      {clientJobs.slice(0, 4).map((job) => (
-                        <Card
-                          key={job._id}
-                          hover
-                          onClick={() => navigate(`/job/${job._id}`)}
-                          className="cursor-pointer flex flex-col justify-between"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between gap-2 mb-3">
-                              <Badge variant={JOB_STATUS_VARIANT[job.status] || 'neutral'}>{job.status}</Badge>
-                              <span className="text-[10px] text-slate-400 dark:text-muted-foreground/60 uppercase font-semibold truncate">{job.category}</span>
-                            </div>
-                            <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug mb-2 line-clamp-1">
-                              {job.title}
-                            </h3>
-                            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
-                              {job.description}
-                            </p>
-                          </div>
-                          <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-white/5">
-                            <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-                              ₹{job.budgetRange?.min?.toLocaleString('en-IN') || job.budget?.toLocaleString('en-IN') || '—'}
-                            </span>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Popular Services — same categories data as the grid above */}
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3">
-                      Popular Services
-                    </h2>
-                    <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
-                      {categoriesLoading ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                          <div key={i} className="shrink-0 w-40 h-44 rounded-2xl bg-slate-100 dark:bg-white/5 animate-pulse" />
-                        ))
-                      ) : (
-                        displayCategories.map((cat) => (
-                          <div
-                            key={cat.slug || cat.name}
-                            className="shrink-0 w-40 rounded-2xl border border-slate-200/60 dark:border-white/5 bg-white dark:bg-[#0d0d15] overflow-hidden shadow-sm hover:shadow-md transition-all"
-                          >
-                            <div className="h-24 w-full bg-primary/5 flex items-center justify-center overflow-hidden">
-                              <CategoryImage slug={cat.slug} name={cat.name} imageUrl={cat.imageUrl} className="w-8 h-8 text-primary" />
-                            </div>
-                            <div className="p-3">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate mb-2">{cat.name}</p>
-                              <button
-                                onClick={() => navigate('/client/post-job', { state: { category: cat.name } })}
-                                className="w-full flex items-center justify-center gap-1 text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/15 rounded-lg py-1.5 transition-colors cursor-pointer"
-                              >
-                                Post Job <ArrowRight className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                </>
-              ) : (
-                <>
-                  {/* Freelancer header — Phase A: manual job browsing removed.
-                      Matching engine (Phase B) will push jobs here directly. */}
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Your Jobs
-                    </h2>
-                  </div>
-
-                  <Card className="flex flex-col items-center justify-center py-16 text-center">
-                    <Briefcase className="w-12 h-12 text-slate-300 dark:text-white/20 mb-4" />
-                    <p className="text-sm font-semibold text-slate-500 dark:text-muted-foreground mb-1">Jobs will appear here when matched</p>
-                    <p className="text-xs text-slate-400 dark:text-muted-foreground/60">We're building smart job-matching — coming soon.</p>
-                  </Card>
-                </>
-              )}
+              <Card className="flex flex-col items-center justify-center py-16 text-center">
+                <Briefcase className="w-12 h-12 text-slate-300 dark:text-white/20 mb-4" />
+                <p className="text-sm font-semibold text-slate-500 dark:text-muted-foreground mb-1">Jobs will appear here when matched</p>
+                <p className="text-xs text-slate-400 dark:text-muted-foreground/60">We're building smart job-matching — coming soon.</p>
+              </Card>
 
             </div>
 
@@ -411,63 +536,32 @@ const Landing = () => {
                 </Card>
               )}
 
-              {isClientHome ? (
-                /* Quick Actions Widget (CLIENT) */
-                <Card>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
-                    Quick Actions
-                  </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                    You have {pendingProposals} pending proposal{pendingProposals !== 1 ? 's' : ''} to review.
-                  </p>
+              {/* Manage Tasks Widget (FREELANCER) */}
+              <Card>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
+                  Manage Tasks
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                  You have {activeMilestones} active milestone{activeMilestones !== 1 ? 's' : ''} due this week. Keep your rating high by staying on track.
+                </p>
 
-                  <div className="flex flex-col gap-2.5">
-                    {[
-                      { icon: PlusCircle, label: 'Post a Job', to: '/client/post-job' },
-                      { icon: LayoutDashboard, label: 'Go to Dashboard', to: '/client/dashboard' },
-                      { icon: MessageSquare, label: 'Messages', to: '/shared/messages' },
-                    ].map((action) => (
-                      <button
-                        key={action.label}
-                        onClick={() => navigate(action.to)}
-                        className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2.5">
-                          <action.icon className="w-3.5 h-3.5 text-primary" /> {action.label}
-                        </span>
-                        <span className="text-slate-400">&rarr;</span>
-                      </button>
-                    ))}
-                  </div>
-                </Card>
-              ) : (
-                /* Manage Tasks Widget (FREELANCER) */
-                <Card>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
-                    Manage Tasks
-                  </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                    You have {activeMilestones} active milestone{activeMilestones !== 1 ? 's' : ''} due this week. Keep your rating high by staying on track.
-                  </p>
-
-                  <div className="flex flex-col gap-2.5">
-                    <button
-                      onClick={() => navigate('/freelancer/dashboard')}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
-                    >
-                      <span>Go to Dashboard</span>
-                      <span className="text-slate-400">&rarr;</span>
-                    </button>
-                    <button
-                      onClick={() => navigate('/shared/wallet')}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
-                    >
-                      <span>Manage Wallet</span>
-                      <span className="text-slate-400">&rarr;</span>
-                    </button>
-                  </div>
-                </Card>
-              )}
+                <div className="flex flex-col gap-2.5">
+                  <button
+                    onClick={() => navigate('/freelancer/dashboard')}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
+                  >
+                    <span>Go to Dashboard</span>
+                    <span className="text-slate-400">&rarr;</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/shared/wallet')}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-800 dark:text-foreground transition-all cursor-pointer"
+                  >
+                    <span>Manage Wallet</span>
+                    <span className="text-slate-400">&rarr;</span>
+                  </button>
+                </div>
+              </Card>
 
             </div>
 
