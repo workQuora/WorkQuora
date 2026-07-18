@@ -20,6 +20,14 @@ class JobsProvider extends ChangeNotifier {
   String? _myJobsError;
   StreamSubscription<Position>? _locationSubscription;
 
+  // Home and MyJobsScreen both fetch this on their own open — Home eagerly
+  // on app start, MyJobsScreen again moments later on navigation. Skipping a
+  // refetch within this window avoids the duplicate GET without risking
+  // staleness across an actual session; force:true (pull-to-refresh, or
+  // right after posting a job) always bypasses it.
+  static const _freshWindow = Duration(seconds: 20);
+  DateTime? _myJobsFetchedAt;
+
   // Defaults to Delhi until the user picks a real location (see setLocation).
   double _currentLat = 28.6139;
   double _currentLng = 77.2090;
@@ -99,6 +107,7 @@ class JobsProvider extends ChangeNotifier {
     _isLoadingMyJobs = false;
     _nearbyWorkersError = null;
     _myJobsError = null;
+    _myJobsFetchedAt = null;
     _currentLat = 28.6139;
     _currentLng = 77.2090;
     _locationLabel = 'Delhi, India';
@@ -111,11 +120,15 @@ class JobsProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> fetchMyJobs() async {
+  Future<void> fetchMyJobs({bool force = false}) async {
+    if (!force && _myJobsFetchedAt != null && DateTime.now().difference(_myJobsFetchedAt!) < _freshWindow) {
+      return;
+    }
     _isLoadingMyJobs = true; _myJobsError = null; notifyListeners();
     try {
       final res = await DioClient.instance.dio.get(ApiConstants.myJobs);
       _myJobs = res.data['data'] ?? res.data ?? [];
+      _myJobsFetchedAt = DateTime.now();
     } catch (e) {
       // Same "empty looks the same as failed" gap as fetchNearbyWorkers.
       _myJobs = [];
@@ -135,7 +148,7 @@ class JobsProvider extends ChangeNotifier {
     _error = null;
     try {
       final res = await DioClient.instance.dio.post(ApiConstants.postJob, data: data);
-      await fetchMyJobs();
+      await fetchMyJobs(force: true);
       return res.data['data']?['_id']?.toString();
     } catch (e) {
       // Was catch(_){ return null; } — discarded the backend's actual

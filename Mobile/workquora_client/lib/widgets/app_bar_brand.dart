@@ -14,7 +14,11 @@ class AppBarBrand extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final unread = context.watch<NotificationsProvider>().unreadCount;
+    // select, not watch — this app bar is on nearly every screen, and a full
+    // watch would rebuild it on any notification-list change (new item,
+    // markAsRead, fetchNotifications' isLoading toggling) even when the
+    // unread count itself hasn't moved.
+    final unread = context.select<NotificationsProvider, int>((p) => p.unreadCount);
 
     return AppBar(
       centerTitle: false,
