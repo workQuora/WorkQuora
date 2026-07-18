@@ -10,6 +10,7 @@ class ApiConstants {
   static const String sendMobileOtp    = '/auth/send-mobile-otp';
   static const String me               = '/auth/me';
   static const String logout           = '/auth/logout';
+  static const String checkUsername    = '/auth/check-username';
 
   static const String jobs             = '/jobs';
   static const String myJobs           = '/jobs/my-jobs';

@@ -18,6 +18,7 @@ import 'screens/auth/register_screen.dart';
 import 'screens/auth/otp_screen.dart';
 import 'screens/auth/success_animation_screen.dart';
 import 'screens/client/dashboard_screen.dart';
+import 'screens/client/edit_profile_screen.dart';
 import 'screens/client/home_screen.dart';
 import 'screens/client/post_job_screen.dart';
 import 'screens/client/profile_screen.dart';
@@ -130,6 +131,7 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
             path: '/notifications',
             builder: (_, __) => const NotificationsScreen()),
         GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+        GoRoute(path: '/edit-profile', builder: (_, __) => const EditProfileScreen()),
         GoRoute(path: '/terms', builder: (_, __) => const TermsScreen()),
         GoRoute(
             path: '/conversations',
