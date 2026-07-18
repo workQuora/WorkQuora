@@ -1,35 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:shimmer/shimmer.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/constants/api_constants.dart';
-import '../../core/network/dio_client.dart';
-import '../../core/utils/error_helper.dart';
+import '../../core/providers/chat_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/shimmer_list.dart';
 
 class ConversationsScreen extends StatefulWidget {
   const ConversationsScreen({super.key});
-  @override State<ConversationsScreen> createState() => _ConversationsScreenState();
+  @override
+  State<ConversationsScreen> createState() => _ConversationsScreenState();
 }
 
 class _ConversationsScreenState extends State<ConversationsScreen> {
-  List<dynamic> _conversations = [];
-  bool _loading = true;
-  String? _error;
-
   @override
-  void initState() { super.initState(); _load(); }
-
-  Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      final res = await DioClient.instance.dio.get(ApiConstants.conversations);
-      // Response key is 'conversations', not 'data'.
-      _conversations = res.data['conversations'] as List? ?? [];
-    } catch (e) {
-      _error = ErrorHelper.extractError(e);
-    }
-    if (mounted) setState(() => _loading = false);
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<ChatProvider>().fetchConversations());
   }
 
   String _timeAgo(String? raw) {
@@ -49,84 +36,106 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    final chat = context.watch<ChatProvider>();
+    // Most-recent-first — backend already sorts messages newest-first when
+    // building the conversation map, so the list arrives in that order.
+    final conversations = chat.conversations;
+
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(title: const Text('Messages'), backgroundColor: AppColors.bg, elevation: 0),
+      appBar: AppBar(title: const Text('Messages')),
       body: RefreshIndicator(
-        color: AppColors.primary,
-        backgroundColor: AppColors.surface,
-        onRefresh: _load,
-        child: _loading
-            ? ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: 3,
-                itemBuilder: (_, __) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Shimmer.fromColors(
-                    baseColor: AppColors.surface,
-                    highlightColor: AppColors.surfaceAlt,
-                    child: Container(height: 64, decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14))),
-                  ),
-                ),
-              )
-            : _error != null
-                ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-                    const SizedBox(height: 100),
-                    Icon(Icons.error_outline, color: AppColors.textMuted, size: 48),
-                    const SizedBox(height: 12),
-                    Center(child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textMuted))),
-                    const SizedBox(height: 16),
-                    Center(child: TextButton(onPressed: _load, child: Text('Retry', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)))),
-                  ])
-                : _conversations.isEmpty
-                    ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-                        SizedBox(height: 120),
-                        Icon(Icons.chat_bubble_outline, size: 64, color: AppColors.textMuted),
-                        SizedBox(height: 16),
-                        Center(child: Text('No conversations yet', style: TextStyle(color: AppColors.text, fontSize: 15, fontWeight: FontWeight.w600))),
-                        SizedBox(height: 6),
-                        Center(child: Text('Messages appear after posting a job', style: TextStyle(color: AppColors.textMuted, fontSize: 12))),
-                      ])
-                    : ListView.builder(
+        color: theme.colorScheme.primary,
+        backgroundColor: theme.colorScheme.surface,
+        onRefresh: chat.fetchConversations,
+        child: chat.isLoading && conversations.isEmpty
+            ? const ShimmerList()
+            : chat.error != null && conversations.isEmpty
+                ? _buildError(theme, tokens, chat.error!, chat.fetchConversations)
+                : conversations.isEmpty
+                    ? _buildEmpty(theme, tokens)
+                    : ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: _conversations.length,
-                        itemBuilder: (_, i) {
-                          final convo = _conversations[i];
-                          final name = convo['name']?.toString() ?? 'User';
-                          final pic = convo['profilePic']?.toString() ?? '';
-                          final unread = (convo['unreadCount'] ?? 0) as int;
-                          return ListTile(
-                            leading: CircleAvatar(
-                              radius: 24,
-                              backgroundColor: AppColors.primary.withOpacity(0.15),
-                              backgroundImage: pic.isNotEmpty ? CachedNetworkImageProvider(pic) : null,
-                              child: pic.isEmpty ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)) : null,
-                            ),
-                            title: Text(name, style: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 15)),
-                            subtitle: Text(convo['lastMessage']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-                            trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                              Text(_timeAgo(convo['lastMessageTime']?.toString()), style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
-                              if (unread > 0) ...[
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.all(5),
-                                  decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                                  child: Text('$unread', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
-                            ]),
-                            onTap: () => context.push('/chat', extra: {
-                              'jobId': convo['jobId'],
-                              'otherUserId': convo['otherUserId'],
-                              'otherUserName': name,
-                              'otherUserAvatar': pic,
-                            }),
-                          );
-                        },
+                        padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+                        itemCount: conversations.length,
+                        separatorBuilder: (_, __) => Divider(color: tokens.border, height: 1, indent: 78),
+                        itemBuilder: (_, i) => _ConversationTile(convo: conversations[i], timeAgo: _timeAgo),
                       ),
       ),
+    );
+  }
+
+
+  Widget _buildError(ThemeData theme, AppTokens tokens, String error, Future<void> Function() onRetry) {
+    return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+      const SizedBox(height: 100),
+      Icon(Icons.error_outline_rounded, color: tokens.muted, size: 48),
+      const SizedBox(height: AppSpace.md),
+      Center(child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl), child: Text(error, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)))),
+      const SizedBox(height: AppSpace.md),
+      Center(child: TextButton(onPressed: onRetry, child: Text('Retry', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)))),
+    ]);
+  }
+
+  Widget _buildEmpty(ThemeData theme, AppTokens tokens) {
+    return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+      const SizedBox(height: 120),
+      Icon(Icons.chat_bubble_outline_rounded, size: 64, color: tokens.muted),
+      const SizedBox(height: AppSpace.md),
+      Center(child: Text('No conversations yet', style: theme.textTheme.titleMedium)),
+      const SizedBox(height: 4),
+      Center(child: Text('Messages appear after posting a job', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted))),
+    ]);
+  }
+}
+
+class _ConversationTile extends StatelessWidget {
+  final dynamic convo;
+  final String Function(String?) timeAgo;
+  const _ConversationTile({required this.convo, required this.timeAgo});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    final name = convo['name']?.toString() ?? 'User';
+    final pic = convo['profilePic']?.toString() ?? '';
+    final unread = (convo['unreadCount'] ?? 0) as int;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: 4),
+      leading: CircleAvatar(
+        radius: 26,
+        backgroundColor: tokens.brandSoft,
+        backgroundImage: pic.isNotEmpty ? CachedNetworkImageProvider(pic) : null,
+        child: pic.isEmpty ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)) : null,
+      ),
+      title: Text(name, style: theme.textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        convo['lastMessage']?.toString() ?? '',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(color: unread > 0 ? theme.colorScheme.onSurface : tokens.muted, fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal),
+      ),
+      trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Text(timeAgo(convo['lastMessageTime']?.toString()), style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+        if (unread > 0) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle),
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            child: Text('$unread', textAlign: TextAlign.center, style: theme.textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1.2)),
+          ),
+        ],
+      ]),
+      onTap: () => context.push('/chat', extra: {
+        'jobId': convo['jobId'],
+        'otherUserId': convo['otherUserId'],
+        'otherUserName': name,
+        'otherUserAvatar': pic,
+      }),
     );
   }
 }

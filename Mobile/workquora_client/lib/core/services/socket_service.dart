@@ -115,4 +115,41 @@ class SocketService {
     _socket?.off('messages_delivered');
     _socket?.off('messages_read');
   }
+
+  // Live job-tracking room (Backend/src/Sockets/socketHandler.js). The
+  // server authorizes the join against the job's client/assignedTo before
+  // adding the socket to room `jobId`; only the assigned freelancer is
+  // allowed to emit 'send_location' into it, which the server rebroadcasts
+  // to the room as 'receive_location'. The client only ever listens here —
+  // it never emits 'send_location' itself.
+  void joinJobRoom(String jobId) {
+    _socket?.emit('join_job_room', jobId);
+    debugPrint('[Socket] Joined job room: $jobId');
+  }
+
+  // There is no 'leave_job_room' handler on the backend (unlike chat's
+  // 'leave_room'), so there's nothing meaningful to emit here — the socket
+  // simply stays joined to the room server-side until it disconnects.
+  // "Unsubscribing" client-side means removing the local listener below so
+  // this screen stops reacting to further broadcasts once it's gone.
+  void onReceiveLocation(Function(Map<String, dynamic>) callback) {
+    _socket?.on('receive_location', (data) {
+      if (data is Map<String, dynamic>) callback(data);
+    });
+  }
+
+  void offReceiveLocation() => _socket?.off('receive_location');
+
+  // Every user auto-joins their own personal room (their user id) on
+  // connect (Backend/src/Sockets/socketHandler.js — see connect()'s doc
+  // comment above), and Backend/src/utils/notification.js broadcasts
+  // 'receive_notification' to that room whenever any createNotification()
+  // call fires. No join needed here — just listen.
+  void onReceiveNotification(Function(Map<String, dynamic>) callback) {
+    _socket?.on('receive_notification', (data) {
+      if (data is Map<String, dynamic>) callback(data);
+    });
+  }
+
+  void offReceiveNotification() => _socket?.off('receive_notification');
 }

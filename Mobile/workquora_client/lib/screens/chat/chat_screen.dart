@@ -2,12 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/chat_provider.dart';
 import '../../core/services/socket_service.dart';
 import '../../core/utils/error_helper.dart';
+import '../../theme/app_theme.dart';
+
+const _kMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 class ChatScreen extends StatefulWidget {
   final String jobId;
@@ -23,7 +26,8 @@ class ChatScreen extends StatefulWidget {
     this.otherUserAvatar,
   });
 
-  @override State<ChatScreen> createState() => _ChatScreenState();
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
@@ -53,14 +57,20 @@ class _ChatScreenState extends State<ChatScreen> {
       final res = await DioClient.instance.dio.get('/messages/${widget.jobId}/${widget.otherUserId}');
       // Response: { success, data: [...messages] } sorted oldest→newest.
       // Reversed here since the list is rendered with reverse: true.
+      if (!mounted) return;
       setState(() {
         _messages = List<Map<String, dynamic>>.from((res.data['data'] as List).reversed);
         _isLoading = false;
       });
+      // GET /messages/:jobId/:otherUserId marks these read server-side as a
+      // side effect — reflect that locally so the Messages badge updates
+      // instantly without a round trip.
+      context.read<ChatProvider>().markConversationRead(widget.jobId, widget.otherUserId);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: AppColors.error));
+      final tokens = Theme.of(context).extension<AppTokens>()!;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: tokens.danger));
     }
   }
 
@@ -139,7 +149,8 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.removeWhere((m) => m['_id'] == tempId);
         _isSending = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: AppColors.error));
+      final tokens = Theme.of(context).extension<AppTokens>()!;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: tokens.danger));
     }
   }
 
@@ -164,7 +175,45 @@ class _ChatScreenState extends State<ChatScreen> {
     return '$h:$m';
   }
 
-  Widget _buildMessageBubble(Map<String, dynamic> msg) {
+  DateTime? _dateOnly(Map<String, dynamic> msg) {
+    final iso = msg['createdAt']?.toString() ?? msg['timestamp']?.toString();
+    final dt = DateTime.tryParse(iso ?? '')?.toLocal();
+    if (dt == null) return null;
+    return DateTime(dt.year, dt.month, dt.day);
+  }
+
+  String _dateLabel(DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    return '${day.day} ${_kMonths[day.month - 1]}${day.year != now.year ? ' ${day.year}' : ''}';
+  }
+
+  // _messages is newest-first (index 0 = newest, rendered at the bottom by
+  // the reversed ListView). Builds the same newest-first list interleaved
+  // with date-separator markers, each placed right after the last message
+  // of its day — which renders directly above that day's first message
+  // once the list is flipped back to visual top-to-bottom order.
+  List<_ChatRow> _buildRows() {
+    final rows = <_ChatRow>[];
+    DateTime? lastDate;
+    for (final msg in _messages) {
+      final day = _dateOnly(msg);
+      if (lastDate != null && day != null && day != lastDate) {
+        rows.add(_ChatRow.date(lastDate));
+      }
+      rows.add(_ChatRow.message(msg));
+      lastDate = day ?? lastDate;
+    }
+    if (lastDate != null) rows.add(_ChatRow.date(lastDate));
+    return rows;
+  }
+
+  Widget _buildMessageBubble(BuildContext context, Map<String, dynamic> msg) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final isMe = (msg['sender'] ?? msg['senderId'])?.toString() == _myId;
     final isPending = msg['_pending'] == true;
     final text = msg['text']?.toString() ?? '';
@@ -173,10 +222,10 @@ class _ChatScreenState extends State<ChatScreen> {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: EdgeInsets.only(left: isMe ? 60 : 8, right: isMe ? 8 : 60, bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: EdgeInsets.only(left: isMe ? 60 : 4, right: isMe ? 4 : 60, bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.primary : AppColors.surfaceAlt,
+          color: isMe ? theme.colorScheme.primary : tokens.chipBg,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -188,16 +237,16 @@ class _ChatScreenState extends State<ChatScreen> {
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(text, style: const TextStyle(color: Colors.white, fontSize: 14)),
+            Text(text, style: theme.textTheme.bodyMedium?.copyWith(color: isMe ? Colors.white : theme.colorScheme.onSurface)),
             const SizedBox(height: 4),
             Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(time, style: const TextStyle(color: Colors.white60, fontSize: 10)),
+              Text(time, style: theme.textTheme.labelSmall?.copyWith(color: isMe ? Colors.white70 : tokens.muted, fontSize: 10)),
               if (isMe && isPending) ...[
                 const SizedBox(width: 4),
-                const Icon(Icons.access_time, size: 10, color: Colors.white60),
+                const Icon(Icons.access_time_rounded, size: 10, color: Colors.white70),
               ] else if (isMe) ...[
                 const SizedBox(width: 4),
-                const Icon(Icons.done_all, size: 10, color: Colors.white60),
+                const Icon(Icons.done_all_rounded, size: 10, color: Colors.white70),
               ],
             ]),
           ],
@@ -206,104 +255,142 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildInputBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+  Widget _buildDateSeparator(BuildContext context, DateTime day) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 4),
+          decoration: BoxDecoration(color: tokens.chipBg, borderRadius: BorderRadius.circular(AppRadius.chip)),
+          child: Text(_dateLabel(day), style: theme.textTheme.labelSmall?.copyWith(color: tokens.chipText, fontWeight: FontWeight.w600)),
+        ),
       ),
-      child: Row(children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(color: AppColors.surfaceAlt, borderRadius: BorderRadius.circular(24)),
-            child: TextField(
-              controller: _controller,
-              onChanged: _onTextChanged,
-              maxLines: 4,
-              minLines: 1,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                hintText: 'Type a message...',
-                hintStyle: TextStyle(color: Colors.grey),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    );
+  }
+
+  Widget _buildInputBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(AppSpace.md, AppSpace.sm, AppSpace.sm, AppSpace.md),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(top: BorderSide(color: tokens.border, width: 0.5)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(color: tokens.chipBg, borderRadius: BorderRadius.circular(24)),
+              child: TextField(
+                controller: _controller,
+                onChanged: _onTextChanged,
+                maxLines: 4,
+                minLines: 1,
+                style: theme.textTheme.bodyMedium,
+                decoration: const InputDecoration(
+                  hintText: 'Type a message…',
+                  filled: false,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.sm),
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: _sendMessage,
-          child: Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-            child: _isSending
-                ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.send, color: Colors.white, size: 20),
+          const SizedBox(width: AppSpace.sm),
+          GestureDetector(
+            onTap: _sendMessage,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle),
+              child: _isSending
+                  ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+            ),
           ),
-        ),
-      ]),
+        ]),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final avatar = widget.otherUserAvatar ?? '';
+    final rows = _buildRows();
+
     return Scaffold(
-      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        leading: const BackButton(),
         title: Row(children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: AppColors.primary.withOpacity(0.15),
+            backgroundColor: tokens.brandSoft,
             backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
             child: avatar.isEmpty
-                ? Text(widget.otherUserName.isNotEmpty ? widget.otherUserName[0].toUpperCase() : 'U', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14))
+                ? Text(widget.otherUserName.isNotEmpty ? widget.otherUserName[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 14))
                 : null,
           ),
-          const SizedBox(width: 10),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.otherUserName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-            const Text('WorkQuora Chat', style: TextStyle(color: Colors.grey, fontSize: 11)),
-          ]),
+          const SizedBox(width: AppSpace.sm),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(widget.otherUserName, style: theme.textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text('WorkQuora Chat', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+            ]),
+          ),
         ]),
-        actions: [
-          IconButton(icon: const Icon(Icons.info_outline), onPressed: null),
-        ],
       ),
       body: Column(children: [
         Expanded(
           child: _isLoading
-              ? Center(child: CircularProgressIndicator(color: AppColors.primary))
-              : ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _messages.length,
-                  itemBuilder: (ctx, i) => _buildMessageBubble(_messages[i]),
-                ),
+              ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
+              : rows.isEmpty
+                  ? Center(
+                      child: Text('Say hello to ${widget.otherUserName} 👋', style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      reverse: true,
+                      padding: const EdgeInsets.all(AppSpace.md),
+                      itemCount: rows.length,
+                      itemBuilder: (ctx, i) {
+                        final row = rows[i];
+                        return row.isDate ? _buildDateSeparator(ctx, row.date!) : _buildMessageBubble(ctx, row.message!);
+                      },
+                    ),
         ),
         if (_isOtherTyping)
           Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 4),
+            padding: const EdgeInsets.only(left: AppSpace.lg, bottom: AppSpace.xs),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text('${widget.otherUserName} is typing', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              const SizedBox(width: 4),
-              const _TypingDots(),
+              Text('${widget.otherUserName} is typing', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+              const SizedBox(width: AppSpace.xs),
+              _TypingDots(color: tokens.muted),
             ]),
           ),
-        _buildInputBar(),
+        _buildInputBar(context),
       ]),
     );
   }
 }
 
+class _ChatRow {
+  final Map<String, dynamic>? message;
+  final DateTime? date;
+  bool get isDate => date != null;
+  _ChatRow.message(this.message) : date = null;
+  _ChatRow.date(this.date) : message = null;
+}
+
 class _TypingDots extends StatefulWidget {
-  const _TypingDots();
-  @override State<_TypingDots> createState() => _TypingDotsState();
+  final Color color;
+  const _TypingDots({required this.color});
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
 }
 
 class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderStateMixin {
@@ -325,17 +412,24 @@ class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderState
   }
 
   @override
-  void dispose() { _ac.dispose(); super.dispose(); }
+  void dispose() {
+    _ac.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(3, (i) => Container(
-        width: 4, height: 4,
-        margin: const EdgeInsets.symmetric(horizontal: 1),
-        decoration: BoxDecoration(color: i == _dot ? Colors.grey : Colors.grey.withOpacity(0.3), shape: BoxShape.circle),
-      )),
+      children: List.generate(
+        3,
+        (i) => Container(
+          width: 4,
+          height: 4,
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          decoration: BoxDecoration(color: i == _dot ? widget.color : widget.color.withValues(alpha: 0.3), shape: BoxShape.circle),
+        ),
+      ),
     );
   }
 }
