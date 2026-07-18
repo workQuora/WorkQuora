@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/api_constants.dart';
-import '../constants/app_colors.dart';
 import '../network/dio_client.dart';
 import '../providers/jobs_provider.dart';
+import '../../theme/app_theme.dart';
 import 'mobile_location.dart' if (dart.library.html) 'web_location.dart';
 
 typedef LocationSelected = void Function(double lat, double lng, String label);
@@ -33,9 +33,10 @@ Future<bool> requestAndUseCurrentLocation(BuildContext context, {LocationSelecte
 /// [onSelected] to instead receive the pick as a one-off value without
 /// touching that global state (e.g. setting a specific job's location).
 Future<void> showLocationPicker(BuildContext context, {LocationSelected? onSelected}) async {
+  final theme = Theme.of(context);
   final wantsGps = await showModalBottomSheet<bool>(
     context: context,
-    backgroundColor: AppColors.surface,
+    backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
     isScrollControlled: true,
     builder: (_) => _LocationPickerSheet(onSelected: onSelected),
@@ -61,10 +62,11 @@ Future<void> showLocationPicker(BuildContext context, {LocationSelected? onSelec
       if (onSelected == null) {
         context.read<JobsProvider>().startLocationTracking();
       }
+      final tokens = theme.extension<AppTokens>()!;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('✓ Location updated'),
-        backgroundColor: AppColors.success,
-        duration: Duration(seconds: 2),
+        content: const Text('✓ Location updated'),
+        backgroundColor: tokens.success,
+        duration: const Duration(seconds: 2),
       ));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -127,16 +129,18 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: tokens.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 16),
 
-          Text('Set Your Location', style: TextStyle(color: AppColors.text, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('Set Your Location', style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text('Used to find workers near you', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          Text('Used to find workers near you', style: TextStyle(color: tokens.muted, fontSize: 12)),
           const SizedBox(height: 20),
 
           SizedBox(
@@ -145,7 +149,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
               icon: const Icon(Icons.my_location, color: Colors.white, size: 18),
               label: const Text('Use Current GPS Location', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: theme.colorScheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -154,20 +158,20 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
           ),
 
           const SizedBox(height: 20),
-          Divider(color: AppColors.border),
+          Divider(color: tokens.border),
           const SizedBox(height: 12),
 
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
-            style: TextStyle(color: AppColors.text),
+            style: TextStyle(color: theme.colorScheme.onSurface),
             decoration: InputDecoration(
               hintText: 'Search city, area or pincode...',
-              hintStyle: TextStyle(color: AppColors.textMuted),
-              prefixIcon: Icon(Icons.search, color: AppColors.primary),
+              hintStyle: TextStyle(color: tokens.muted),
+              prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: Icon(Icons.clear, color: AppColors.textMuted, size: 18),
+                      icon: Icon(Icons.clear, color: tokens.muted, size: 18),
                       onPressed: () {
                         _searchController.clear();
                         setState(() => _suggestions = []);
@@ -175,7 +179,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                     )
                   : null,
               filled: true,
-              fillColor: AppColors.bg,
+              fillColor: theme.scaffoldBackgroundColor,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
@@ -183,11 +187,11 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
           const SizedBox(height: 12),
 
           if (_isSearching)
-            Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: AppColors.primary)))
+            Center(child: Padding(padding: const EdgeInsets.all(20), child: CircularProgressIndicator(color: theme.colorScheme.primary)))
           else if (_searchController.text.trim().length >= 3 && _suggestions.isEmpty)
             Center(child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Text('No results found. Try different keywords.', style: TextStyle(color: AppColors.textMuted), textAlign: TextAlign.center),
+              padding: const EdgeInsets.all(20),
+              child: Text('No results found. Try different keywords.', style: TextStyle(color: tokens.muted), textAlign: TextAlign.center),
             ))
           else if (_suggestions.isNotEmpty)
             ListView.builder(
@@ -198,11 +202,11 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 final city = _suggestions[i];
                 return ListTile(
                   dense: true,
-                  leading: Icon(Icons.location_on, color: AppColors.primary, size: 20),
-                  title: Text(city['name'].toString(), style: TextStyle(color: AppColors.text, fontSize: 14)),
+                  leading: Icon(Icons.location_on, color: theme.colorScheme.primary, size: 20),
+                  title: Text(city['name'].toString(), style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 14)),
                   subtitle: Text(
                     '${(city['lat'] as double).toStringAsFixed(4)}, ${(city['lng'] as double).toStringAsFixed(4)}',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    style: TextStyle(color: tokens.muted, fontSize: 11),
                   ),
                   onTap: () async {
                     final lat = city['lat'] as double;
@@ -220,8 +224,8 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
             )
           else
             Center(child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Type at least 3 characters to search', style: TextStyle(color: AppColors.textMuted, fontSize: 12), textAlign: TextAlign.center),
+              padding: const EdgeInsets.all(16),
+              child: Text('Type at least 3 characters to search', style: TextStyle(color: tokens.muted, fontSize: 12), textAlign: TextAlign.center),
             )),
         ]),
       ),

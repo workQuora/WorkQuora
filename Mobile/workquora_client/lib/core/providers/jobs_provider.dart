@@ -8,6 +8,11 @@ class JobsProvider extends ChangeNotifier {
   List<dynamic> _nearbyWorkers = [];
   List<dynamic> _myJobs = [];
   bool _isLoading = false;
+  // Separate from _isLoading (which is nearby-workers-search-specific) —
+  // Home fires fetchMyJobs() and fetchNearbyWorkers() independently, so a
+  // shared flag would let one finishing flip isLoading off while the other
+  // is still in flight.
+  bool _isLoadingMyJobs = false;
   StreamSubscription<Position>? _locationSubscription;
 
   // Defaults to Delhi until the user picks a real location (see setLocation).
@@ -18,6 +23,7 @@ class JobsProvider extends ChangeNotifier {
   List<dynamic> get nearbyWorkers => _nearbyWorkers;
   List<dynamic> get myJobs => _myJobs;
   bool get isLoading => _isLoading;
+  bool get isLoadingMyJobs => _isLoadingMyJobs;
   double get currentLat => _currentLat;
   double get currentLng => _currentLng;
   String get locationLabel => _locationLabel;
@@ -75,11 +81,12 @@ class JobsProvider extends ChangeNotifier {
   }
 
   Future<void> fetchMyJobs() async {
+    _isLoadingMyJobs = true; notifyListeners();
     try {
       final res = await DioClient.instance.dio.get(ApiConstants.myJobs);
       _myJobs = res.data['data'] ?? res.data ?? [];
     } catch (_) { _myJobs = []; }
-    notifyListeners();
+    _isLoadingMyJobs = false; notifyListeners();
   }
 
   // Returns the newly-created job's _id on success, or null on failure —
