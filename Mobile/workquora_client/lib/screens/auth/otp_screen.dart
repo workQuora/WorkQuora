@@ -4,9 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/primary_button.dart';
+import '../client/terms_screen.dart' show kTermsAcceptedPrefsKey;
 
 class OtpScreen extends StatefulWidget {
   final String title;
@@ -89,7 +91,12 @@ class _OtpScreenState extends State<OtpScreen> {
       } else {
         // Email OTP is the sole registration gate now — it issues the token
         // directly, so there's no follow-up mobile-OTP screen to push to.
-        context.go('/home');
+        // Fresh registration: branding animation, then the full T&C screen
+        // once per device (SharedPreferences flag), then Home.
+        final prefs = await SharedPreferences.getInstance();
+        final termsAccepted = prefs.getBool(kTermsAcceptedPrefsKey) ?? false;
+        if (!mounted) return;
+        context.go('/success', extra: {'nextRoute': termsAccepted ? '/home' : '/terms-accept'});
       }
     } else {
       _pinCtrl.clear();

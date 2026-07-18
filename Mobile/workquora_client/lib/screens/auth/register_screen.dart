@@ -168,7 +168,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: AppSpace.md),
               PrimaryButton(label: 'Create account', onPressed: _register, loading: auth.isLoading),
               const SizedBox(height: AppSpace.lg),
-              SocialLoginButtons(onSuccess: () => context.go('/home')),
+              // Social sign-up also lands on Home directly (not T&C) — the
+              // response has no clean "brand-new account" signal at this
+              // call site the way the email/OTP registration flow does,
+              // and socialLogin's own controller doesn't collect
+              // agreedToTerms/agreedToPrivacy the way registerUser does.
+              // Known gap, not silently dropped — see Task 17 report.
+              SocialLoginButtons(onSuccess: () => context.go('/success', extra: {'nextRoute': '/home'})),
               const SizedBox(height: AppSpace.lg),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

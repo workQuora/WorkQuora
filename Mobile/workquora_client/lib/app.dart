@@ -16,6 +16,7 @@ import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/otp_screen.dart';
+import 'screens/auth/success_animation_screen.dart';
 import 'screens/client/dashboard_screen.dart';
 import 'screens/client/home_screen.dart';
 import 'screens/client/post_job_screen.dart';
@@ -96,6 +97,14 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
             );
           },
         ),
+        GoRoute(
+          path: '/success',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>;
+            return SuccessAnimationScreen(nextRoute: extra['nextRoute'] as String);
+          },
+        ),
+        GoRoute(path: '/terms-accept', builder: (_, __) => const TermsScreen(acceptanceMode: true)),
         ShellRoute(
           builder: (context, state, child) => ClientShell(child: child),
           routes: [
