@@ -95,6 +95,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 8),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+                child: ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
+              ),
+              const SizedBox(height: AppSpace.lg),
+              Text('WorkQuora', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary)),
+              const SizedBox(height: AppSpace.sm),
               Text('Create account', style: theme.textTheme.headlineMedium),
               const SizedBox(height: 4),
               Text('Post jobs & hire nearby workers', style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)),
