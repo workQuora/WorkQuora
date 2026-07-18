@@ -1,35 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../constants/app_colors.dart';
 
-/// Manages the app's light/dark theme mode, persists the choice, and keeps
-/// [AppColors]'s static palette flag in sync so `AppColors.xxx` getters
-/// return the right colors everywhere in the widget tree.
+ThemeMode? _themeModeFromString(String? value) => switch (value) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      'system' => ThemeMode.system,
+      _ => null,
+    };
+
+bool _resolvesDark(ThemeMode mode) => switch (mode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      ThemeMode.system => WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark,
+    };
+
+/// Persists and exposes the app's [ThemeMode] (light/dark/system).
+///
+/// [AppTheme].light/.dark (lib/theme/app_theme.dart) are pure functions of
+/// [Brightness] — every screen reads colors via `Theme.of(context)` +
+/// `Theme.of(context).extension<AppTokens>()`, never a mutable global, so
+/// there is nothing to sync here beyond the mode itself.
 class ThemeProvider extends ChangeNotifier {
-  static const _prefsKey = 'isDarkMode';
+  static const _prefsKey = 'themeMode';
 
   final SharedPreferences _prefs;
-  bool _isDarkMode;
+  ThemeMode _mode;
 
-  ThemeProvider(this._prefs) : _isDarkMode = _prefs.getBool(_prefsKey) ?? true {
-    // Sync AppColors immediately on construction (it defaults to dark too,
-    // but this makes the source of truth explicit and future-proof if the
-    // AppColors default ever changes).
-    AppColors.setDark(_isDarkMode);
-  }
+  ThemeProvider(this._prefs) : _mode = _themeModeFromString(_prefs.getString(_prefsKey)) ?? ThemeMode.dark;
 
-  bool get isDarkMode => _isDarkMode;
-  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+  ThemeMode get mode => _mode;
+  ThemeMode get themeMode => _mode;
 
-  Future<void> toggle() => setDarkMode(!_isDarkMode);
+  // Used by app.dart to pick the status bar icon brightness.
+  bool get isDarkMode => _resolvesDark(_mode);
 
-  Future<void> setDarkMode(bool value) async {
-    if (_isDarkMode == value) return;
-    _isDarkMode = value;
-    // Update the static palette flag *before* notifying listeners so any
-    // rebuild triggered by this change already reads the new colors.
-    AppColors.setDark(_isDarkMode);
-    await _prefs.setBool(_prefsKey, _isDarkMode);
+  Future<void> setMode(ThemeMode mode) async {
+    if (_mode == mode) return;
+    _mode = mode;
+    await _prefs.setString(_prefsKey, mode.name);
     notifyListeners();
   }
 }
