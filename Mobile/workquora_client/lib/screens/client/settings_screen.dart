@@ -47,9 +47,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final Set<String> _expanded = {'account'};
 
   bool _privacyLoaded = false;
-  bool _showEmail = false;
-  bool _showPhone = false;
-  bool _showEarnings = false;
   String _profileVisibility = 'public';
 
   bool _notifPrefsLoaded = false;
@@ -76,9 +73,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final data = res.data['data'] ?? {};
       if (!mounted) return;
       setState(() {
-        _showEmail = data['showEmail'] ?? false;
-        _showPhone = data['showPhone'] ?? false;
-        _showEarnings = data['showEarnings'] ?? false;
         _profileVisibility = data['profileVisibility'] ?? 'public';
         _privacyLoaded = true;
       });
@@ -527,18 +521,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (!_privacyLoaded)
               Padding(padding: const EdgeInsets.all(AppSpace.lg), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary, strokeWidth: 2)))
             else ...[
-              _toggle(Icons.email_outlined, 'Show Email', subtitle: 'Let others see your email', value: _showEmail, onChanged: (v) {
-                setState(() => _showEmail = v);
-                _updatePrivacy({'showEmail': v});
-              }),
-              _toggle(Icons.phone_outlined, 'Show Phone', subtitle: 'Let others see your mobile number', value: _showPhone, onChanged: (v) {
-                setState(() => _showPhone = v);
-                _updatePrivacy({'showPhone': v});
-              }),
-              _toggle(Icons.payments_outlined, 'Show Earnings', subtitle: 'Display your earnings publicly', value: _showEarnings, onChanged: (v) {
-                setState(() => _showEarnings = v);
-                _updatePrivacy({'showEarnings': v});
-              }),
               _tile(
                 Icons.visibility_outlined,
                 'Profile Visibility',
