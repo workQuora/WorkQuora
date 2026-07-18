@@ -1,7 +1,9 @@
+import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
@@ -38,10 +40,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Guards against a rapid double-tap calling showModalBottomSheet twice
-  // before the first sheet's route has settled — a known source of
-  // "GlobalKey was used multiple times" crashes in Flutter's Navigator.
-  bool _editProfileSheetOpen = false;
   bool _uploadingPhoto = false;
   bool _sendingEmailOtp = false;
   bool _sendingMobileOtp = false;
@@ -60,15 +58,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _changePhoto() async {
-    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1024);
+  Future<void> _showPhotoOptions(String photoUrl) async {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
+      builder: (sheetContext) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: Icon(Icons.add_a_photo_outlined, color: theme.colorScheme.primary),
+            title: Text(photoUrl.isEmpty ? 'Add Photo' : 'Change Photo'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _pickAndCropPhoto();
+            },
+          ),
+          if (photoUrl.isNotEmpty) ...[
+            ListTile(
+              leading: Icon(Icons.visibility_outlined, color: theme.colorScheme.primary),
+              title: const Text('View Photo'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _viewPhoto(photoUrl);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: tokens.danger),
+              title: Text('Remove Photo', style: TextStyle(color: tokens.danger)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _confirmRemovePhoto();
+              },
+            ),
+          ],
+          const SizedBox(height: AppSpace.sm),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _pickAndCropPhoto() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 90, maxWidth: 1600);
     if (image == null) return;
+    if (!mounted) return;
+    final theme = Theme.of(context);
+
+    CroppedFile? cropped;
+    try {
+      cropped = await ImageCropper().cropImage(
+        sourcePath: image.path,
+        compressQuality: 85,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Adjust Photo',
+            toolbarColor: theme.colorScheme.primary,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+            cropStyle: CropStyle.circle,
+          ),
+          IOSUiSettings(title: 'Adjust Photo', aspectRatioLockEnabled: true, cropStyle: CropStyle.circle),
+          WebUiSettings(context: context),
+        ],
+      );
+    } catch (e) {
+      if (mounted) _showSnack(kVerboseErrors ? ErrorHelper.debugDetail(e) : 'Could not open the crop editor', danger: true);
+      return;
+    }
+    if (cropped == null) return; // user cancelled the crop step
+    final bytes = await XFile(cropped.path).readAsBytes();
+    await _uploadPhotoBytes(bytes, cropped.path.split('/').last);
+  }
+
+  Future<void> _uploadPhotoBytes(Uint8List bytes, String filename) async {
     setState(() => _uploadingPhoto = true);
     try {
-      final bytes = await image.readAsBytes();
-      final formData = FormData.fromMap({
-        'photo': MultipartFile.fromBytes(bytes, filename: image.name),
-      });
+      final formData = FormData.fromMap({'photo': MultipartFile.fromBytes(bytes, filename: filename)});
       final res = await DioClient.instance.dio.post(ApiConstants.profilePhoto, data: formData);
       final url = res.data['profilePic'] as String?;
       if (!mounted) return;
@@ -77,27 +144,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        final tokens = Theme.of(context).extension<AppTokens>()!;
         final message = kVerboseErrors ? ErrorHelper.debugDetail(e) : ErrorHelper.extractError(e);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: tokens.danger));
+        _showSnack(message, danger: true);
       }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
     }
   }
 
-  Future<void> _showEditProfileSheet() async {
-    if (_editProfileSheetOpen) return;
-    _editProfileSheetOpen = true;
+  void _viewPhoto(String url) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(backgroundColor: Colors.black, iconTheme: const IconThemeData(color: Colors.white)),
+        body: Center(child: InteractiveViewer(child: CachedNetworkImage(imageUrl: url, fit: BoxFit.contain))),
+      ),
+    ));
+  }
+
+  Future<void> _confirmRemovePhoto() async {
     final theme = Theme.of(context);
-    await showModalBottomSheet(
+    final tokens = theme.extension<AppTokens>()!;
+    final confirmed = await showDialog<bool>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
-      builder: (_) => const EditProfileSheet(),
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+        title: const Text('Remove photo?'),
+        content: const Text('This removes your current profile photo.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text('Remove', style: TextStyle(color: tokens.danger))),
+        ],
+      ),
     );
-    _editProfileSheetOpen = false;
+    if (confirmed != true) return;
+    setState(() => _uploadingPhoto = true);
+    try {
+      await DioClient.instance.dio.delete(ApiConstants.profilePhoto);
+      if (!mounted) return;
+      context.read<AuthProvider>().patchUser({'profilePic': null, 'avatar': null});
+    } catch (e) {
+      if (mounted) _showSnack(kVerboseErrors ? ErrorHelper.debugDetail(e) : ErrorHelper.extractError(e), danger: true);
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
   }
 
   Future<void> _startVerify(String field, String email) async {
@@ -172,10 +262,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final auth = context.watch<AuthProvider>();
     final user = auth.user ?? {};
     final name = user['name']?.toString() ?? 'User';
+    final username = user['username']?.toString() ?? '';
     final email = user['email']?.toString() ?? '';
     final mobile = user['mobileNumber']?.toString() ?? '';
     final isEmailVerified = user['isEmailVerified'] == true;
     final isMobileVerified = user['isMobileVerified'] == true;
+    final fullyVerified = isEmailVerified && isMobileVerified;
+    final role = (user['role']?.toString() ?? 'CLIENT').toUpperCase();
+    final roleLabel = role == 'FREELANCER' ? 'Freelancer' : 'Client';
     final rating = (user['averageRating'] ?? 0.0).toDouble();
     final totalReviews = user['totalReviews'] ?? 0;
     final photoUrl = (user['profilePic'] ?? user['avatar'] ?? '').toString();
@@ -193,123 +287,129 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: theme.colorScheme.surface,
         onRefresh: () => auth.refreshUser(),
         child: ListView(
-        padding: const EdgeInsets.all(AppSpace.xl),
-        children: [
-          // Header
-          Center(
-            child: Column(children: [
-              GestureDetector(
-                onTap: _uploadingPhoto ? null : _changePhoto,
-                child: Stack(children: [
-                  Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(color: tokens.brandSoft, shape: BoxShape.circle, border: Border.all(color: tokens.border, width: 0.5)),
-                    child: ClipOval(
-                      child: _uploadingPhoto
-                          ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary, strokeWidth: 2))
-                          : (photoUrl.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: photoUrl,
-                                  fit: BoxFit.cover,
-                                  width: 88,
-                                  height: 88,
-                                  memCacheWidth: 264,
-                                  memCacheHeight: 264,
-                                  errorWidget: (_, __, ___) => Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold))),
-                                )
-                              : Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold)))),
+          padding: const EdgeInsets.all(AppSpace.xl),
+          children: [
+            // Header
+            Center(
+              child: Column(children: [
+                GestureDetector(
+                  onTap: _uploadingPhoto ? null : () => _showPhotoOptions(photoUrl),
+                  child: Stack(children: [
+                    Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(color: tokens.brandSoft, shape: BoxShape.circle, border: Border.all(color: tokens.border, width: 0.5)),
+                      child: ClipOval(
+                        child: _uploadingPhoto
+                            ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary, strokeWidth: 2))
+                            : (photoUrl.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: photoUrl,
+                                    fit: BoxFit.cover,
+                                    width: 88,
+                                    height: 88,
+                                    memCacheWidth: 264,
+                                    memCacheHeight: 264,
+                                    errorWidget: (_, __, ___) => Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold))),
+                                  )
+                                : Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold)))),
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle, border: Border.all(color: theme.colorScheme.surface, width: 2)),
-                      child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle, border: Border.all(color: theme.colorScheme.surface, width: 2)),
+                        child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                      ),
                     ),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: AppSpace.md),
-              Text(name, style: theme.textTheme.headlineMedium),
-              const SizedBox(height: 2),
-              Text('Client', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted, letterSpacing: 1)),
-              const SizedBox(height: AppSpace.sm),
-              if (rating > 0)
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  ...List.generate(5, (i) {
-                    final icon = i < rating.floor()
-                        ? Icons.star_rounded
-                        : (i < rating.ceil() && rating % 1 > 0)
-                            ? Icons.star_half_rounded
-                            : Icons.star_border_rounded;
-                    return Icon(icon, color: tokens.warning, size: 16);
-                  }),
-                  const SizedBox(width: AppSpace.xs),
-                  Text(rating.toStringAsFixed(1), style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
-                  Text(' ($totalReviews reviews)', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
-                ])
-              else
-                Text('No ratings yet', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
-              if (memberSince != null) ...[
-                const SizedBox(height: 4),
-                Text(memberSince, style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
-              ],
-              const SizedBox(height: AppSpace.md),
-              Wrap(spacing: AppSpace.sm, runSpacing: AppSpace.sm, alignment: WrapAlignment.center, children: [
-                _VerifyBadge(label: 'Email', verified: isEmailVerified, loading: _sendingEmailOtp, onTap: email.isEmpty ? null : () => _startVerify('email', email)),
-                _VerifyBadge(
-                  label: 'Mobile',
-                  verified: isMobileVerified,
-                  loading: _sendingMobileOtp,
-                  // Backend requires email verified before mobile can be —
-                  // gated here so tapping doesn't send an OTP that's
-                  // guaranteed to fail verification at the last step.
-                  onTap: mobile.isEmpty || email.isEmpty
-                      ? null
-                      : (!isEmailVerified
-                          ? () => _showSnack('Verify your email first', danger: true)
-                          : () => _startVerify('mobile', email)),
+                  ]),
                 ),
-              ]),
-              if (_verifyingField != null) ...[
                 const SizedBox(height: AppSpace.md),
-                _InlineOtpBox(
-                  label: _verifyingField == 'email' ? 'Email' : 'Mobile',
-                  controller: _otpCtrl,
-                  error: _otpError,
-                  submitting: _submittingOtp,
-                  onSubmit: () => _submitOtp(email),
-                  onCancel: _cancelVerify,
-                  onResend: () => _startVerify(_verifyingField!, email),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Flexible(child: Text(name, style: theme.textTheme.headlineMedium, overflow: TextOverflow.ellipsis)),
+                  if (fullyVerified) ...[
+                    const SizedBox(width: AppSpace.xs),
+                    Icon(Icons.verified_rounded, color: theme.colorScheme.primary, size: 20),
+                  ],
+                ]),
+                if (username.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text('@$username', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+                ],
+                const SizedBox(height: AppSpace.xs),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 4),
+                  decoration: BoxDecoration(color: tokens.chipBg, borderRadius: BorderRadius.circular(AppRadius.chip)),
+                  child: Text(roleLabel, style: theme.textTheme.labelSmall?.copyWith(color: tokens.chipText, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
                 ),
-              ],
-            ]),
-          ),
-          const SizedBox(height: AppSpace.xl),
-          Divider(color: tokens.border, height: 1),
-          const SizedBox(height: AppSpace.md),
+                const SizedBox(height: AppSpace.sm),
+                if (rating > 0)
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    ...List.generate(5, (i) {
+                      final icon = i < rating.floor()
+                          ? Icons.star_rounded
+                          : (i < rating.ceil() && rating % 1 > 0)
+                              ? Icons.star_half_rounded
+                              : Icons.star_border_rounded;
+                      return Icon(icon, color: tokens.warning, size: 16);
+                    }),
+                    const SizedBox(width: AppSpace.xs),
+                    Text(rating.toStringAsFixed(1), style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(' ($totalReviews reviews)', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+                  ])
+                else
+                  Text('No ratings yet', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+                if (memberSince != null) ...[
+                  const SizedBox(height: 4),
+                  Text(memberSince, style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+                ],
+                const SizedBox(height: AppSpace.md),
+                // Once both are verified, the badges collapse into the single
+                // blue tick next to the name above — otherwise, prompt for
+                // whichever is still missing (email first, since the backend
+                // requires it before mobile can be verified at all).
+                if (!fullyVerified)
+                  (!isEmailVerified
+                      ? _VerifyBadge(label: 'Email', verified: false, loading: _sendingEmailOtp, onTap: email.isEmpty ? null : () => _startVerify('email', email))
+                      : _VerifyBadge(label: 'Mobile', verified: false, loading: _sendingMobileOtp, onTap: mobile.isEmpty ? null : () => _startVerify('mobile', email))),
+                if (_verifyingField != null) ...[
+                  const SizedBox(height: AppSpace.md),
+                  _InlineOtpBox(
+                    label: _verifyingField == 'email' ? 'Email' : 'Mobile',
+                    controller: _otpCtrl,
+                    error: _otpError,
+                    submitting: _submittingOtp,
+                    onSubmit: () => _submitOtp(email),
+                    onCancel: _cancelVerify,
+                    onResend: () => _startVerify(_verifyingField!, email),
+                  ),
+                ],
+              ]),
+            ),
+            const SizedBox(height: AppSpace.xl),
+            Divider(color: tokens.border, height: 1),
+            const SizedBox(height: AppSpace.md),
 
-          // Sections
-          _SectionRow(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: _showEditProfileSheet),
-          _SectionRow(icon: Icons.work_outline_rounded, label: 'My Jobs', onTap: () => context.push('/my-jobs')),
-          _SectionRow(icon: Icons.notifications_outlined, label: 'Notifications', onTap: () => context.push('/notifications')),
-          _SectionRow(icon: Icons.settings_outlined, label: 'Settings', onTap: () => context.push('/settings')),
-          _SectionRow(icon: Icons.description_outlined, label: 'Terms & Conditions', onTap: () => context.push('/terms')),
-          const SizedBox(height: AppSpace.md),
-          _SectionRow(
-            icon: Icons.logout_rounded,
-            label: 'Logout',
-            danger: true,
-            onTap: () async {
-              await auth.logout();
-              if (context.mounted) context.go('/login');
-            },
-          ),
-        ],
+            // Sections
+            _SectionRow(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: () => context.push('/edit-profile')),
+            _SectionRow(icon: Icons.work_outline_rounded, label: 'My Jobs', onTap: () => context.push('/my-jobs')),
+            _SectionRow(icon: Icons.notifications_outlined, label: 'Notifications', onTap: () => context.push('/notifications')),
+            _SectionRow(icon: Icons.settings_outlined, label: 'Settings', onTap: () => context.push('/settings')),
+            _SectionRow(icon: Icons.description_outlined, label: 'Terms & Conditions', onTap: () => context.push('/terms')),
+            const SizedBox(height: AppSpace.md),
+            _SectionRow(
+              icon: Icons.logout_rounded,
+              label: 'Logout',
+              danger: true,
+              onTap: () async {
+                await auth.logout();
+                if (context.mounted) context.go('/login');
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -431,84 +531,6 @@ class _SectionRow extends StatelessWidget {
             if (!danger) Icon(Icons.chevron_right_rounded, color: tokens.muted, size: 20),
           ]),
         ),
-      ),
-    );
-  }
-}
-
-class EditProfileSheet extends StatefulWidget {
-  const EditProfileSheet({super.key});
-  @override
-  State<EditProfileSheet> createState() => EditProfileSheetState();
-}
-
-class EditProfileSheetState extends State<EditProfileSheet> {
-  late final TextEditingController _nameCtrl;
-  late final TextEditingController _bioCtrl;
-  late final TextEditingController _skillsCtrl;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final user = context.read<AuthProvider>().user ?? {};
-    _nameCtrl = TextEditingController(text: user['name'] ?? '');
-    _bioCtrl = TextEditingController(text: user['bio'] ?? '');
-    final skills = user['skills'];
-    _skillsCtrl = TextEditingController(text: skills is List ? skills.join(', ') : '');
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _bioCtrl.dispose();
-    _skillsCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    final skills = _skillsCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-    final ok = await context.read<AuthProvider>().updateProfile({
-      'name': _nameCtrl.text.trim(),
-      'bio': _bioCtrl.text.trim(),
-      'skills': skills,
-    });
-    if (!mounted) return;
-    setState(() => _saving = false);
-    final theme = Theme.of(context);
-    final tokens = theme.extension<AppTokens>()!;
-    if (ok) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Profile updated'), backgroundColor: tokens.success));
-    } else {
-      final err = context.read<AuthProvider>().error ?? 'Failed to update profile';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: tokens.danger));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = theme.extension<AppTokens>()!;
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpace.xl),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: tokens.border, borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: AppSpace.lg),
-          Text('Edit Profile', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: AppSpace.lg),
-          TextField(controller: _nameCtrl, decoration: const InputDecoration(hintText: 'Full Name', prefixIcon: Icon(Icons.person_outline))),
-          const SizedBox(height: AppSpace.md),
-          TextField(controller: _bioCtrl, maxLines: 3, decoration: const InputDecoration(hintText: 'Bio', prefixIcon: Icon(Icons.info_outline))),
-          const SizedBox(height: AppSpace.md),
-          TextField(controller: _skillsCtrl, decoration: const InputDecoration(hintText: 'Skills (comma separated)', prefixIcon: Icon(Icons.star_outline))),
-          const SizedBox(height: AppSpace.xl),
-          PrimaryButton(label: 'Save Changes', loading: _saving, onPressed: _save),
-          const SizedBox(height: AppSpace.sm),
-        ]),
       ),
     );
   }
