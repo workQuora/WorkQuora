@@ -245,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      _showError(ErrorHelper.extractError(e));
+      _showError(kVerboseErrors ? ErrorHelper.debugDetail(e) : ErrorHelper.extractError(e));
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
     }
