@@ -14,25 +14,20 @@ import '../../core/utils/error_helper.dart';
 import '../../core/utils/location_picker.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/primary_button.dart';
-import 'profile_screen.dart' show EditProfileSheet;
 
-// The 12 real categories on Backend/src/models/NotificationPreference.js,
-// each with {email, sms, push, inApp} channels
-// (Backend/src/controllers/settingsController.js). Only the push channel is
-// exposed here — a 12x4 toggle grid would be unreadable on a phone — but
-// the endpoint accepts partial per-channel updates, so email/sms/inApp can
-// be added as rows later with no backend change.
+// Backend/src/models/NotificationPreference.js has 12 categories total
+// (each with {email, sms, push, inApp} channels) — the other 6 (Proposals,
+// Chat [duplicate of Messages], Payments, Wallet Activity, Escrow Updates,
+// AI Suggestions) aren't relevant to this client app and were removed from
+// this list rather than just hidden. Only the push channel is exposed here
+// — a full grid would be unreadable on a phone — but the endpoint accepts
+// partial per-channel updates, so email/sms/inApp can be added as rows
+// later with no backend change.
 const _kNotifCategories = [
   (key: 'jobs', icon: Icons.work_outline_rounded, label: 'Job Updates'),
-  (key: 'proposals', icon: Icons.description_outlined, label: 'Proposals'),
   (key: 'messages', icon: Icons.chat_bubble_outline_rounded, label: 'Messages'),
-  (key: 'chat', icon: Icons.forum_outlined, label: 'Chat'),
-  (key: 'payments', icon: Icons.payments_outlined, label: 'Payments'),
-  (key: 'wallet', icon: Icons.account_balance_wallet_outlined, label: 'Wallet Activity'),
-  (key: 'escrow', icon: Icons.shield_outlined, label: 'Escrow Updates'),
   (key: 'security', icon: Icons.security_outlined, label: 'Security Alerts'),
   (key: 'systemUpdates', icon: Icons.system_update_outlined, label: 'System Updates'),
-  (key: 'aiSuggestions', icon: Icons.auto_awesome_outlined, label: 'AI Suggestions'),
   (key: 'marketing', icon: Icons.campaign_outlined, label: 'Marketing'),
   (key: 'promotions', icon: Icons.local_offer_outlined, label: 'Promotions'),
 ];
@@ -124,21 +119,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  bool _editProfileSheetOpen = false;
-
-  Future<void> _showEditProfileSheet() async {
-    if (_editProfileSheetOpen) return;
-    _editProfileSheetOpen = true;
-    final theme = Theme.of(context);
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
-      builder: (_) => const EditProfileSheet(),
-    );
-    _editProfileSheetOpen = false;
-  }
 
   bool _changePasswordSheetOpen = false;
 
@@ -504,7 +484,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
         children: [
           _sectionCard(id: 'account', icon: Icons.person_outline_rounded, title: 'Account', children: [
-            _tile(Icons.edit_outlined, 'Edit Profile', subtitle: user['name']?.toString(), trailing: _arrow, onTap: _showEditProfileSheet),
+            _tile(Icons.edit_outlined, 'Edit Profile', subtitle: user['name']?.toString(), trailing: _arrow, onTap: () => context.push('/edit-profile')),
             _tile(
               Icons.camera_alt_outlined,
               'Change Photo',
