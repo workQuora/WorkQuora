@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// Fixed bottom nav used on every screen: Home · Messages · Post (center,
-/// raised) · History · Profile. [currentIndex] uses the same 0..4 indexing
+/// raised) · Dashboard · Profile. [currentIndex] uses the same 0..4 indexing
 /// as the tab list (Post is index 2); [onTap] receives that index for all
 /// five items, including the raised center button.
 class BottomNav extends StatelessWidget {
@@ -18,7 +18,7 @@ class BottomNav extends StatelessWidget {
     (icon: Icons.home_rounded, outlineIcon: Icons.home_outlined, label: 'Home'),
     (icon: Icons.chat_bubble_rounded, outlineIcon: Icons.chat_bubble_outline_rounded, label: 'Messages'),
     (icon: Icons.add, outlineIcon: Icons.add, label: 'Post'),
-    (icon: Icons.history_rounded, outlineIcon: Icons.history_outlined, label: 'History'),
+    (icon: Icons.dashboard_rounded, outlineIcon: Icons.dashboard_outlined, label: 'Dashboard'),
     (icon: Icons.person_rounded, outlineIcon: Icons.person_outline_rounded, label: 'Profile'),
   ];
 
