@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Modify this file to customize your launch splash screen -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+    <!-- Matches AppColors.brand in lib/theme/app_theme.dart. minSdk is 21,
+         so drawable-v21/ is what real devices actually use — this pre-21
+         fallback is kept in sync for completeness. -->
+    <item android:drawable="@color/launch_background" />
 
     <!-- You can insert your own image assets here -->
     <!-- <item>

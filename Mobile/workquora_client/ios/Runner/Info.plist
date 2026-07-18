@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Workquora Client</string>
+	<string>WorkQuora</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,11 +31,55 @@
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>WorkQuora uses your location to show nearby workers</string>
 	<key>NSCameraUsageDescription</key>
-	<string>WorkQuora needs camera access to let you take photos for jobs, your profile, and video calls</string>
+	<string>WorkQuora needs camera access to let you take photos for jobs and your profile</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>WorkQuora needs photo library access to let you upload photos for jobs and your profile</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>WorkQuora needs microphone access for voice search and audio/video calls</string>
+
+	<!-- Google Sign-In — REPLACE with the iOS OAuth client ID registered for
+	     bundle id com.workquora.workquoraClient in the SAME Google Cloud
+	     project as GOOGLE_CLIENT_ID in Backend/.env (console.cloud.google.com
+	     → APIs & Services → Credentials → Create Credentials → OAuth client ID
+	     → iOS). CFBundleURLSchemes below must be that client ID's segments
+	     reversed (e.g. com.googleusercontent.apps.XXXXXXXX). See CLAUDE.md. -->
+	<key>GIDClientID</key>
+	<string>REPLACE_WITH_IOS_GOOGLE_CLIENT_ID.apps.googleusercontent.com</string>
+
+	<!-- Facebook Login — App ID is real (same one the web app already uses,
+	     Frontend/.env VITE_FACEBOOK_APP_ID). FacebookClientToken must still be
+	     filled in from developers.facebook.com → your app → Settings →
+	     Advanced → Client Token. See CLAUDE.md. -->
+	<key>FacebookAppID</key>
+	<string>1968251410635776</string>
+	<key>FacebookClientToken</key>
+	<string>REPLACE_WITH_FACEBOOK_CLIENT_TOKEN</string>
+	<key>FacebookDisplayName</key>
+	<string>WorkQuora</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>fbapi</string>
+		<string>fb-messenger-share-api</string>
+		<string>fbauth2</string>
+		<string>fbshareextension</string>
+	</array>
+
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Google: reversed iOS client ID, see GIDClientID above -->
+				<string>REPLACE_WITH_REVERSED_IOS_GOOGLE_CLIENT_ID</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Facebook: fb + your App ID, already correct since the App ID is real -->
+				<string>fb1968251410635776</string>
+			</array>
+		</dict>
+	</array>
+
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

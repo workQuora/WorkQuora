@@ -1,5 +1,6 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+# google_maps_flutter_ios requires 14.0+ — must match IPHONEOS_DEPLOYMENT_TARGET
+# in Runner.xcodeproj/project.pbxproj (all 3 build configs).
+platform :ios, '14.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'

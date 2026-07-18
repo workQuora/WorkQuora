@@ -6,8 +6,6 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 
     <application
         android:label="WorkQuora"
@@ -34,6 +32,26 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Facebook Login — values in res/values/strings.xml. App ID is
+             real; facebook_client_token is a placeholder, see CLAUDE.md. -->
+        <meta-data
+            android:name="com.facebook.sdk.ApplicationId"
+            android:value="@string/facebook_app_id" />
+        <meta-data
+            android:name="com.facebook.sdk.ClientToken"
+            android:value="@string/facebook_client_token" />
+
+        <!-- Google Sign-In needs no manifest entry for the default flow —
+             it's discovered via the Android OAuth client registered for this
+             app's package name + SHA-1 in Google Cloud Console. See
+             CLAUDE.md for the exact steps and the debug SHA-1 command. -->
+
+        <!-- Google Maps SDK — placeholder key, see CLAUDE.md for the exact
+             Google Cloud Console steps to generate a real one. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="REPLACE_WITH_ANDROID_MAPS_API_KEY" />
     </application>
     <queries>
         <intent>

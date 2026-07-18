@@ -29,6 +29,15 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
+  <!-- Google Sign-In (web) — needs a WEB OAuth client from the same Google
+       Cloud project as Backend/.env's GOOGLE_CLIENT_ID, with this app's dev
+       origin (e.g. http://localhost:PORT) added under Authorized JavaScript
+       origins. See CLAUDE.md for exact console steps. Required by
+       google_sign_in_web regardless of the Android/iOS client IDs used
+       elsewhere — this is only for testing the client in a browser. -->
+  <meta name="google-signin-client_id" content="REPLACE_WITH_WEB_GOOGLE_CLIENT_ID.apps.googleusercontent.com">
+
+
   <title>workquora_client</title>
   <link rel="manifest" href="manifest.json">
 </head>
