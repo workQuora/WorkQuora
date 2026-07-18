@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/utils/error_helper.dart';
 import '../../core/utils/reverify.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/primary_button.dart';
@@ -60,10 +61,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (url != null) {
         context.read<AuthProvider>().patchUser({'profilePic': url, 'avatar': url});
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         final tokens = Theme.of(context).extension<AppTokens>()!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Failed to upload photo'), backgroundColor: tokens.danger));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ErrorHelper.extractError(e)), backgroundColor: tokens.danger));
       }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
@@ -147,6 +148,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   fit: BoxFit.cover,
                                   width: 88,
                                   height: 88,
+                                  memCacheWidth: 264,
+                                  memCacheHeight: 264,
                                   errorWidget: (_, __, ___) => Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold))),
                                 )
                               : Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold)))),
@@ -208,10 +211,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Sections
           _SectionRow(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: _showEditProfileSheet),
           _SectionRow(icon: Icons.work_outline_rounded, label: 'My Jobs', onTap: () => context.push('/my-jobs')),
-          // Wallet already shows transaction history inline — a separate
-          // "Payments/Transactions" row would point at the same screen, so
-          // it's folded into this one row rather than duplicated.
-          _SectionRow(icon: Icons.account_balance_wallet_outlined, label: 'Wallet & Payments', onTap: () => context.push('/wallet')),
           _SectionRow(icon: Icons.notifications_outlined, label: 'Notifications', onTap: () => context.push('/notifications')),
           _SectionRow(icon: Icons.settings_outlined, label: 'Settings', onTap: () => context.push('/settings')),
           _SectionRow(icon: Icons.description_outlined, label: 'Terms & Conditions', onTap: () => context.push('/terms')),
