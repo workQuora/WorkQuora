@@ -11,6 +11,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/jobs_provider.dart';
+import '../../core/providers/notifications_provider.dart';
 import '../../core/utils/error_helper.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/primary_button.dart';
@@ -255,6 +257,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return 'Member since ${_kMonths[dt.month - 1]} ${dt.year}';
   }
 
+  // No dedicated reviews-list screen exists — a lightweight in-place summary
+  // of the rating already on the user document, rather than a new screen.
+  void _showReviewsSummary(double rating, dynamic totalReviews) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+        title: const Text('Your Rating'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            ...List.generate(5, (i) {
+              final icon = i < rating.floor()
+                  ? Icons.star_rounded
+                  : (i < rating.ceil() && rating % 1 > 0)
+                      ? Icons.star_half_rounded
+                      : Icons.star_border_rounded;
+              return Icon(icon, color: tokens.warning, size: 22);
+            }),
+          ]),
+          const SizedBox(height: AppSpace.sm),
+          Text('${rating.toStringAsFixed(1)} out of 5', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text('Based on $totalReviews review${totalReviews == 1 ? '' : 's'}', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+        ]),
+        actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Close'))],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -274,6 +307,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final totalReviews = user['totalReviews'] ?? 0;
     final photoUrl = (user['profilePic'] ?? user['avatar'] ?? '').toString();
     final memberSince = _memberSince(user['createdAt']);
+
+    final activeJobCount = context.watch<JobsProvider>().myJobs.where((j) => j['status'] == 'in-progress').length;
+    final unreadCount = context.select<NotificationsProvider, int>((p) => p.unreadCount);
+
+    // Prompt for whichever verification is still missing (email first, since
+    // the backend requires it before mobile can be verified at all).
+    final unverifiedField = !isEmailVerified ? 'email' : (!isMobileVerified ? 'mobile' : null);
 
     return Scaffold(
       appBar: AppBar(
@@ -296,9 +336,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: _uploadingPhoto ? null : () => _showPhotoOptions(photoUrl),
                   child: Stack(children: [
                     Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(color: tokens.brandSoft, shape: BoxShape.circle, border: Border.all(color: tokens.border, width: 0.5)),
+                      width: 104,
+                      height: 104,
+                      decoration: BoxDecoration(color: tokens.brandSoft, shape: BoxShape.circle, border: Border.all(color: theme.colorScheme.primary, width: 2.5)),
                       child: ClipOval(
                         child: _uploadingPhoto
                             ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary, strokeWidth: 2))
@@ -306,23 +346,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? CachedNetworkImage(
                                     imageUrl: photoUrl,
                                     fit: BoxFit.cover,
-                                    width: 88,
-                                    height: 88,
-                                    memCacheWidth: 264,
-                                    memCacheHeight: 264,
-                                    errorWidget: (_, __, ___) => Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold))),
+                                    width: 104,
+                                    height: 104,
+                                    memCacheWidth: 312,
+                                    memCacheHeight: 312,
+                                    errorWidget: (_, __, ___) => Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 40, fontWeight: FontWeight.bold))),
                                   )
-                                : Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 36, fontWeight: FontWeight.bold)))),
+                                : Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontSize: 40, fontWeight: FontWeight.bold)))),
                       ),
                     ),
                     Positioned(
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        width: 28,
-                        height: 28,
+                        width: 30,
+                        height: 30,
                         decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle, border: Border.all(color: theme.colorScheme.surface, width: 2)),
-                        child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                        child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 15),
                       ),
                     ),
                   ]),
@@ -368,13 +408,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
                 const SizedBox(height: AppSpace.md),
                 // Once both are verified, the badges collapse into the single
-                // blue tick next to the name above — otherwise, prompt for
-                // whichever is still missing (email first, since the backend
-                // requires it before mobile can be verified at all).
-                if (!fullyVerified)
-                  (!isEmailVerified
-                      ? _VerifyBadge(label: 'Email', verified: false, loading: _sendingEmailOtp, onTap: email.isEmpty ? null : () => _startVerify('email', email))
-                      : _VerifyBadge(label: 'Mobile', verified: false, loading: _sendingMobileOtp, onTap: mobile.isEmpty ? null : () => _startVerify('mobile', email))),
+                // blue tick next to the name above — otherwise, a prominent
+                // warning-colored button prompts for whichever is still
+                // missing (email first, since the backend requires it before
+                // mobile can be verified at all).
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: AppSpace.sm,
+                  runSpacing: AppSpace.sm,
+                  children: [
+                    if (unverifiedField != null)
+                      _QuickActionButton(
+                        icon: Icons.error_outline_rounded,
+                        label: 'Verify ${unverifiedField == 'email' ? 'Email' : 'Mobile'}',
+                        color: tokens.warning,
+                        loading: unverifiedField == 'email' ? _sendingEmailOtp : _sendingMobileOtp,
+                        onTap: () {
+                          final target = unverifiedField == 'email' ? email : mobile;
+                          if (target.isEmpty) return;
+                          _startVerify(unverifiedField, email);
+                        },
+                      ),
+                    _QuickActionButton(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit Profile',
+                      color: theme.colorScheme.primary,
+                      onTap: () => context.push('/edit-profile'),
+                    ),
+                    if (rating > 0)
+                      _QuickActionButton(
+                        icon: Icons.star_outline_rounded,
+                        label: 'View Reviews',
+                        color: tokens.success,
+                        onTap: () => _showReviewsSummary(rating, totalReviews),
+                      ),
+                  ],
+                ),
                 if (_verifyingField != null) ...[
                   const SizedBox(height: AppSpace.md),
                   _InlineOtpBox(
@@ -390,16 +459,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ]),
             ),
             const SizedBox(height: AppSpace.xl),
-            Divider(color: tokens.border, height: 1),
-            const SizedBox(height: AppSpace.md),
 
             // Sections
             _SectionRow(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: () => context.push('/edit-profile')),
-            _SectionRow(icon: Icons.work_outline_rounded, label: 'My Jobs', onTap: () => context.push('/my-jobs')),
-            _SectionRow(icon: Icons.notifications_outlined, label: 'Notifications', onTap: () => context.push('/notifications')),
+            const SizedBox(height: AppSpace.sm),
+            _SectionRow(
+              icon: Icons.work_outline_rounded,
+              label: 'My Jobs',
+              onTap: () => context.push('/my-jobs'),
+              badgeText: activeJobCount > 0 ? '$activeJobCount ACTIVE' : null,
+              badgeColor: tokens.success,
+            ),
+            const SizedBox(height: AppSpace.sm),
+            _SectionRow(
+              icon: Icons.notifications_outlined,
+              label: 'Notifications',
+              onTap: () => context.push('/notifications'),
+              showDot: unreadCount > 0,
+              dotColor: tokens.danger,
+            ),
+            const SizedBox(height: AppSpace.sm),
             _SectionRow(icon: Icons.settings_outlined, label: 'Settings', onTap: () => context.push('/settings')),
+            const SizedBox(height: AppSpace.sm),
             _SectionRow(icon: Icons.description_outlined, label: 'Terms & Conditions', onTap: () => context.push('/terms')),
-            const SizedBox(height: AppSpace.md),
+            const SizedBox(height: AppSpace.sm),
             _SectionRow(
               icon: Icons.logout_rounded,
               label: 'Logout',
@@ -408,6 +491,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 await auth.logout();
                 if (context.mounted) context.go('/login');
               },
+            ),
+            const SizedBox(height: AppSpace.xl),
+            Center(
+              child: Text(
+                'WorkQuora v1.2 • Secure & Encrypted Connection',
+                style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),
@@ -470,35 +561,34 @@ class _InlineOtpBox extends StatelessWidget {
   }
 }
 
-class _VerifyBadge extends StatelessWidget {
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
   final String label;
-  final bool verified;
+  final Color color;
   final bool loading;
   final VoidCallback? onTap;
-  const _VerifyBadge({required this.label, required this.verified, required this.loading, required this.onTap});
+  const _QuickActionButton({required this.icon, required this.label, required this.color, this.loading = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tokens = theme.extension<AppTokens>()!;
-    final color = verified ? tokens.success : tokens.warning;
-
-    return GestureDetector(
-      onTap: verified ? null : (loading ? null : onTap),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 6),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(AppRadius.chip), border: Border.all(color: color.withValues(alpha: 0.3))),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (loading)
-            SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.5, color: color))
-          else
-            Icon(verified ? Icons.check_circle_rounded : Icons.error_outline_rounded, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            verified ? '$label Verified' : (onTap == null ? '$label Unverified' : 'Verify $label'),
-            style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.bold),
-          ),
-        ]),
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(AppRadius.chip),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.chip),
+        onTap: loading ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (loading)
+              SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 1.5, color: color))
+            else
+              Icon(icon, size: 15, color: color),
+            const SizedBox(width: 6),
+            Text(label, style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.bold)),
+          ]),
+        ),
       ),
     );
   }
@@ -509,7 +599,20 @@ class _SectionRow extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool danger;
-  const _SectionRow({required this.icon, required this.label, required this.onTap, this.danger = false});
+  final String? badgeText;
+  final Color? badgeColor;
+  final bool showDot;
+  final Color? dotColor;
+  const _SectionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+    this.badgeText,
+    this.badgeColor,
+    this.showDot = false,
+    this.dotColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -517,19 +620,42 @@ class _SectionRow extends StatelessWidget {
     final tokens = theme.extension<AppTokens>()!;
     final color = danger ? tokens.danger : theme.colorScheme.onSurface;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.button),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-          child: Row(children: [
-            Icon(icon, size: 20, color: danger ? tokens.danger : tokens.muted),
-            const SizedBox(width: AppSpace.md),
-            Expanded(child: Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: color, fontWeight: danger ? FontWeight.w600 : FontWeight.normal))),
-            if (!danger) Icon(Icons.chevron_right_rounded, color: tokens.muted, size: 20),
-          ]),
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: tokens.border, width: 0.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.md, horizontal: AppSpace.md),
+            child: Row(children: [
+              Stack(clipBehavior: Clip.none, children: [
+                Icon(icon, size: 20, color: danger ? tokens.danger : tokens.muted),
+                if (showDot)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor ?? tokens.danger, shape: BoxShape.circle)),
+                  ),
+              ]),
+              const SizedBox(width: AppSpace.md),
+              Expanded(child: Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: color, fontWeight: danger ? FontWeight.w600 : FontWeight.normal))),
+              if (badgeText != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 3),
+                  decoration: BoxDecoration(color: (badgeColor ?? tokens.success).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(AppRadius.chip)),
+                  child: Text(badgeText!, style: theme.textTheme.labelSmall?.copyWith(color: badgeColor ?? tokens.success, fontWeight: FontWeight.bold, fontSize: 10)),
+                ),
+                const SizedBox(width: AppSpace.sm),
+              ],
+              if (!danger) Icon(Icons.chevron_right_rounded, color: tokens.muted, size: 20),
+            ]),
+          ),
         ),
       ),
     );

@@ -6,7 +6,6 @@ import '../../core/providers/jobs_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_bar_brand.dart';
 import '../../widgets/app_card.dart';
-import '../../widgets/category_tile.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/shimmer_list.dart';
 import '../../widgets/status_chip.dart';
@@ -78,13 +77,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     const SectionHeader(title: 'Quick Stats'),
                     const SizedBox(height: AppSpace.md),
-                    Row(children: [
-                      Expanded(child: _StatTile(label: 'Posted', value: '${allJobs.length}', icon: Icons.work_outline_rounded)),
-                      const SizedBox(width: AppSpace.sm),
-                      Expanded(child: _StatTile(label: 'Completed', value: '${completedJobs.length}', icon: Icons.check_circle_outline_rounded)),
-                      const SizedBox(width: AppSpace.sm),
-                      Expanded(child: _StatTile(label: 'Spent', value: '₹${spent.toInt()}', icon: Icons.currency_rupee_rounded)),
-                    ]),
+                    SizedBox(
+                      height: 96,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          SizedBox(width: 110, child: _StatTile(label: 'Posted', value: '${allJobs.length}', icon: Icons.work_outline_rounded, highlighted: true)),
+                          const SizedBox(width: AppSpace.sm),
+                          SizedBox(width: 110, child: _StatTile(label: 'Completed', value: '${completedJobs.length}', icon: Icons.check_circle_outline_rounded)),
+                          const SizedBox(width: AppSpace.sm),
+                          SizedBox(width: 110, child: _StatTile(label: 'Spent', value: '₹${spent.toInt()}', icon: Icons.currency_rupee_rounded)),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: AppSpace.xl),
 
                     const SectionHeader(title: 'Recent Activity'),
@@ -92,7 +97,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (recentFive.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: AppSpace.xl),
-                        child: Center(child: Text('No activity yet', style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted))),
+                        child: Center(
+                          child: Column(children: [
+                            Text('No activity yet', style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)),
+                            const SizedBox(height: AppSpace.xs),
+                            Text('Jobs you post will show up here', style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+                          ]),
+                        ),
                       )
                     else
                       ...recentFive.map((job) {
@@ -117,7 +128,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SectionHeader(title: 'Popular Services'),
                     const SizedBox(height: AppSpace.md),
                     SizedBox(
-                      height: 150,
+                      height: 180,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: kCategories.length,
@@ -125,8 +136,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         itemBuilder: (_, i) {
                           final cat = kCategories[i];
                           return SizedBox(
-                            width: 130,
-                            child: CategoryTile(
+                            width: 140,
+                            child: _PopularServiceCard(
                               label: cat.label,
                               imagePath: cat.image,
                               fallbackIcon: cat.icon,
@@ -182,21 +193,97 @@ class _StatTile extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
-  const _StatTile({required this.label, required this.value, required this.icon});
+  final bool highlighted;
+  const _StatTile({required this.label, required this.value, required this.icon, this.highlighted = false});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = theme.extension<AppTokens>()!;
-    return AppCard(
+
+    if (!highlighted) {
+      return AppCard(
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.md, horizontal: AppSpace.sm),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: theme.colorScheme.primary, size: 20),
+          const SizedBox(height: AppSpace.xs),
+          Text(value, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 2),
+          Text(label, style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+        ]),
+      );
+    }
+
+    return Container(
       padding: const EdgeInsets.symmetric(vertical: AppSpace.md, horizontal: AppSpace.sm),
-      child: Column(children: [
-        Icon(icon, color: theme.colorScheme.primary, size: 20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, color: theme.colorScheme.onPrimary, size: 20),
         const SizedBox(height: AppSpace.xs),
-        Text(value, style: theme.textTheme.titleMedium),
+        Text(value, style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary)),
         const SizedBox(height: 2),
-        Text(label, style: theme.textTheme.labelSmall?.copyWith(color: tokens.muted)),
+        Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onPrimary.withValues(alpha: 0.85))),
       ]),
+    );
+  }
+}
+
+class _PopularServiceCard extends StatelessWidget {
+  final String label;
+  final String imagePath;
+  final IconData fallbackIcon;
+  final VoidCallback onTap;
+  const _PopularServiceCard({required this.label, required this.imagePath, required this.fallbackIcon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: tokens.border, width: 0.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 1.6,
+            child: Image.asset(
+              imagePath,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: tokens.brandSoft,
+                child: Icon(fallbackIcon, color: theme.colorScheme.primary, size: 28),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpace.sm, AppSpace.sm, AppSpace.sm, AppSpace.xs),
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpace.sm, 0, AppSpace.sm, AppSpace.sm),
+            child: InkWell(
+              onTap: onTap,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Book', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 2),
+                  Icon(Icons.arrow_forward_rounded, size: 14, color: theme.colorScheme.primary),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

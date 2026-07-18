@@ -92,76 +92,77 @@ class _HomeScreenState extends State<HomeScreen> {
     'cook': Icons.restaurant_rounded,
   };
 
+  // Horizontal scrolling row (was a 2-col GridView) — each card fixed at
+  // 100px wide, with a "See all" tile pinned at the end that opens Post Job,
+  // the only existing screen that already lists every category.
   Widget _buildCategorySection(BuildContext context, CategoriesProvider categoriesProvider) {
     if (categoriesProvider.isLoading && categoriesProvider.categories.isEmpty) {
-      return const ShimmerList(count: 6, crossAxisCount: 2, padding: EdgeInsets.zero, shrinkWrap: true);
-    }
-    if (categoriesProvider.categories.isNotEmpty) {
-      return _buildCategoryGrid(
-        count: categoriesProvider.categories.length,
-        tileBuilder: (i) {
-          final cat = categoriesProvider.categories[i];
-          return CategoryTile(
-            label: cat.name,
-            imagePath: 'assets/images/categories/${cat.slug}.webp',
-            imageUrl: cat.imageUrl,
-            fallbackIcon: _kSlugIcons[cat.slug] ?? Icons.handyman_rounded,
-            onTap: () => context.push('/post-job', extra: {'category': cat.name}),
-          );
-        },
+      return SizedBox(
+        height: 132,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 5,
+          separatorBuilder: (_, __) => const SizedBox(width: AppSpace.md),
+          itemBuilder: (_, __) => const SizedBox(width: 100, child: ShimmerList(count: 1, crossAxisCount: 1, padding: EdgeInsets.zero, shrinkWrap: true)),
+        ),
       );
     }
-    // Silent fallback — no error banner, just the local hardcoded list.
-    return _buildCategoryGrid(
-      count: kCategories.length,
-      tileBuilder: (i) {
-        final cat = kCategories[i];
-        return CategoryTile(
-          label: cat.label,
-          imagePath: cat.image,
-          fallbackIcon: cat.icon,
-          onTap: () => context.push('/post-job', extra: {'category': cat.label}),
-        );
-      },
-    );
-  }
 
-  // Shared 2-column grid for both the API-driven and local-fallback category
-  // lists. An odd item count leaves its last tile centered full-width in
-  // its own row instead of stranded in the grid's left cell.
-  Widget _buildCategoryGrid({required int count, required Widget Function(int) tileBuilder}) {
-    final isOdd = count.isOdd;
-    final gridCount = isOdd ? count - 1 : count;
-    return Column(children: [
-      GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: gridCount,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: AppSpace.md,
-          crossAxisSpacing: AppSpace.md,
-          childAspectRatio: 1.5,
-        ),
-        itemBuilder: (_, i) => tileBuilder(i),
+    final useApi = categoriesProvider.categories.isNotEmpty;
+    final count = useApi ? categoriesProvider.categories.length : kCategories.length;
+
+    Widget tileFor(int i) {
+      if (useApi) {
+        final cat = categoriesProvider.categories[i];
+        return CategoryTile(
+          label: cat.name,
+          imagePath: 'assets/images/categories/${cat.slug}.webp',
+          imageUrl: cat.imageUrl,
+          fallbackIcon: _kSlugIcons[cat.slug] ?? Icons.handyman_rounded,
+          onTap: () => context.push('/post-job', extra: {'category': cat.name}),
+        );
+      }
+      // Silent fallback — no error banner, just the local hardcoded list.
+      final cat = kCategories[i];
+      return CategoryTile(
+        label: cat.label,
+        imagePath: cat.image,
+        fallbackIcon: cat.icon,
+        onTap: () => context.push('/post-job', extra: {'category': cat.label}),
+      );
+    }
+
+    return SizedBox(
+      height: 132,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: count + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpace.md),
+        itemBuilder: (_, i) {
+          if (i == count) {
+            return SizedBox(
+              width: 100,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppRadius.card),
+                onTap: () => context.push('/post-job'),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(color: Theme.of(context).extension<AppTokens>()!.brandSoft, shape: BoxShape.circle),
+                    child: Icon(Icons.arrow_forward_rounded, color: Theme.of(context).colorScheme.primary),
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  Text('See all', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            );
+          }
+          return SizedBox(width: 100, child: tileFor(i));
+        },
       ),
-      if (isOdd)
-        Padding(
-          padding: const EdgeInsets.only(top: AppSpace.md),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final tileWidth = (constraints.maxWidth - AppSpace.md) / 2;
-              return Center(
-                child: SizedBox(
-                  width: tileWidth,
-                  height: tileWidth / 1.5,
-                  child: tileBuilder(count - 1),
-                ),
-              );
-            },
-          ),
-        ),
-    ]);
+    );
   }
 
   @override
@@ -280,6 +281,7 @@ class _ActiveJobCard extends StatelessWidget {
     // show it when present, skip the row entirely rather than fake it.
     final worker = job['assignedFreelancerInfo'] ?? job['freelancerInfo'] ?? job['hiredFreelancerInfo'];
     final workerName = worker is Map ? worker['name']?.toString() : null;
+    final workerPic = worker is Map ? (worker['profilePic'] ?? worker['avatar'])?.toString() ?? '' : '';
 
     return AppCard(
       onTap: id.isEmpty ? null : () => context.push('/job/$id/track'),
@@ -297,22 +299,43 @@ class _ActiveJobCard extends StatelessWidget {
             ],
           ),
           if (workerName != null) ...[
-            const SizedBox(height: AppSpace.sm),
+            const SizedBox(height: AppSpace.md),
             Row(
               children: [
-                Icon(Icons.person_outline_rounded, size: 16, color: tokens.muted),
-                const SizedBox(width: AppSpace.xs),
-                Text(workerName, style: theme.textTheme.labelSmall),
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: tokens.brandSoft,
+                  backgroundImage: workerPic.isNotEmpty ? ResizeImage(NetworkImage(workerPic), width: 96, height: 96) : null,
+                  child: workerPic.isEmpty
+                      ? Text(workerName.isNotEmpty ? workerName[0].toUpperCase() : 'W',
+                          style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 12))
+                      : null,
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(workerName, style: theme.textTheme.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text('Technician is on the way', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
               ],
             ),
           ],
-          const SizedBox(height: AppSpace.sm),
-          Row(
-            children: [
-              Icon(Icons.near_me_rounded, size: 14, color: theme.colorScheme.primary),
-              const SizedBox(width: 4),
-              Text('Track live', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
-            ],
+          const SizedBox(height: AppSpace.md),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: id.isEmpty ? null : () => context.push('/job/$id/track'),
+              icon: const Icon(Icons.near_me_rounded, size: 16),
+              label: const Text('Track Live'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
+              ),
+            ),
           ),
         ],
       ),
