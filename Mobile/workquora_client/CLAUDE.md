@@ -26,28 +26,89 @@
 - Category tiles are **image-forward**: photo on top, label below. See "Category images" below.
 - Status = pill chips using `chipBg`/`chipText`. App bar: menu · "WorkQuora" wordmark · bell w/ unread dot.
 
-## Category images
+## Category catalog (backend) + seeding
 
-`CategoryTile` (`lib/widgets/category_tile.dart`) already degrades gracefully —
-`Image.asset(...).errorBuilder` falls back to an icon-on-tint tile when the
-file doesn't exist, so the app never ships a broken image. `assets/images/categories/`
-is currently **empty**; drop in these exact 7 filenames (referenced by
-`lib/screens/client/home_screen.dart`'s `_kCategories`) to have real photos
-take over automatically, no code change needed:
+Home's category grid (`lib/screens/client/home_screen.dart`) is now
+API-driven: `GET /api/v1/categories` (public, no auth) returns active
+categories sorted by `order`, backed by a new `Category` model
+(`Backend/src/models/Category.js`). `CategoriesProvider` fetches it with a
+5-minute in-memory cache; on any failure it falls back silently (no error
+UI) to the old local hardcoded list in `lib/core/constants/categories.dart`
+— that file is deliberately kept, not deleted, for exactly this reason.
 
-| Category | Filename |
-|---|---|
-| Electrician | `electrician.jpg` |
-| Plumber | `plumber.jpg` |
-| AC Repair | `ac_repair.jpg` |
-| Painter | `painter.jpg` |
-| Maid | `maid.jpg` |
-| Cook | `cook.jpg` |
-| Mechanic | `mechanic.jpg` |
+**The `Category` collection starts empty on a fresh deploy — it needs
+seeding once after every deploy that doesn't already have it populated.**
+Seeding is idempotent (upsert by `slug`), so re-running it is always safe.
 
-Spec: **1.4:1 aspect ratio** (matches `CategoryTile`'s `AspectRatio(aspectRatio: 1.4)`),
-at least **1000×714px** so they stay sharp on high-density phones, JPEG, ideally
-under ~200KB each (these load in a scrolling grid — don't ship unoptimized photos).
+1. Get an admin access token:
+   ```bash
+   curl -X POST https://workquora.onrender.com/api/admin/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email": "YOUR_ADMIN_EMAIL", "password": "YOUR_ADMIN_PASSWORD"}'
+   ```
+   Copy the `accessToken` field from the response. This is the **real** admin
+   auth system (`Backend/src/modules/admin`, `AdminUser` model, its own
+   `ADMIN_JWT_SECRET`) — not `User.role === 'ADMIN'` on the regular account
+   model, which has no self-service assignment path
+   (`registerUser`/`assignRole` only ever allow `CLIENT`/`FREELANCER`) and so
+   isn't a usable admin login in practice.
+2. Seed the 9 categories:
+   ```bash
+   curl -X POST https://workquora.onrender.com/api/v1/admin/categories/seed \
+     -H "Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN"
+   ```
+   Response lists all 9 upserted documents. Safe to call again after any
+   redeploy — it won't duplicate or reset `isActive` on categories edited
+   since.
+3. Confirm it's live: `curl https://workquora.onrender.com/api/v1/categories`
+   (no auth needed) should return the 9 categories.
+4. To add a category later (e.g. carpenter/security_guard/driver) or swap
+   one image without a full re-seed:
+   ```bash
+   curl -X PATCH https://workquora.onrender.com/api/v1/admin/categories/carpenter/image \
+     -H "Authorization: Bearer YOUR_ADMIN_ACCESS_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"imageUrl": "https://..."}'
+   ```
+   This only updates `imageUrl` on an existing category — creating a
+   brand-new category (not already in the seed set) needs a direct DB
+   insert or an extension to `seedCategories`, not this endpoint.
+
+## Category images (local fallback)
+
+Two separate local fallback layers exist, both handled by `CategoryTile`
+(`lib/widgets/category_tile.dart`) degrading gracefully — an
+`Image.asset(...).errorBuilder`/`CachedNetworkImage.errorWidget` falls back
+to an icon-on-tint tile when nothing resolves, so the app never ships a
+broken image:
+
+1. **Network-image fallback** (used when the API's `imageUrl` for a
+   category fails to load): `assets/images/categories/{slug}.webp` — one
+   file per seeded slug (`ac_repair`, `painter`, `labour`, `plumber`,
+   `maid`, `electrician`, `mechanic`, `raj_mistri`, `cook`). None of these
+   exist on disk yet.
+2. **Full API-outage fallback** (used when `GET /categories` itself fails):
+   the old local-only 7-category list in
+   `lib/core/constants/categories.dart`, referencing these exact filenames
+   in `assets/images/categories/`:
+
+   | Category | Filename |
+   |---|---|
+   | Electrician | `electrician.jpg` |
+   | Plumber | `plumber.jpg` |
+   | AC Repair | `ac_repair.jpg` |
+   | Painter | `painter.jpg` |
+   | Maid | `maid.jpg` |
+   | Cook | `cook.jpg` |
+   | Mechanic | `mechanic.jpg` |
+
+   Also empty on disk today — this fallback currently degrades further to
+   the icon-on-tint tile, same as it did before this task.
+
+Spec for either set: **1.4:1 aspect ratio** (matches `CategoryTile`'s
+`AspectRatio(aspectRatio: 1.4)`), at least **1000×714px** so they stay
+sharp on high-density phones, ideally under ~200KB each (these load in a
+scrolling grid — don't ship unoptimized photos).
 
 ## Native config checklist — every placeholder still needing a real value
 
