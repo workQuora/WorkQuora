@@ -8,7 +8,6 @@ import 'core/providers/job_detail_provider.dart';
 import 'core/providers/jobs_provider.dart';
 import 'core/providers/notifications_provider.dart';
 import 'core/providers/theme_provider.dart';
-import 'core/providers/wallet_provider.dart';
 import 'core/network/dio_client.dart';
 import 'core/services/socket_service.dart';
 import 'theme/app_theme.dart';
@@ -17,9 +16,9 @@ import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/otp_screen.dart';
+import 'screens/client/dashboard_screen.dart';
 import 'screens/client/home_screen.dart';
 import 'screens/client/post_job_screen.dart';
-import 'screens/client/wallet_screen.dart';
 import 'screens/client/profile_screen.dart';
 import 'screens/client/worker_detail_screen.dart';
 import 'screens/client/notifications_screen.dart';
@@ -108,7 +107,7 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
               ),
             ),
             GoRoute(
-                path: '/my-jobs', builder: (_, __) => const MyJobsScreen()),
+                path: '/dashboard', builder: (_, __) => const DashboardScreen()),
             GoRoute(
                 path: '/profile', builder: (_, __) => const ProfileScreen()),
           ],
@@ -126,6 +125,10 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
         GoRoute(
             path: '/conversations',
             builder: (_, __) => const ConversationsScreen()),
+        // Not a bottom-nav tab anymore (Dashboard replaced it) — reachable
+        // from Profile → My Jobs instead, pushed the same way /conversations is.
+        GoRoute(
+            path: '/my-jobs', builder: (_, __) => const MyJobsScreen()),
         GoRoute(
           path: '/chat',
           builder: (context, state) {
@@ -138,10 +141,6 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
             );
           },
         ),
-        // Phase A: client KYC removed. Wallet is reachable from Settings
-        // (balance/transaction history) but is no longer a bottom-nav tab —
-        // History (/my-jobs) replaced it, per the new nav.
-        GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
         GoRoute(
           path: '/job/:jobId',
           builder: (context, state) =>
@@ -170,7 +169,6 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
       context.read<JobsProvider>().reset();
       context.read<ChatProvider>().reset();
       context.read<NotificationsProvider>().reset();
-      context.read<WalletProvider>().reset();
       context.read<JobDetailProvider>().reset();
       // ThemeProvider is deliberately NOT reset — theme mode is a device
       // preference, not per-account data; it should survive a logout.
@@ -246,7 +244,7 @@ class _ClientShellState extends State<ClientShell> {
   // Messages (index 1) isn't a shell route — /conversations lives outside
   // the ShellRoute, so it's pushed rather than switched to like the other
   // persistent tabs. null marks that slot.
-  final _tabs = ['/home', null, '/post-job', '/my-jobs', '/profile'];
+  final _tabs = ['/home', null, '/post-job', '/dashboard', '/profile'];
 
   void _onTap(int i) async {
     final path = _tabs[i];
@@ -254,7 +252,7 @@ class _ClientShellState extends State<ClientShell> {
       // Not a shell route — pushed on top instead of switched to. Refresh
       // on return so the badge reflects whatever got read while it was open.
       await context.push('/conversations');
-      if (mounted) context.read<ChatProvider>().fetchConversations();
+      if (mounted) context.read<ChatProvider>().fetchConversations(force: true);
       return;
     }
     setState(() => _currentIndex = i);
@@ -263,7 +261,11 @@ class _ClientShellState extends State<ClientShell> {
 
   @override
   Widget build(BuildContext context) {
-    final unreadMessages = context.watch<ChatProvider>().totalUnreadCount;
+    // select, not watch — this shell wraps every tab, and a full watch would
+    // rebuild the Scaffold/BottomNav on any conversation-list change (e.g. a
+    // live message updating lastMessage text) even when the unread total
+    // itself hasn't moved.
+    final unreadMessages = context.select<ChatProvider, int>((c) => c.totalUnreadCount);
     return Scaffold(
       body: widget.child,
       bottomNavigationBar: BottomNav(currentIndex: _currentIndex, onTap: _onTap, unreadMessages: unreadMessages),
