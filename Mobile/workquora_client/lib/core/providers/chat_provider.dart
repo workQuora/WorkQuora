@@ -44,4 +44,14 @@ class ChatProvider extends ChangeNotifier {
     _conversations[idx] = convo;
     notifyListeners();
   }
+
+  // Called on logout (see app.dart) — otherwise a different account's next
+  // login would briefly show the previous account's conversation list and
+  // unread badge until the first fetchConversations() overwrites it.
+  void reset() {
+    _conversations = [];
+    _isLoading = false;
+    _error = null;
+    notifyListeners();
+  }
 }

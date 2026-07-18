@@ -65,11 +65,25 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
 
   @override
   void dispose() {
+    // No-op if _joinAndListen was never registered (job had no assigned
+    // worker yet) — List.remove() is safe to call either way.
+    SocketService().removeOnConnectListener(_joinAndListen);
     SocketService().offReceiveLocation();
     _tweenController.dispose();
     _mapController?.dispose();
     context.read<JobDetailProvider>().reset();
     super.dispose();
+  }
+
+  // Called once the assigned worker is known AND on every socket reconnect
+  // — a reconnect after the socket was suspended/killed in the background
+  // can be a brand-new underlying connection server-side, which doesn't
+  // remember this room membership. offReceiveLocation() before on() keeps
+  // this idempotent.
+  void _joinAndListen() {
+    SocketService().joinJobRoom(widget.jobId);
+    SocketService().offReceiveLocation();
+    SocketService().onReceiveLocation(_onLocationUpdate);
   }
 
   Future<void> _init() async {
@@ -95,8 +109,8 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
 
     if (hasWorker) {
       _fetchWorkerProfile(workerId);
-      SocketService().joinJobRoom(widget.jobId);
-      SocketService().onReceiveLocation(_onLocationUpdate);
+      _joinAndListen();
+      SocketService().addOnConnectListener(_joinAndListen);
     }
 
     _fetchClientLocation();

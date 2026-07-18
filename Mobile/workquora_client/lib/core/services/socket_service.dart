@@ -10,6 +10,22 @@ class SocketService {
   IO.Socket? _socket;
   bool get isConnected => _socket?.connected ?? false;
 
+  // Fires on every successful (re)connect — the initial one, socket.io's own
+  // automatic transport-level reconnection, AND a fresh connect() call made
+  // after reconnection attempts were exhausted (e.g. the app was backgrounded
+  // long enough that the OS suspended the socket and setReconnectionAttempts
+  // ran out). A reconnect in the last two cases can mean a brand-new
+  // underlying connection server-side, which does NOT remember previously
+  // `.join()`-ed rooms — anything that depends on room membership or a live
+  // listener re-establishes itself here rather than assuming a join/listen
+  // from screen-open time survives indefinitely. Deliberately NOT cleared in
+  // disconnect(): NotificationsProvider registers once for its own lifetime
+  // (== the app's), so it must still fire after a later logout/login cycle.
+  final List<void Function()> _onConnectListeners = [];
+
+  void addOnConnectListener(void Function() callback) => _onConnectListeners.add(callback);
+  void removeOnConnectListener(void Function() callback) => _onConnectListeners.remove(callback);
+
   void connect(String token) {
     if (_socket?.connected == true) return;
 
@@ -30,7 +46,12 @@ class SocketService {
 
     _socket!.connect();
 
-    _socket!.onConnect((_) => debugPrint('[Socket] Connected'));
+    _socket!.onConnect((_) {
+      debugPrint('[Socket] Connected');
+      for (final cb in List<void Function()>.of(_onConnectListeners)) {
+        cb();
+      }
+    });
     _socket!.onDisconnect((_) => debugPrint('[Socket] Disconnected'));
     _socket!.onConnectError((e) => debugPrint('[Socket] Error: $e'));
     // No 'setup' emit needed — the server auto-joins the personal room

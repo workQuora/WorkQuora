@@ -4,8 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/providers/chat_provider.dart';
+import 'core/providers/job_detail_provider.dart';
+import 'core/providers/jobs_provider.dart';
+import 'core/providers/notifications_provider.dart';
 import 'core/providers/theme_provider.dart';
+import 'core/providers/wallet_provider.dart';
 import 'core/network/dio_client.dart';
+import 'core/services/socket_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/bottom_nav.dart';
 import 'screens/auth/splash_screen.dart';
@@ -33,13 +38,24 @@ class WorkQuoraClientApp extends StatefulWidget {
   State<WorkQuoraClientApp> createState() => _WorkQuoraClientAppState();
 }
 
-class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
+class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBindingObserver {
   late final GoRouter _router;
+  late final AuthProvider _auth;
+  bool _wasAuthenticated = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final auth = context.read<AuthProvider>();
+    _auth = auth;
+    _wasAuthenticated = auth.isAuthenticated;
+    // Every provider clears its own state and unsubscribes/rejoins nothing
+    // it shouldn't — the two real logout paths (this Settings-driven one and
+    // DioClient.onSessionExpired below) both go through AuthProvider.logout(),
+    // so hooking the transition here covers both without duplicating the
+    // reset call at every call site.
+    auth.addListener(_onAuthChanged);
 
     // Built exactly once. refreshListenable re-runs `redirect` whenever
     // AuthProvider calls notifyListeners() — without ever recreating the
@@ -143,6 +159,49 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> {
       auth.logout();
       _router.go('/login');
     };
+  }
+
+  // Fires on every AuthProvider.notifyListeners() call, so it must check the
+  // actual true->false transition rather than resetting on every auth event
+  // (login/register also notify, sometimes twice in one flow).
+  void _onAuthChanged() {
+    final isAuth = _auth.isAuthenticated;
+    if (_wasAuthenticated && !isAuth) {
+      context.read<JobsProvider>().reset();
+      context.read<ChatProvider>().reset();
+      context.read<NotificationsProvider>().reset();
+      context.read<WalletProvider>().reset();
+      context.read<JobDetailProvider>().reset();
+      // ThemeProvider is deliberately NOT reset — theme mode is a device
+      // preference, not per-account data; it should survive a logout.
+    }
+    _wasAuthenticated = isAuth;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // socket_io_client's own enableReconnection() already recovers from
+    // brief network blips without any help — this only matters for the
+    // longer case: the app was backgrounded long enough that the OS
+    // suspended the socket and its 5 automatic reconnection attempts (see
+    // SocketService.connect) were exhausted while we weren't watching. If
+    // still authenticated and genuinely disconnected, reconnect explicitly;
+    // SocketService's onConnect listeners (NotificationsProvider, any open
+    // ChatScreen/JobTrackingScreen) re-subscribe/re-join themselves once the
+    // resulting 'connect' event fires.
+    if (_auth.isAuthenticated && !SocketService().isConnected) {
+      DioClient.instance.getToken().then((token) {
+        if (token != null) SocketService().connect(token);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _auth.removeListener(_onAuthChanged);
+    super.dispose();
   }
 
   @override

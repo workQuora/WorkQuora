@@ -10,11 +10,17 @@ class NotificationsProvider extends ChangeNotifier {
   List<dynamic> _notifications = [];
   bool _isLoading = false;
   String? _error;
-  // Guards against SocketService.onReceiveNotification() being called more
-  // than once — fetchNotifications() runs on every pull-to-refresh, but
-  // SocketService.on() stacks listeners rather than replacing them, so a
-  // careless re-subscribe there would double (then triple, ...) live inserts.
-  bool _socketSubscribed = false;
+
+  NotificationsProvider() {
+    // Registered once for this provider's whole lifetime (== the app's —
+    // it's never recreated across logout/login). Fires on every socket
+    // connect: the first one after login, and any later reconnect (app
+    // resumed after the socket was suspended/killed in the background, or a
+    // fresh login after a previous logout). _subscribeToLive() itself is
+    // idempotent (off() before on()), so it's safe even if 'connect' fires
+    // more than once without an intervening disconnect.
+    SocketService().addOnConnectListener(_subscribeToLive);
+  }
 
   List<dynamic> get notifications => _notifications;
   bool get isLoading => _isLoading;
@@ -33,16 +39,10 @@ class NotificationsProvider extends ChangeNotifier {
     }
     _isLoading = false;
     notifyListeners();
-    // Only actually attaches once the socket exists (post-login) — see the
-    // guard comment on the field above for why this lives here rather than
-    // in the constructor, which runs before login at app start.
-    _subscribeToLive();
   }
 
   void _subscribeToLive() {
-    if (_socketSubscribed) return;
-    if (!SocketService().isConnected) return;
-    _socketSubscribed = true;
+    SocketService().offReceiveNotification();
     SocketService().onReceiveNotification((data) {
       _notifications = [data, ..._notifications];
       notifyListeners();
@@ -79,5 +79,18 @@ class NotificationsProvider extends ChangeNotifier {
     } catch (_) {
       // Non-fatal — optimistic update stands even if the sync failed.
     }
+  }
+
+  // Called on logout (see app.dart) — otherwise a different account's next
+  // login would briefly show the previous account's notifications and
+  // unread badge until the first fetchNotifications() overwrites it. The
+  // live-listener itself doesn't need re-registering here (addOnConnectListener
+  // was only ever called once, in the constructor, and keeps firing on every
+  // future connect regardless of how many logout/login cycles happen).
+  void reset() {
+    _notifications = [];
+    _isLoading = false;
+    _error = null;
+    notifyListeners();
   }
 }

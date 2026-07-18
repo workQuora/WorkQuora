@@ -50,6 +50,11 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _loadHistory();
     _setupSocket();
+    // Re-join + re-subscribe on every reconnect, not just the initial join —
+    // a reconnect after the socket was suspended/killed in the background
+    // can be a brand-new underlying connection server-side, which doesn't
+    // remember this room membership.
+    _socket.addOnConnectListener(_setupSocket);
   }
 
   Future<void> _loadHistory() async {
@@ -74,9 +79,15 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // Called on the initial screen open AND on every socket reconnect (see
+  // addOnConnectListener above) — off() before on() keeps it idempotent
+  // either way, since a reconnect might reuse the same underlying listener
+  // registrations or might be a brand-new socket object entirely.
   void _setupSocket() {
     _socket.joinRoom(widget.jobId, widget.otherUserId);
 
+    _socket.offReceiveMessage();
+    _socket.offTypingStatus();
     _socket.onReceiveMessage((data) {
       if (!mounted) return;
       final senderId = data['senderId']?.toString() ?? data['sender']?.toString();
@@ -97,6 +108,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _socket.removeOnConnectListener(_setupSocket);
     _socket.leaveRoom(widget.jobId, widget.otherUserId);
     _socket.offReceiveMessage();
     _socket.offTypingStatus();
