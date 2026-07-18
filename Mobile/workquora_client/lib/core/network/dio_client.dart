@@ -18,8 +18,14 @@ class DioClient {
   void init() {
     dio = Dio(BaseOptions(
       baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 60),
-      receiveTimeout: const Duration(seconds: 60),
+      // 60s/60s meant a stalled request spun for a full minute before any
+      // error surfaced. connectTimeout only bounds the initial handshake —
+      // 15s is generous for that. receiveTimeout only bounds waiting for the
+      // response after the request is fully sent (not upload duration —
+      // sendTimeout is intentionally left unset so slow multi-image uploads
+      // on Post Job / chat file-send aren't artificially capped).
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
       headers: {'Content-Type': 'application/json'},
     ));
 
