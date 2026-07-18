@@ -198,6 +198,8 @@ app.use('/api/v1/payments',      paymentRoutes);
 app.use('/api/v1/analytics',     analyticsRoutes);
 app.use('/api/v1/dashboard',     dashboardRoutes);
 app.use('/api/v1/ads',           adRoutes);
+app.use('/api/v1/categories',    require('./routes/categoryRoutes'));
+app.use('/api/v1/admin/categories', adminLimiter, require('./routes/adminCategoryRoutes'));
 
 app.use('/api/v1/terms',          require('./routes/termsRoutes'));
 app.use('/api/v1/stats',          require('./routes/statsRoutes'));
