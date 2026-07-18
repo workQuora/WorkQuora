@@ -48,12 +48,10 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       body: RefreshIndicator(
         color: theme.colorScheme.primary,
         backgroundColor: theme.colorScheme.surface,
-        onRefresh: chat.fetchConversations,
+        onRefresh: () => chat.fetchConversations(force: true),
         child: chat.isLoading && conversations.isEmpty
             ? const ShimmerList()
-            : chat.error != null && conversations.isEmpty
-                ? _buildError(theme, tokens, chat.error!, chat.fetchConversations)
-                : conversations.isEmpty
+            : conversations.isEmpty
                     ? _buildEmpty(theme, tokens)
                     : ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
@@ -66,17 +64,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     );
   }
 
-
-  Widget _buildError(ThemeData theme, AppTokens tokens, String error, Future<void> Function() onRetry) {
-    return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-      const SizedBox(height: 100),
-      Icon(Icons.error_outline_rounded, color: tokens.muted, size: 48),
-      const SizedBox(height: AppSpace.md),
-      Center(child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl), child: Text(error, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)))),
-      const SizedBox(height: AppSpace.md),
-      Center(child: TextButton(onPressed: onRetry, child: Text('Retry', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)))),
-    ]);
-  }
 
   Widget _buildEmpty(ThemeData theme, AppTokens tokens) {
     return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
@@ -108,7 +95,7 @@ class _ConversationTile extends StatelessWidget {
       leading: CircleAvatar(
         radius: 26,
         backgroundColor: tokens.brandSoft,
-        backgroundImage: pic.isNotEmpty ? CachedNetworkImageProvider(pic) : null,
+        backgroundImage: pic.isNotEmpty ? CachedNetworkImageProvider(pic, maxWidth: 160, maxHeight: 160) : null,
         child: pic.isEmpty ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)) : null,
       ),
       title: Text(name, style: theme.textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),

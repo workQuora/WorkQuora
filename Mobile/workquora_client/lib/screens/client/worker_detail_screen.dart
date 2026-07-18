@@ -84,6 +84,8 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
                     ? CachedNetworkImage(
                         imageUrl: pic,
                         fit: BoxFit.cover,
+                        memCacheWidth: 270,
+                        memCacheHeight: 270,
                         placeholder: (context, url) => Container(
                           color: tokens.brandSoft,
                           child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary)),

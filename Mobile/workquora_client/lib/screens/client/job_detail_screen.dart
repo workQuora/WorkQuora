@@ -348,7 +348,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         CircleAvatar(
           radius: 20,
           backgroundColor: tokens.brandSoft,
-          backgroundImage: pic.isNotEmpty ? NetworkImage(pic) : null,
+          // ResizeImage caps the decoded bitmap to roughly the avatar's
+          // on-screen size — without it a full-resolution photo decodes and
+          // stays resident in the image cache just to render at 40dp.
+          backgroundImage: pic.isNotEmpty ? ResizeImage(NetworkImage(pic), width: 120, height: 120) : null,
           child: pic.isEmpty ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'C', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)) : null,
         ),
         const SizedBox(width: 12),
@@ -509,7 +512,7 @@ class _ProposalCard extends StatelessWidget {
           CircleAvatar(
             radius: 24,
             backgroundColor: tokens.brandSoft,
-            backgroundImage: pic.isNotEmpty ? NetworkImage(pic) : null,
+            backgroundImage: pic.isNotEmpty ? ResizeImage(NetworkImage(pic), width: 144, height: 144) : null,
             child: pic.isEmpty ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'F', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)) : null,
           ),
           const SizedBox(width: 12),

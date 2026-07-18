@@ -342,7 +342,7 @@ class _ChatScreenState extends State<ChatScreen> {
           CircleAvatar(
             radius: 18,
             backgroundColor: tokens.brandSoft,
-            backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
+            backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar, maxWidth: 108, maxHeight: 108) : null,
             child: avatar.isEmpty
                 ? Text(widget.otherUserName.isNotEmpty ? widget.otherUserName[0].toUpperCase() : 'U', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 14))
                 : null,
