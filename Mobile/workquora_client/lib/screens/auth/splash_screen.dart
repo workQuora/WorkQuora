@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -40,8 +40,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Center(
         child: FadeTransition(
           opacity: _fade,
@@ -51,12 +53,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               Container(
                 width: 90, height: 90,
                 decoration: BoxDecoration(
+                  // Fixed brand gradient — deliberately the same in both
+                  // themes, same precedent as the Google/Facebook button
+                  // marks (a brief, always-on-brand splash treatment, not a
+                  // themed surface).
                   gradient: const LinearGradient(
                     colors: [Color(0xFF4F46E5), Color(0xFF8B5CF6), Color(0xFF06B6D4)],
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 30, spreadRadius: 4)],
+                  boxShadow: [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.4), blurRadius: 30, spreadRadius: 4)],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(24),
@@ -64,13 +70,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
               ),
               const SizedBox(height: 20),
-              Text('WorkQuora', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.text, letterSpacing: -1)),
+              Text('WorkQuora', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: theme.colorScheme.onSurface, letterSpacing: -1)),
               const SizedBox(height: 6),
-              Text('Find Trusted Workers Near You', style: TextStyle(fontSize: 14, color: AppColors.textMuted, fontWeight: FontWeight.w500)),
+              Text('Find Trusted Workers Near You', style: TextStyle(fontSize: 14, color: tokens.muted, fontWeight: FontWeight.w500)),
               const SizedBox(height: 60),
               SizedBox(
                 width: 28, height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary.withOpacity(0.7)),
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: theme.colorScheme.primary.withValues(alpha: 0.7)),
               ),
             ],
           ),

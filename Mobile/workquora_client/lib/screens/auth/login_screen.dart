@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
+import '../../core/constants/api_constants.dart';
+import '../../core/network/dio_client.dart';
 import '../../core/providers/auth_provider.dart';
-import '../../widgets/app_button.dart';
-import '../../widgets/app_text_field.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/primary_button.dart';
+import '../../widgets/social_login_buttons.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-  @override State<LoginScreen> createState() => _LoginScreenState();
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
-  final _passCtrl  = TextEditingController();
+  final _passCtrl = TextEditingController();
   bool _obscure = true;
 
   @override
-  void dispose() { _emailCtrl.dispose(); _passCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _login() async {
     final auth = context.read<AuthProvider>();
@@ -26,59 +33,117 @@ class _LoginScreenState extends State<LoginScreen> {
     if (ok) {
       context.go('/home');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(auth.error ?? 'Login failed'), backgroundColor: AppColors.error));
+      _showError(auth.error ?? 'Login failed');
+    }
+  }
+
+  void _showError(String message) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: tokens.danger));
+  }
+
+  Future<void> _forgotPassword() async {
+    final emailCtrl = TextEditingController(text: _emailCtrl.text.trim());
+    final email = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset password'),
+        content: TextField(
+          controller: emailCtrl,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(hintText: 'Your account email'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(emailCtrl.text.trim()),
+            child: const Text('Send reset link'),
+          ),
+        ],
+      ),
+    );
+    if (email == null || email.isEmpty || !mounted) return;
+    try {
+      await DioClient.instance.dio.post(ApiConstants.forgotPassword, data: {'email': email});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('If that email exists, a reset link is on its way.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _showError('Could not send reset link. Try again.');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final auth = context.watch<AuthProvider>();
+
     return Scaffold(
-      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 48),
               Container(
-                width: 56, height: 56,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF8B5CF6)]),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
                 child: ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
               ),
-              const SizedBox(height: 28),
-              Text('Welcome back 👋', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.text)),
-              const SizedBox(height: 6),
-              Text('Sign in to hire trusted workers', style: TextStyle(color: AppColors.textMuted, fontSize: 15)),
-              const SizedBox(height: 36),
-              AppTextField(controller: _emailCtrl, hint: 'Email address', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
-              const SizedBox(height: 14),
-              AppTextField(
-                controller: _passCtrl, hint: 'Password', icon: Icons.lock_outline,
-                obscure: _obscure,
-                suffix: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.textMuted, size: 20),
-                  onPressed: () => setState(() => _obscure = !_obscure)
+              const SizedBox(height: AppSpace.lg),
+              Text('WorkQuora', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary)),
+              const SizedBox(height: AppSpace.sm),
+              Text('Welcome back', style: theme.textTheme.headlineMedium),
+              const SizedBox(height: 4),
+              Text('Sign in to hire trusted workers', style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)),
+              const SizedBox(height: AppSpace.xl),
+              TextField(
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(hintText: 'Email or mobile number', prefixIcon: Icon(Icons.person_outline_rounded)),
+              ),
+              const SizedBox(height: AppSpace.md),
+              TextField(
+                controller: _passCtrl,
+                obscureText: _obscure,
+                decoration: InputDecoration(
+                  hintText: 'Password',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                  ),
                 ),
               ),
-              const SizedBox(height: 28),
-              AppButton(label: 'Sign In', onPressed: _login, loading: auth.isLoading),
-              const SizedBox(height: 20),
-              Row(children: [
-                Expanded(child: Divider(color: AppColors.border)),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or', style: TextStyle(color: AppColors.textMuted, fontSize: 13))),
-                Expanded(child: Divider(color: AppColors.border)),
-              ]),
-              const SizedBox(height: 20),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text("Don't have an account? ", style: TextStyle(color: AppColors.textMuted)),
-                GestureDetector(onTap: () => context.go('/register'), child: Text('Register', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))),
-              ]),
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpace.sm),
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: _forgotPassword,
+                  child: Text('Forgot password?', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
+                ),
+              ),
+              const SizedBox(height: AppSpace.lg),
+              PrimaryButton(label: 'Log in', onPressed: _login, loading: auth.isLoading),
+              const SizedBox(height: AppSpace.lg),
+              SocialLoginButtons(onSuccess: () => context.go('/home')),
+              const SizedBox(height: AppSpace.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text("Don't have an account? ", style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)),
+                  GestureDetector(
+                    onTap: () => context.go('/register'),
+                    child: Text('Register', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.xl),
             ],
           ),
         ),

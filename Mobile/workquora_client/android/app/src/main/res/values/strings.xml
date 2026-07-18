@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Facebook Login. App ID is real — same one the web app already uses
+         (Frontend/.env VITE_FACEBOOK_APP_ID). facebook_client_token must
+         still be filled in from developers.facebook.com → your app →
+         Settings → Advanced → Client Token. See CLAUDE.md. -->
+    <string name="facebook_app_id">1968251410635776</string>
+    <string name="facebook_client_token">REPLACE_WITH_FACEBOOK_CLIENT_TOKEN</string>
+    <string name="fb_login_protocol_scheme">fb1968251410635776</string>
+</resources>

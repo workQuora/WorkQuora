@@ -48,6 +48,32 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Same backend endpoint the web app already uses (POST /auth/social),
+  // access-token flow — the userinfo-endpoint path on the backend has no
+  // audience check, so it works with the mobile app's own Google/Facebook
+  // OAuth client with zero backend changes. Creates the user if new, issues
+  // our normal app JWT/session either way (sendTokenResponse server-side).
+  Future<bool> socialLogin({required String provider, required String accessToken}) async {
+    _isLoading = true; _error = null; notifyListeners();
+    try {
+      final res = await DioClient.instance.dio.post(ApiConstants.socialLogin, data: {
+        'provider': provider,
+        'token': accessToken,
+        'tokenType': 'access_token',
+      });
+      final data = res.data;
+      await DioClient.instance.saveToken(data['token']);
+      _user = data['user'];
+      await _prefs.setString('user', jsonEncode(_user));
+      SocketService().connect(data['token']);
+      _isLoading = false; notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _parseError(e); _isLoading = false; notifyListeners();
+      return false;
+    }
+  }
+
   // Step 1: POST /auth/register — sends the email OTP. No token yet.
   Future<bool> register(Map<String, dynamic> data) async {
     _isLoading = true; _error = null; notifyListeners();
@@ -120,6 +146,70 @@ class AuthProvider extends ChangeNotifier {
       SocketService().connect(d['token']);
       _pendingEmail = null;
       _pendingRegistrationData = null;
+      _isLoading = false; notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _parseError(e); _isLoading = false; notifyListeners();
+      return false;
+    }
+  }
+
+  // Re-verification for an ALREADY-authenticated user's own, still-unverified
+  // email/mobile (e.g. Post Job's verification gate) — distinct from the
+  // pending-registration flow above. These reuse the SAME backend endpoints
+  // (they're generic: keyed by email + isEmailVerified/isMobileVerified,
+  // not by any "mid-registration" session state) with an explicit email
+  // instead of _pendingEmail, so no backend change was needed.
+  Future<bool> resendEmailVerificationOtp(String email) async {
+    _isLoading = true; _error = null; notifyListeners();
+    try {
+      await DioClient.instance.dio.post(ApiConstants.resendOtp, data: {'email': email});
+      _isLoading = false; notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _parseError(e); _isLoading = false; notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> verifyEmailReverification(String email, String otp) async {
+    _isLoading = true; _error = null; notifyListeners();
+    try {
+      final res = await DioClient.instance.dio.post(ApiConstants.verifyRegistration, data: {'email': email, 'otp': otp});
+      final d = res.data;
+      await DioClient.instance.saveToken(d['token']);
+      _user = d['user'];
+      await _prefs.setString('user', jsonEncode(_user));
+      SocketService().connect(d['token']);
+      _isLoading = false; notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _parseError(e); _isLoading = false; notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> sendMobileVerificationOtp(String email) async {
+    _isLoading = true; _error = null; notifyListeners();
+    try {
+      await DioClient.instance.dio.post(ApiConstants.sendMobileOtp, data: {'email': email});
+      _isLoading = false; notifyListeners();
+      return true;
+    } catch (e) {
+      _error = _parseError(e); _isLoading = false; notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> verifyMobileReverification(String email, String otp) async {
+    _isLoading = true; _error = null; notifyListeners();
+    try {
+      final res = await DioClient.instance.dio.post(ApiConstants.verifyMobile, data: {'email': email, 'otp': otp});
+      final d = res.data;
+      await DioClient.instance.saveToken(d['token']);
+      _user = d['user'];
+      await _prefs.setString('user', jsonEncode(_user));
+      SocketService().connect(d['token']);
       _isLoading = false; notifyListeners();
       return true;
     } catch (e) {
