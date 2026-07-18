@@ -234,6 +234,25 @@ const acceptProposal = async (req, res, next) => {
       io,
     });
 
+    // Also push to the CLIENT's own room — there was no dedicated
+    // proposal-accept socket event before this (grepped
+    // Sockets/socketHandler.js: only join_user_room/join_job_room/
+    // send_location exist; the generic receive_notification above only
+    // reaches the freelancer, not the client who just performed this
+    // action). The client app uses this to trigger its own "job accepted"
+    // ring/banner and refresh Home's active-job card in real time, even if
+    // the accept happened from a different open session/device.
+    if (io) {
+      const User = require('../models/User');
+      const freelancerUser = await User.findById(proposal.freelancer).select('name').lean();
+      io.to(String(req.user.id)).emit('proposal_accepted', {
+        jobId: String(proposal.job._id),
+        jobTitle: proposal.job.title,
+        workerId: String(proposal.freelancer),
+        workerName: freelancerUser?.name || 'Worker',
+      });
+    }
+
     res.status(200).json({ success: true, message: 'Proposal accepted and chat initialized', data: proposal });
   } catch (error) {
     next(error);
