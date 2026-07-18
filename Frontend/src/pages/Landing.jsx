@@ -7,10 +7,11 @@ import {
   Shield, ShieldAlert, Zap, Users, Briefcase, ArrowRight, ArrowUpRight,
   ChevronDown, Sparkles, Star, MessageSquare, FileText, Check,
   ClipboardList, UserCheck, UserPlus, Award, Rocket, Compass,
-  PlusCircle, LayoutDashboard, Wallet,
-  Droplet, Snowflake, PaintRoller, ChefHat, Wrench,
+  PlusCircle, LayoutDashboard,
+  Droplet, Snowflake, PaintRoller, ChefHat, Wrench, HardHat, Hammer,
 } from 'lucide-react';
 import api from '../services/api';
+import { categoriesApi } from '../api/endpoints';
 import AdBanner from '../components/shared/AdBanner';
 import { GradientBlob } from '../components/ui/GradientBlob';
 import { AnimatedCard } from '../components/ui/AnimatedCard';
@@ -22,16 +23,50 @@ const JOB_STATUS_VARIANT = { open: 'success', 'in-progress': 'warning', complete
 
 // Client home's service-category grid — tapping a category jumps straight
 // into the job-posting flow with that category pre-selected. Keep this list
-// in sync with PostJob.jsx's CATEGORIES.
+// in sync with PostJob.jsx's CATEGORIES. Used as a silent fallback if the
+// /categories API (same endpoint the mobile app uses) returns nothing.
 const SERVICE_CATEGORIES = [
-  { label: 'Electrician', icon: Zap },
-  { label: 'Plumber', icon: Droplet },
-  { label: 'AC Repair', icon: Snowflake },
-  { label: 'Painter', icon: PaintRoller },
-  { label: 'Maid', icon: Sparkles },
-  { label: 'Cook', icon: ChefHat },
-  { label: 'Mechanic', icon: Wrench },
+  { name: 'Electrician', slug: 'electrician' },
+  { name: 'Plumber', slug: 'plumber' },
+  { name: 'AC Repair', slug: 'ac_repair' },
+  { name: 'Painter', slug: 'painter' },
+  { name: 'Maid', slug: 'maid' },
+  { name: 'Cook', slug: 'cook' },
+  { name: 'Mechanic', slug: 'mechanic' },
 ];
+
+// No per-category icon comes from the API — used only as a fallback when a
+// category has no imageUrl, or its image fails to load.
+const SLUG_ICONS = {
+  ac_repair: Snowflake,
+  painter: PaintRoller,
+  labour: HardHat,
+  plumber: Droplet,
+  maid: Sparkles,
+  electrician: Zap,
+  mechanic: Wrench,
+  raj_mistri: Hammer,
+  cook: ChefHat,
+};
+
+// Tries the Cloudinary imageUrl first; falls back to a slug-mapped icon (or
+// a generic briefcase) if the URL is empty or fails to load — mirrors the
+// mobile app's CategoryTile fallback behavior.
+const CategoryImage = ({ slug, name, imageUrl, className }) => {
+  const [errored, setErrored] = useState(false);
+  const Icon = SLUG_ICONS[slug] || Briefcase;
+  if (!imageUrl || errored) {
+    return <Icon className={className} />;
+  }
+  return (
+    <img
+      src={imageUrl}
+      alt={name}
+      className="w-full h-full object-cover"
+      onError={() => setErrored(true)}
+    />
+  );
+};
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -116,6 +151,16 @@ const Landing = () => {
     staleTime: 60_000,
   });
 
+  // Categories grid + Popular Services rail — same /categories endpoint the
+  // mobile app uses, with Cloudinary images.
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => categoriesApi.list().then((r) => r.data?.data ?? r.data ?? []),
+    enabled: isAuthenticated && role === 'CLIENT',
+    staleTime: 5 * 60_000,
+  });
+  const displayCategories = categories.length > 0 ? categories : SERVICE_CATEGORIES;
+
   // ── Render Logged-In Home View (role-aware) ──
   if (isAuthenticated) {
     const isClientHome = role === 'CLIENT';
@@ -191,16 +236,27 @@ const Landing = () => {
               {/* Service-category grid — client home's primary action */}
               {isClientHome && (
                 <motion.div variants={fadeInUp} className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                  {SERVICE_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.label}
-                      onClick={() => navigate('/client/post-job', { state: { category: cat.label } })}
-                      className="flex flex-col items-center gap-2 px-2 py-4 bg-primary/5 hover:bg-primary/10 border border-primary/10 hover:border-primary/30 rounded-2xl transition-colors cursor-pointer"
-                    >
-                      <cat.icon className="w-5 h-5 text-primary" />
-                      <span className="text-[11px] font-bold text-slate-700 dark:text-foreground text-center leading-tight">{cat.label}</span>
-                    </button>
-                  ))}
+                  {categoriesLoading ? (
+                    Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="flex flex-col items-center gap-2 px-2 py-4 bg-primary/5 border border-primary/10 rounded-2xl animate-pulse">
+                        <div className="w-5 h-5 rounded-full bg-primary/20" />
+                        <div className="w-10 h-2 rounded bg-primary/20" />
+                      </div>
+                    ))
+                  ) : (
+                    displayCategories.map((cat) => (
+                      <button
+                        key={cat.slug || cat.name}
+                        onClick={() => navigate('/client/post-job', { state: { category: cat.name } })}
+                        className="flex flex-col items-center gap-2 px-2 py-4 bg-primary/5 hover:bg-primary/10 border border-primary/10 hover:border-primary/30 rounded-2xl transition-colors cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-primary/10 shrink-0">
+                          <CategoryImage slug={cat.slug} name={cat.name} imageUrl={cat.imageUrl} className="w-5 h-5 text-primary" />
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-foreground text-center leading-tight">{cat.name}</span>
+                      </button>
+                    ))
+                  )}
                 </motion.div>
               )}
             </motion.div>
@@ -263,6 +319,40 @@ const Landing = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Popular Services — same categories data as the grid above */}
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3">
+                      Popular Services
+                    </h2>
+                    <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
+                      {categoriesLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="shrink-0 w-40 h-44 rounded-2xl bg-slate-100 dark:bg-white/5 animate-pulse" />
+                        ))
+                      ) : (
+                        displayCategories.map((cat) => (
+                          <div
+                            key={cat.slug || cat.name}
+                            className="shrink-0 w-40 rounded-2xl border border-slate-200/60 dark:border-white/5 bg-white dark:bg-[#0d0d15] overflow-hidden shadow-sm hover:shadow-md transition-all"
+                          >
+                            <div className="h-24 w-full bg-primary/5 flex items-center justify-center overflow-hidden">
+                              <CategoryImage slug={cat.slug} name={cat.name} imageUrl={cat.imageUrl} className="w-8 h-8 text-primary" />
+                            </div>
+                            <div className="p-3">
+                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate mb-2">{cat.name}</p>
+                              <button
+                                onClick={() => navigate('/client/post-job', { state: { category: cat.name } })}
+                                className="w-full flex items-center justify-center gap-1 text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/15 rounded-lg py-1.5 transition-colors cursor-pointer"
+                              >
+                                Post Job <ArrowRight className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
 
                 </>
               ) : (
@@ -335,7 +425,6 @@ const Landing = () => {
                     {[
                       { icon: PlusCircle, label: 'Post a Job', to: '/client/post-job' },
                       { icon: LayoutDashboard, label: 'Go to Dashboard', to: '/client/dashboard' },
-                      { icon: Wallet, label: 'Manage Wallet', to: '/shared/wallet' },
                       { icon: MessageSquare, label: 'Messages', to: '/shared/messages' },
                     ].map((action) => (
                       <button

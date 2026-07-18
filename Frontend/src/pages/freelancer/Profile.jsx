@@ -184,6 +184,9 @@ const FreelancerProfile = () => {
   const displayProfile = profile || user;
   const userId = displayProfile?.id || displayProfile?._id || user?._id || user?.id;
   const hasProfilePhoto = !!(displayProfile?.profilePic || displayProfile?.avatar);
+  // KYC is freelancer-only (Phase A) — clients never see the banner, badge, or tab.
+  const isClient = displayProfile?.role === 'CLIENT';
+  const tabs = isClient ? TABS.filter((t) => t.id !== 'kyc') : TABS;
 
   const skills = Array.isArray(displayProfile?.skills)
     ? displayProfile.skills
@@ -216,7 +219,7 @@ const FreelancerProfile = () => {
   return (
     <div className="min-h-screen bg-background text-foreground w-full">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-        {!kycStatus && (
+        {!isClient && !kycStatus && (
           <div className="mb-6 flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-2xl px-5 py-4">
             <AlertTriangle className="w-5 h-5 shrink-0" />
             <div className="flex-1">
@@ -298,7 +301,7 @@ const FreelancerProfile = () => {
               {displayProfile?.role === 'CLIENT' ? 'Client' : (displayProfile?.title || 'Freelancer')}
             </p>
 
-            {isKycVerified ? (
+            {!isClient && (isKycVerified ? (
               <div className="flex items-center justify-center gap-1.5 mt-3 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
                 <ShieldCheck className="w-4 h-4" /> KYC Verified
               </div>
@@ -306,7 +309,7 @@ const FreelancerProfile = () => {
               <div className="flex items-center justify-center gap-1.5 mt-3 text-amber-500 text-sm font-medium">
                 <ShieldX className="w-4 h-4" /> KYC Pending
               </div>
-            )}
+            ))}
 
             <div className="grid grid-cols-3 gap-2 mt-6 pt-6 border-t border-border">
               <div className="text-center">
@@ -349,7 +352,7 @@ const FreelancerProfile = () => {
           {/* Right: Tabs */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-1 mb-6 bg-muted/50 p-1 rounded-xl w-fit">
-              {TABS.map((t) => (
+              {tabs.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
@@ -451,7 +454,7 @@ const FreelancerProfile = () => {
                   </div>
                 )}
 
-                {activeTab === 'kyc' && <KycVerificationCard hideOnComplete={false} />}
+                {!isClient && activeTab === 'kyc' && <KycVerificationCard hideOnComplete={false} />}
               </motion.div>
             </AnimatePresence>
           </div>

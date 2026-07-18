@@ -113,6 +113,10 @@ export const kycApi = {
   reset:        ()  => api.post('/kyc/reset'),
 };
 
+export const categoriesApi = {
+  list: () => api.get('/categories'),
+};
+
 export const reviewsApi = {
   add:      (d)      => api.post('/reviews', d),
   getUser:  (userId) => api.get(`/reviews/${userId}`),
