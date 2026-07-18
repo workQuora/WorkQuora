@@ -15,4 +15,9 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- image_cropper's Android implementation (uCrop) requires an
+         AppCompat-derived theme for its activity — see UCropActivity below
+         in AndroidManifest.xml. Toolbar color/branding is set at call time
+         via AndroidUiSettings, not here. -->
+    <style name="Ucrop.CropTheme" parent="Theme.AppCompat.Light.NoActionBar" />
 </resources>

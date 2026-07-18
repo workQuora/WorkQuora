@@ -33,6 +33,13 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- image_cropper's Android implementation (uCrop) — see
+             values/styles.xml for Ucrop.CropTheme. -->
+        <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Ucrop.CropTheme"/>
+
         <!-- Facebook Login — values in res/values/strings.xml. App ID is
              real; facebook_client_token is a placeholder, see CLAUDE.md. -->
         <meta-data
