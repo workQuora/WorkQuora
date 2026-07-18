@@ -12,6 +12,8 @@ class ApiConstants {
   static const String logout           = '/auth/logout';
   static const String checkUsername    = '/auth/check-username';
 
+  static const String categories        = '/categories';
+
   static const String jobs             = '/jobs';
   static const String myJobs           = '/jobs/my-jobs';
   static const String nearbyJobs       = '/geo/nearby-jobs';

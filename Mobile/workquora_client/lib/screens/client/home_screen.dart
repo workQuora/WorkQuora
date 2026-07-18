@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/categories.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/categories_provider.dart';
 import '../../core/providers/chat_provider.dart';
 import '../../core/providers/jobs_provider.dart';
 import '../../core/providers/notifications_provider.dart';
@@ -41,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     context.read<NotificationsProvider>().fetchNotifications(force: force);
     context.read<ChatProvider>().fetchConversations(force: force);
     context.read<JobsProvider>().fetchMyJobs(force: force);
+    context.read<CategoriesProvider>().fetchCategories(force: force);
 
     final pos = await getPlatformLocation();
     if (!mounted) return;
@@ -75,6 +77,93 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _locating = false);
   }
 
+  // No per-category icon comes from the API — used only as CategoryTile's
+  // last-resort fallback if both the network image and the local
+  // assets/images/categories/{slug}.webp fallback fail to load.
+  static const _kSlugIcons = {
+    'ac_repair': Icons.ac_unit_rounded,
+    'painter': Icons.format_paint_rounded,
+    'labour': Icons.engineering_rounded,
+    'plumber': Icons.plumbing_rounded,
+    'maid': Icons.cleaning_services_rounded,
+    'electrician': Icons.bolt_rounded,
+    'mechanic': Icons.build_rounded,
+    'raj_mistri': Icons.construction_rounded,
+    'cook': Icons.restaurant_rounded,
+  };
+
+  Widget _buildCategorySection(BuildContext context, CategoriesProvider categoriesProvider) {
+    if (categoriesProvider.isLoading && categoriesProvider.categories.isEmpty) {
+      return const ShimmerList(count: 6, crossAxisCount: 2, padding: EdgeInsets.zero, shrinkWrap: true);
+    }
+    if (categoriesProvider.categories.isNotEmpty) {
+      return _buildCategoryGrid(
+        count: categoriesProvider.categories.length,
+        tileBuilder: (i) {
+          final cat = categoriesProvider.categories[i];
+          return CategoryTile(
+            label: cat.name,
+            imagePath: 'assets/images/categories/${cat.slug}.webp',
+            imageUrl: cat.imageUrl,
+            fallbackIcon: _kSlugIcons[cat.slug] ?? Icons.handyman_rounded,
+            onTap: () => context.push('/post-job', extra: {'category': cat.name}),
+          );
+        },
+      );
+    }
+    // Silent fallback — no error banner, just the local hardcoded list.
+    return _buildCategoryGrid(
+      count: kCategories.length,
+      tileBuilder: (i) {
+        final cat = kCategories[i];
+        return CategoryTile(
+          label: cat.label,
+          imagePath: cat.image,
+          fallbackIcon: cat.icon,
+          onTap: () => context.push('/post-job', extra: {'category': cat.label}),
+        );
+      },
+    );
+  }
+
+  // Shared 2-column grid for both the API-driven and local-fallback category
+  // lists. An odd item count leaves its last tile centered full-width in
+  // its own row instead of stranded in the grid's left cell.
+  Widget _buildCategoryGrid({required int count, required Widget Function(int) tileBuilder}) {
+    final isOdd = count.isOdd;
+    final gridCount = isOdd ? count - 1 : count;
+    return Column(children: [
+      GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: gridCount,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: AppSpace.md,
+          crossAxisSpacing: AppSpace.md,
+          childAspectRatio: 1.5,
+        ),
+        itemBuilder: (_, i) => tileBuilder(i),
+      ),
+      if (isOdd)
+        Padding(
+          padding: const EdgeInsets.only(top: AppSpace.md),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tileWidth = (constraints.maxWidth - AppSpace.md) / 2;
+              return Center(
+                child: SizedBox(
+                  width: tileWidth,
+                  height: tileWidth / 1.5,
+                  child: tileBuilder(count - 1),
+                ),
+              );
+            },
+          ),
+        ),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -94,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
             : (_areaName ?? jobs.locationLabel);
 
     final activeJobs = jobs.myJobs.where((j) => j['status'] == 'in-progress').toList();
+    final categoriesProvider = context.watch<CategoriesProvider>();
 
     return Scaffold(
       appBar: const AppBarBrand(),
@@ -142,26 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // Categories
               const SectionHeader(title: 'Categories'),
               const SizedBox(height: AppSpace.md),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: kCategories.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: AppSpace.md,
-                  crossAxisSpacing: AppSpace.md,
-                  childAspectRatio: 1.5,
-                ),
-                itemBuilder: (_, i) {
-                  final cat = kCategories[i];
-                  return CategoryTile(
-                    label: cat.label,
-                    imagePath: cat.image,
-                    fallbackIcon: cat.icon,
-                    onTap: () => context.push('/post-job', extra: {'category': cat.label}),
-                  );
-                },
-              ),
+              _buildCategorySection(context, categoriesProvider),
               const SizedBox(height: AppSpace.xl),
 
               // Active jobs

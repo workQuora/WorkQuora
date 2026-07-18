@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/categories_provider.dart';
 import 'core/providers/chat_provider.dart';
 import 'core/providers/jobs_provider.dart';
 import 'core/providers/job_detail_provider.dart';
@@ -24,6 +25,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider(prefs)),
+        ChangeNotifierProvider(create: (_) => CategoriesProvider()),
         ChangeNotifierProvider(create: (_) => JobsProvider()),
         ChangeNotifierProvider(create: (_) => JobDetailProvider()),
         ChangeNotifierProvider(create: (_) => NotificationsProvider()),
