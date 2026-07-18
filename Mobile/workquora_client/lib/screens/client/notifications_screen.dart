@@ -180,13 +180,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       body: provider.isLoading && notifications.isEmpty
           ? const ShimmerList()
           : provider.error != null && notifications.isEmpty
-              ? _buildError(theme, tokens, provider.error!, provider.fetchNotifications)
+              ? _buildError(theme, tokens, provider.error!, () => provider.fetchNotifications(force: true))
               : notifications.isEmpty
                   ? _buildEmpty(theme, tokens)
                   : RefreshIndicator(
                       color: theme.colorScheme.primary,
                       backgroundColor: theme.colorScheme.surface,
-                      onRefresh: provider.fetchNotifications,
+                      onRefresh: () => provider.fetchNotifications(force: true),
                       child: ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.md),

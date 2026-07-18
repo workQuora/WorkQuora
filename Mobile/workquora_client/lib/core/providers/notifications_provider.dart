@@ -11,6 +11,12 @@ class NotificationsProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  // Home and NotificationsScreen both fetch this on their own open — same
+  // duplicate-GET shape as JobsProvider.fetchMyJobs. force:true (pull-to-
+  // refresh) always bypasses it.
+  static const _freshWindow = Duration(seconds: 20);
+  DateTime? _fetchedAt;
+
   NotificationsProvider() {
     // Registered once for this provider's whole lifetime (== the app's —
     // it's never recreated across logout/login). Fires on every socket
@@ -27,13 +33,28 @@ class NotificationsProvider extends ChangeNotifier {
   String? get error => _error;
   int get unreadCount => _notifications.where((n) => n['isRead'] != true).length;
 
-  Future<void> fetchNotifications() async {
+  // There's no dedicated "proposal received" notification type on the
+  // backend (Backend/src/models/Notification.js's enum has no such value) —
+  // proposalController.js's submitProposal sends it as a generic
+  // type:'system_alert' with a fixed message ("Worker X is bidding you").
+  // Clients see every incoming proposal directly on the job's own screen, so
+  // this one is filtered out here; other system_alert notifications (job
+  // cancelled, proposal rejected, etc.) are unaffected.
+  bool _isProposalNotification(dynamic n) =>
+      n is Map && n['type'] == 'system_alert' && (n['message']?.toString().toLowerCase().contains('bidding') ?? false);
+
+  Future<void> fetchNotifications({bool force = false}) async {
+    if (!force && _fetchedAt != null && DateTime.now().difference(_fetchedAt!) < _freshWindow) {
+      return;
+    }
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       final res = await DioClient.instance.dio.get(ApiConstants.notifications);
-      _notifications = res.data['data'] ?? res.data['notifications'] ?? [];
+      final raw = res.data['data'] ?? res.data['notifications'] ?? [];
+      _notifications = (raw as List).where((n) => !_isProposalNotification(n)).toList();
+      _fetchedAt = DateTime.now();
     } catch (_) {
       _error = 'Failed to load notifications';
     }
@@ -44,6 +65,7 @@ class NotificationsProvider extends ChangeNotifier {
   void _subscribeToLive() {
     SocketService().offReceiveNotification();
     SocketService().onReceiveNotification((data) {
+      if (_isProposalNotification(data)) return;
       _notifications = [data, ..._notifications];
       notifyListeners();
     });
