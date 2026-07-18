@@ -215,7 +215,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           final job = provider.job!;
           final acceptedCount = provider.proposals.where((p) => p['status'] == 'accepted').length;
 
-          return CustomScrollView(slivers: [
+          return RefreshIndicator(
+            color: theme.colorScheme.primary,
+            backgroundColor: theme.colorScheme.surface,
+            onRefresh: () => provider.fetchJob(widget.jobId),
+            child: CustomScrollView(slivers: [
             SliverAppBar(
               expandedHeight: 100,
               pinned: true,
@@ -260,7 +264,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 const SizedBox(height: 32),
               ]),
             ),
-          ]);
+          ]));
         },
       ),
     );
