@@ -1,7 +1,7 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../network/dio_client.dart';
 import '../constants/api_constants.dart';
+import '../utils/error_helper.dart';
 
 class JobDetailProvider extends ChangeNotifier {
   Map<String, dynamic>? _job;
@@ -41,7 +41,7 @@ class JobDetailProvider extends ChangeNotifier {
           ? rawProposals.map((p) => Map<String, dynamic>.from(p)).toList()
           : [];
     } catch (e) {
-      _error = _extractError(e);
+      _error = ErrorHelper.extractError(e);
     }
 
     _isLoading = false;
@@ -61,7 +61,7 @@ class JobDetailProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _isActing = false;
-      _error = _extractError(e);
+      _error = ErrorHelper.extractError(e);
       notifyListeners();
       return false;
     }
@@ -80,7 +80,7 @@ class JobDetailProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _isActing = false;
-      _error = _extractError(e);
+      _error = ErrorHelper.extractError(e);
       notifyListeners();
       return false;
     }
@@ -98,7 +98,7 @@ class JobDetailProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _isActing = false;
-      _error = _extractError(e);
+      _error = ErrorHelper.extractError(e);
       notifyListeners();
       return false;
     }
@@ -115,17 +115,10 @@ class JobDetailProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _isActing = false;
-      _error = _extractError(e);
+      _error = ErrorHelper.extractError(e);
       notifyListeners();
       return false;
     }
-  }
-
-  String _extractError(dynamic e) {
-    if (e is DioException) {
-      return e.response?.data?['message'] ?? 'Something went wrong';
-    }
-    return e.toString();
   }
 
   void clearError() {

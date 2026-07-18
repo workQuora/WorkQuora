@@ -99,6 +99,17 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
               )
+            else if (w.error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpace.xl * 1.5),
+                child: Column(children: [
+                  Icon(Icons.error_outline_rounded, color: tokens.muted, size: 56),
+                  const SizedBox(height: AppSpace.md),
+                  Text(w.error!, style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted), textAlign: TextAlign.center),
+                  const SizedBox(height: AppSpace.md),
+                  TextButton(onPressed: () => context.read<WalletProvider>().fetchWallet(), child: Text('Retry', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold))),
+                ]),
+              )
             else if (w.transactions.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpace.xl * 1.5),

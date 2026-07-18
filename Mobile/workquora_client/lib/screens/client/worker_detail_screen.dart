@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/constants/api_constants.dart';
+import '../../core/utils/error_helper.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/primary_button.dart';
@@ -15,15 +16,22 @@ class WorkerDetailScreen extends StatefulWidget {
 class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
   Map<String, dynamic>? _worker;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
     try {
       final res = await DioClient.instance.dio.get('${ApiConstants.workerProfile}/${widget.workerId}');
       _worker = res.data['data'] ?? res.data;
-    } catch (_) {}
+    } catch (e) {
+      // Was a bare catch(_){} — any failure (network error, 500, timeout)
+      // rendered identically to a genuine 404 as "Worker not found", which
+      // is misleading and gave no way to retry a transient failure.
+      _error = ErrorHelper.extractError(e);
+    }
     if (mounted) setState(() => _loading = false);
   }
 
@@ -33,6 +41,22 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
     final tokens = theme.extension<AppTokens>()!;
 
     if (_loading) return Scaffold(body: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)));
+    if (_error != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.xl),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.error_outline_rounded, color: tokens.muted, size: 48),
+              const SizedBox(height: AppSpace.md),
+              Text(_error!, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)),
+              const SizedBox(height: AppSpace.md),
+              TextButton(onPressed: _load, child: Text('Retry', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold))),
+            ]),
+          ),
+        ),
+      );
+    }
     if (_worker == null) return Scaffold(body: Center(child: Text('Worker not found', style: TextStyle(color: tokens.muted))));
 
     final name    = _worker!['name'] ?? 'Worker';

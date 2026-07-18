@@ -190,7 +190,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
     }
 
     if (!mounted) return;
-    final newJobId = await context.read<JobsProvider>().postJob({
+    final jobsProvider = context.read<JobsProvider>();
+    final newJobId = await jobsProvider.postJob({
       'title': _titleCtrl.text.trim(),
       'description': _descCtrl.text.trim(),
       'category': _category,
@@ -241,7 +242,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       if (!mounted) return;
       context.push('/job/$newJobId');
     } else {
-      _showError('Failed to post job. Please check your details and try again.');
+      _showError(jobsProvider.error ?? 'Failed to post job. Please check your details and try again.');
     }
   }
 
