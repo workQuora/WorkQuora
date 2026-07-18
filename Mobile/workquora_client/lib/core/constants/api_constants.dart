@@ -1,5 +1,5 @@
 class ApiConstants {
-  static const String baseUrl = 'https://workquora.onrender.com/api/v1';
+  static const String baseUrl = 'https://workquora-e7jd.onrender.com/api/v1';
 
   static const String login            = '/auth/login';
   static const String socialLogin      = '/auth/social';
