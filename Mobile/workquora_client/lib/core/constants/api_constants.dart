@@ -12,18 +12,12 @@ class ApiConstants {
   static const String logout           = '/auth/logout';
 
   static const String jobs             = '/jobs';
-  static const String jobsSearch       = '/jobs/search';
   static const String myJobs           = '/jobs/my-jobs';
   static const String nearbyJobs       = '/geo/nearby-jobs';
   static const String nearbyFreelancers= '/geo/nearby-freelancers';
   static const String geoSearch        = '/geo/search';
   static const String workerProfile    = '/profile/user';
   static const String profilePhoto     = '/profile/photo';
-
-  static const String wallet           = '/wallet/balance';
-  static const String topupOrder       = '/wallet/topup/order';
-  static const String topupVerify      = '/wallet/topup/verify';
-  static const String transactions     = '/wallet/transactions';
 
   static const String logoutAll        = '/auth/logout-all';
   static const String deleteAccount    = '/auth/account';
