@@ -70,8 +70,9 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     await context.read<JobsProvider>().setLocation(pos['lat']!, pos['lng']!, 'Current Location');
+    if (!mounted) return;
     context.read<JobsProvider>().startLocationTracking();
-    if (mounted) setState(() => _locating = false);
+    setState(() => _locating = false);
   }
 
   // Re-reverse-geocodes only when the coordinates actually change, so a

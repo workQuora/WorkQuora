@@ -13,7 +13,7 @@ Future<void> showSearchResults(BuildContext context, String keyword) {
     context: context,
     isScrollControlled: true,
     backgroundColor: theme.colorScheme.surface,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card))),
     builder: (_) => _SearchResultsSheet(keyword: keyword),
   );
 }

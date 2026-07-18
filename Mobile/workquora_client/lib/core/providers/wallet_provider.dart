@@ -39,19 +39,6 @@ class WalletProvider extends ChangeNotifier {
     return res.data['data'];
   }
 
-  Future<bool> withdraw(int amountPaise, String pin) async {
-    try {
-      await DioClient.instance.dio.post(
-        '/wallet/withdraw',
-        data: {'amount': amountPaise, 'pin': pin},
-      );
-      await fetchWallet();
-      return true;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   // Called on logout (see app.dart) — otherwise a different account's next
   // Wallet visit could briefly flash the previous account's balance/history.
   void reset() {

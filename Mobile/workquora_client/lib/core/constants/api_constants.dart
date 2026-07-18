@@ -23,9 +23,7 @@ class ApiConstants {
   static const String wallet           = '/wallet/balance';
   static const String topupOrder       = '/wallet/topup/order';
   static const String topupVerify      = '/wallet/topup/verify';
-  static const String withdraw         = '/wallet/withdraw';
   static const String transactions     = '/wallet/transactions';
-  static const String setWithdrawalPin = '/wallet/set-pin';
 
   static const String logoutAll        = '/auth/logout-all';
   static const String deleteAccount    = '/auth/account';

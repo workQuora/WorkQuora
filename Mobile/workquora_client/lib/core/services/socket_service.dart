@@ -1,4 +1,4 @@
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 
@@ -7,7 +7,7 @@ class SocketService {
   factory SocketService() => _instance;
   SocketService._internal();
 
-  IO.Socket? _socket;
+  socket_io.Socket? _socket;
   bool get isConnected => _socket?.connected ?? false;
 
   // Fires on every successful (re)connect — the initial one, socket.io's own
@@ -33,9 +33,9 @@ class SocketService {
     // ApiConstants.baseUrl so REST and socket always target the same backend.
     final socketUrl = ApiConstants.baseUrl.replaceAll('/api/v1', '').replaceAll('/api', '');
 
-    _socket = IO.io(
+    _socket = socket_io.io(
       socketUrl,
-      IO.OptionBuilder()
+      socket_io.OptionBuilder()
           .setTransports(['websocket'])
           .setAuth({'token': token})
           .disableAutoConnect()
