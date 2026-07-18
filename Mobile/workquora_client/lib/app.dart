@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/providers/chat_provider.dart';
@@ -12,6 +13,7 @@ import 'core/network/dio_client.dart';
 import 'core/services/socket_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/bottom_nav.dart';
+import 'widgets/proposal_accepted_banner.dart';
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -43,6 +45,11 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
   late final GoRouter _router;
   late final AuthProvider _auth;
   bool _wasAuthenticated = false;
+  // GoRouter's own Navigator, used to reach a valid Overlay ancestor for
+  // showProposalAcceptedBanner — this State's own `context` (the
+  // WorkQuoraClientApp widget's context) sits ABOVE MaterialApp.router's
+  // Navigator, not inside it, so it has no Overlay ancestor of its own.
+  final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -58,6 +65,13 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
     // reset call at every call site.
     auth.addListener(_onAuthChanged);
 
+    // Registered once for the app's whole lifetime, same reasoning as
+    // NotificationsProvider's own addOnConnectListener — a reconnect that
+    // creates a fresh underlying socket instance (SocketService.connect)
+    // loses any listener registered with a one-time .on() call, so this
+    // re-registers on every connect instead.
+    SocketService().addOnConnectListener(_subscribeToProposalAccepted);
+
     // Built exactly once. refreshListenable re-runs `redirect` whenever
     // AuthProvider calls notifyListeners() — without ever recreating the
     // router itself. Recreating GoRouter on every rebuild (the previous
@@ -67,6 +81,7 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
     // result) — bouncing the app back to Splash mid-login and losing the
     // in-flight navigation, which is what caused the "stuck on loading" bug.
     _router = GoRouter(
+      navigatorKey: _rootNavigatorKey,
       initialLocation: '/',
       refreshListenable: auth,
       redirect: (context, state) {
@@ -183,8 +198,48 @@ class _WorkQuoraClientAppState extends State<WorkQuoraClientApp> with WidgetsBin
       context.read<JobDetailProvider>().reset();
       // ThemeProvider is deliberately NOT reset — theme mode is a device
       // preference, not per-account data; it should survive a logout.
+      // The socket itself disconnects as part of logout (AuthProvider.logout
+      // -> SocketService().disconnect()), which already drops this listener
+      // implicitly — .off() here is just explicit hygiene, not load-bearing.
+      SocketService().offProposalAccepted();
     }
     _wasAuthenticated = isAuth;
+  }
+
+  // acceptProposal (Backend/src/controllers/proposalController.js) pushes
+  // this to the CLIENT's own room right after their own accept succeeds —
+  // see socket_service.dart's onProposalAccepted doc comment for why this
+  // event exists at all (there was no dedicated one before).
+  void _subscribeToProposalAccepted() {
+    SocketService().offProposalAccepted();
+    SocketService().onProposalAccepted(_onProposalAccepted);
+  }
+
+  void _onProposalAccepted(Map<String, dynamic> data) {
+    final workerName = data['workerName']?.toString() ?? 'Worker';
+    _playAcceptRing();
+    final overlayContext = _rootNavigatorKey.currentContext;
+    if (overlayContext != null) {
+      showProposalAcceptedBanner(overlayContext, workerName: workerName);
+    }
+    // Not categoriesProvider (global, unrelated) — jobsProvider, so Home's
+    // active-job card reflects the newly in-progress job immediately.
+    context.read<JobsProvider>().fetchMyJobs(force: true);
+  }
+
+  // One-shot: a fresh player per ring, disposed once playback completes
+  // (or immediately on any error) rather than kept around as a field.
+  Future<void> _playAcceptRing() async {
+    final player = AudioPlayer();
+    try {
+      await player.setAsset('assets/sounds/notification_ring.wav');
+      await player.play();
+      player.playerStateStream.firstWhere((s) => s.processingState == ProcessingState.completed).then((_) {
+        player.dispose();
+      });
+    } catch (_) {
+      player.dispose();
+    }
   }
 
   @override

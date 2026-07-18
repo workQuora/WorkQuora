@@ -173,4 +173,19 @@ class SocketService {
   }
 
   void offReceiveNotification() => _socket?.off('receive_notification');
+
+  // Fires in the CLIENT's own personal room right after their own
+  // PUT /proposals/:id/accept succeeds server-side (see acceptProposal in
+  // Backend/src/controllers/proposalController.js — there was no dedicated
+  // event for this before; the generic receive_notification above only
+  // reaches the freelancer, not the client performing the accept). Payload:
+  // { jobId, jobTitle, workerId, workerName }. No join needed, same as
+  // receive_notification above.
+  void onProposalAccepted(Function(Map<String, dynamic>) callback) {
+    _socket?.on('proposal_accepted', (data) {
+      if (data is Map<String, dynamic>) callback(data);
+    });
+  }
+
+  void offProposalAccepted() => _socket?.off('proposal_accepted');
 }
