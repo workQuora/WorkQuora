@@ -64,19 +64,10 @@ class _MyJobsScreenState extends State<MyJobsScreen> {
       body: RefreshIndicator(
         color: theme.colorScheme.primary,
         backgroundColor: theme.colorScheme.surface,
-        onRefresh: () => context.read<JobsProvider>().fetchMyJobs(),
+        onRefresh: () => context.read<JobsProvider>().fetchMyJobs(force: true),
         child: jobsProvider.isLoadingMyJobs && jobs.isEmpty
             ? const ShimmerList()
-            : jobsProvider.myJobsError != null && jobs.isEmpty
-                ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
-                    const SizedBox(height: 100),
-                    Icon(Icons.error_outline_rounded, size: 56, color: tokens.muted),
-                    const SizedBox(height: 16),
-                    Center(child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl), child: Text(jobsProvider.myJobsError!, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: tokens.muted)))),
-                    const SizedBox(height: 16),
-                    Center(child: TextButton(onPressed: () => context.read<JobsProvider>().fetchMyJobs(), child: Text('Retry', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)))),
-                  ])
-                : jobs.isEmpty
+            : jobs.isEmpty
                 ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
                     const SizedBox(height: 100),
                     Icon(Icons.work_outline, size: 64, color: tokens.muted),
