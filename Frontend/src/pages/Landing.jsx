@@ -11,7 +11,7 @@ import {
   Droplet, Snowflake, PaintRoller, ChefHat, Wrench, HardHat, Hammer,
 } from 'lucide-react';
 import api from '../services/api';
-import { categoriesApi } from '../api/endpoints';
+import { categoriesApi, adsApi } from '../api/endpoints';
 import { GradientBlob } from '../components/ui/GradientBlob';
 import { StatCounter } from '../components/ui/StatCounter';
 import { fadeInUp, staggerContainer } from '../utils/animations';
@@ -82,9 +82,11 @@ const Landing = () => {
   // ── Ads Logic for Logged-In Users ──
   const { data: activeAds, isLoading: adsLoading } = useQuery({
     queryKey: ['active-ads-landing'],
-    queryFn: () => api.get('/ads/active', { params: { platform: 'WEB' } }).then((r) => r.data?.data ?? r.data ?? []),
+    queryFn: () => adsApi.active({ platform: 'WEB' }).then((r) => r.data?.data ?? r.data ?? []),
     enabled: isAuthenticated,
     staleTime: 30_000,
+    // Silent on failure — no ads is a normal, expected state, not an error banner.
+    retry: false,
   });
 
   const [initialImpressions] = useState(() => {
@@ -109,7 +111,7 @@ const Landing = () => {
     if (isAuthenticated && visibleAds.length > 0) {
       visibleAds.forEach((ad) => {
         // Track impression on server
-        api.post('/ads/track', { adId: ad._id, event: 'impression' }).catch(console.error);
+        adsApi.track({ adId: ad._id, event: 'impression' }).catch(console.error);
 
         // Update local frequency cap in localStorage
         try {
@@ -128,7 +130,7 @@ const Landing = () => {
   }, [visibleAds.length, isAuthenticated]);
 
   const handleAdClick = (ad) => {
-    api.post('/ads/track', { adId: ad._id, event: 'click' }).catch(console.error);
+    adsApi.track({ adId: ad._id, event: 'click' }).catch(console.error);
     window.open(ad.targetLink, '_blank', 'noopener,noreferrer');
   };
 
@@ -188,60 +190,43 @@ const Landing = () => {
         <div className="bg-background text-foreground w-full min-h-screen">
           {/* Hero */}
           <section className="max-w-6xl mx-auto px-6 py-12 md:py-16">
-            <div className="flex flex-col lg:flex-row items-center gap-12">
-              <div className="flex-1 space-y-8 w-full">
-                <div>
-                  <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-bold mb-6 tracking-wide">
-                    WELCOME BACK, {firstName.toUpperCase()}
-                  </span>
-                  <h1 className="text-4xl md:text-5xl font-extrabold text-primary leading-tight tracking-tight">
-                    Expert Services for your <br className="hidden sm:block" />
-                    <span className="text-[#6366F1]">Home &amp; Business.</span>
-                  </h1>
-                  <p className="text-muted-foreground mt-4 max-w-lg leading-relaxed">
-                    Get connected with top-rated professionals instantly. Secure, reliable, and efficient service delivery at your doorstep.
-                  </p>
-                </div>
-
-                {/* Categories row */}
-                <div className="grid grid-cols-4 sm:grid-cols-7 gap-4">
-                  {categoriesLoading ? (
-                    Array.from({ length: 7 }).map((_, i) => (
-                      <div key={i} className="flex flex-col items-center gap-2">
-                        <div className="w-14 h-14 rounded-2xl bg-muted animate-pulse" />
-                        <div className="w-10 h-2 rounded bg-muted animate-pulse" />
-                      </div>
-                    ))
-                  ) : (
-                    <>
-                      {heroCategories.map((cat) => (
-                        <CategoryIcon
-                          key={cat.slug || cat.name}
-                          label={cat.name}
-                          imageUrl={cat.imageUrl}
-                          fallbackIcon={SLUG_ICONS[cat.slug] || Briefcase}
-                          onClick={() => navigate('/client/post-job', { state: { category: cat.name } })}
-                        />
-                      ))}
-                      <CategoryIcon label="More" fallbackIcon={MoreHorizontal} onClick={() => navigate('/client/post-job')} />
-                    </>
-                  )}
-                </div>
+            <div className="space-y-8 w-full">
+              <div>
+                <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-bold mb-6 tracking-wide">
+                  WELCOME BACK, {firstName.toUpperCase()}
+                </span>
+                <h1 className="text-4xl md:text-5xl font-extrabold text-primary leading-tight tracking-tight">
+                  Expert Services for your <br className="hidden sm:block" />
+                  <span className="text-[#6366F1]">Home &amp; Business.</span>
+                </h1>
+                <p className="text-muted-foreground mt-4 max-w-lg leading-relaxed">
+                  Get connected with top-rated professionals instantly. Secure, reliable, and efficient service delivery at your doorstep.
+                </p>
               </div>
 
-              {/* Dashboard preview image */}
-              <div className="flex-1 relative w-full lg:w-auto">
-                <div className="relative w-full aspect-square max-w-md mx-auto">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-full h-[80%] bg-card rounded-3xl shadow-2xl p-6 border border-border overflow-hidden transform rotate-3">
-                      <img
-                        className="w-full h-full object-cover rounded-xl"
-                        alt="WorkQuora dashboard preview"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCv3T3m-lZxmADxXd9UpftJwhv2zKvPFwdDwQNNqEtsc01mEVi8LyWcwGTKvYP0rTFCmNfPc4YBnH6Zsu7lLmzNaZjT4RJ6t98_VpB4RkzEci7ElKTDeAho43MhR5EAef7jNIv3SQglhjhkyfzBkY7gZ-vXFw6yDrbWMMAPD2p1By6atJwzqV4ekJzzW_9UBxpsQbR179G4nV27C-0HcRsUU9eEggBShNUboFTVuDzSvrqebMsUYJByexgrXcufC7FpyJYpd5vej5T8"
-                      />
+              {/* Categories row */}
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-4">
+                {categoriesLoading ? (
+                  Array.from({ length: 7 }).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      <div className="w-14 h-14 rounded-2xl bg-muted animate-pulse" />
+                      <div className="w-10 h-2 rounded bg-muted animate-pulse" />
                     </div>
-                  </div>
-                </div>
+                  ))
+                ) : (
+                  <>
+                    {heroCategories.map((cat) => (
+                      <CategoryIcon
+                        key={cat.slug || cat.name}
+                        label={cat.name}
+                        imageUrl={cat.imageUrl}
+                        fallbackIcon={SLUG_ICONS[cat.slug] || Briefcase}
+                        onClick={() => navigate('/client/post-job', { state: { category: cat.name } })}
+                      />
+                    ))}
+                    <CategoryIcon label="More" fallbackIcon={MoreHorizontal} onClick={() => navigate('/client/post-job')} />
+                  </>
+                )}
               </div>
             </div>
           </section>
@@ -292,34 +277,6 @@ const Landing = () => {
 
               {/* Right: Quick Actions */}
               <div className="lg:w-1/3 space-y-6">
-                {(adsLoading || featuredAd) && (
-                  <Card>
-                    <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">Promoted</span>
-                    {adsLoading ? (
-                      <div className="aspect-video bg-muted rounded-2xl animate-pulse mt-3" />
-                    ) : (
-                      <div className="mt-3">
-                        <div className="bg-muted border border-border/50 rounded-2xl overflow-hidden mb-3 relative aspect-video flex flex-col justify-end p-4">
-                          {featuredAd.mediaUrl && (
-                            <img src={featuredAd.mediaUrl} alt={featuredAd.title} className="absolute inset-0 w-full h-full object-cover" />
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
-                          <div className="relative z-10 text-left">
-                            <span className="inline-flex text-[8px] font-extrabold bg-primary text-white uppercase px-1.5 py-0.5 rounded mb-1">
-                              {featuredAd.brandName || 'Sponsored'}
-                            </span>
-                            <h4 className="text-xs font-bold text-white leading-tight">{featuredAd.title}</h4>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed mb-4">{featuredAd.description}</p>
-                        <Button variant="secondary" size="sm" className="w-full" onClick={() => handleAdClick(featuredAd)}>
-                          Learn More
-                        </Button>
-                      </div>
-                    )}
-                  </Card>
-                )}
-
                 <h2 className="text-xl md:text-2xl font-extrabold text-primary tracking-tight">Quick Actions</h2>
                 <div className="bg-muted/40 p-6 rounded-3xl space-y-4">
                   {[
@@ -391,37 +348,41 @@ const Landing = () => {
             </div>
           </section>
 
-          {/* Empowering secure project collaborations */}
-          <section className="max-w-6xl mx-auto px-6 py-16">
-            <div className="bg-primary rounded-[40px] px-8 md:px-20 py-16 md:py-20 relative overflow-hidden shadow-2xl">
-              <div className="relative z-10 max-w-2xl">
-                <div className="flex items-center gap-2 mb-6">
-                  <ShieldCheck className="w-5 h-5 text-[#a5a1ff]" />
-                  <span className="font-bold tracking-widest text-xs uppercase text-white/90">Secure Escrow System</span>
+          {/* Ads / Promotions — hidden entirely when there's no ad to show */}
+          {(adsLoading || featuredAd) && (
+            <section className="max-w-6xl mx-auto px-6 py-16">
+              {adsLoading ? (
+                <div className="w-full h-64 md:h-80 bg-muted rounded-[40px] animate-pulse" />
+              ) : (
+                <div className="rounded-[40px] overflow-hidden border border-border shadow-sm bg-card">
+                  {featuredAd.mediaUrl && (
+                    <img
+                      src={featuredAd.mediaUrl}
+                      alt={featuredAd.title}
+                      className="w-full h-64 md:h-80 object-cover"
+                    />
+                  )}
+                  <div className="p-8 md:p-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <div>
+                      <span className="inline-flex text-[10px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full uppercase tracking-wider">
+                        {featuredAd.brandName || 'Sponsored'}
+                      </span>
+                      <h2 className="text-2xl md:text-3xl font-extrabold text-foreground mt-3">{featuredAd.title}</h2>
+                      {featuredAd.description && (
+                        <p className="text-muted-foreground mt-2 max-w-xl leading-relaxed">{featuredAd.description}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleAdClick(featuredAd)}
+                      className="shrink-0 px-8 py-4 bg-primary text-primary-foreground rounded-2xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20 cursor-pointer"
+                    >
+                      Learn More
+                    </button>
+                  </div>
                 </div>
-                <h2 className="text-3xl md:text-4xl font-extrabold mb-6 text-white leading-tight">
-                  Empowering secure project collaborations.
-                </h2>
-                <p className="text-white/80 leading-relaxed mb-10">
-                  Your payments are protected. Funds are only released when you're 100% satisfied with the service delivered. Experience peace of mind with WorkQuora's multi-layered security.
-                </p>
-                <div className="flex flex-wrap gap-4">
-                  <button
-                    onClick={() => navigate('/client/post-job')}
-                    className="px-8 py-4 bg-white text-primary rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl cursor-pointer"
-                  >
-                    Get Started Securely
-                  </button>
-                  <button
-                    onClick={() => navigate('/info/trust-safety')}
-                    className="px-8 py-4 border border-white/30 text-white rounded-2xl font-bold hover:bg-white/10 transition-all cursor-pointer"
-                  >
-                    How it Works
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
+              )}
+            </section>
+          )}
         </div>
       );
     }

@@ -85,6 +85,11 @@ export const walletApi = {
   transactions: (p) => api.get('/wallet/transactions', { params: p }),
 };
 
+export const adsApi = {
+  active: (params) => api.get('/ads/active', { params }),
+  track:  (d)      => api.post('/ads/track', d),
+};
+
 
 export const analyticsApi = {
   freelancerRevenue: () => api.get('/analytics/freelancer-revenue'),
