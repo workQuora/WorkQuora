@@ -122,10 +122,14 @@ const sendTokenResponse = async (user, statusCode, req, res) => {
 
   req.sessionId = session.sessionId;
 
-  // Access Token (1 hour expiry) — embeds sessionId so /auth/sessions can
-  // flag which row is "this device" without a separate lookup.
+  // Access token — embeds sessionId so /auth/sessions can flag which row is
+  // "this device" without a separate lookup. Was hardcoded to 1h; no client
+  // (mobile or web) implements the /auth/refresh rotation flow, so a 1h
+  // access token meant every logged-in user was silently force-logged-out
+  // hourly. JWT_EXPIRE defaults to 28d to match the session's own lifetime
+  // expectation.
   const accessToken = jwt.sign({ id: user.id, sessionId: session.sessionId }, process.env.JWT_SECRET || 'secret123', {
-    expiresIn: '1h',
+    expiresIn: process.env.JWT_EXPIRE || '28d',
   });
 
   // Append-only Audit Log (Module 3)
@@ -499,7 +503,8 @@ exports.loginUser = async (req, res, next) => {
     const user = await User.findOne({
       $or: [
         { email: searchKey },
-        { username: searchKey }
+        { username: searchKey },
+        { mobileNumber: searchKey }
       ]
     }).select('+password +failedLoginAttempts +lockedUntil');
 
@@ -627,7 +632,7 @@ exports.refreshSession = async (req, res, next) => {
 
     // Rotate tokens
     const newAccessToken = jwt.sign({ id: user.id, sessionId: session.sessionId }, process.env.JWT_SECRET || 'secret123', {
-      expiresIn: '1h',
+      expiresIn: process.env.JWT_EXPIRE || '28d',
     });
 
     const newRefreshToken = crypto.randomBytes(40).toString('hex');

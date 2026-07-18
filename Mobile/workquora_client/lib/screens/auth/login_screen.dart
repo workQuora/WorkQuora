@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
     if (!mounted) return;
     if (ok) {
-      context.go('/home');
+      context.go('/success', extra: {'nextRoute': '/home'});
     } else {
       _showError(auth.error ?? 'Login failed');
     }
@@ -104,8 +104,11 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: AppSpace.xl),
               TextField(
                 controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(hintText: 'Email or mobile number', prefixIcon: Icon(Icons.person_outline_rounded)),
+                // Backend's /auth/login accepts email, username, or mobile
+                // number in this one field — a fixed emailAddress keyboard
+                // would bias input toward email specifically.
+                keyboardType: TextInputType.text,
+                decoration: const InputDecoration(hintText: 'Email, username or mobile number', prefixIcon: Icon(Icons.person_outline_rounded)),
               ),
               const SizedBox(height: AppSpace.md),
               TextField(
@@ -131,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: AppSpace.lg),
               PrimaryButton(label: 'Log in', onPressed: _login, loading: auth.isLoading),
               const SizedBox(height: AppSpace.lg),
-              SocialLoginButtons(onSuccess: () => context.go('/home')),
+              SocialLoginButtons(onSuccess: () => context.go('/success', extra: {'nextRoute': '/home'})),
               const SizedBox(height: AppSpace.lg),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
