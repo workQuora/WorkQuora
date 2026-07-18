@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -53,6 +54,14 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
   bool _workerMoving = false;
   DateTime? _workerLastUpdate;
 
+  // Uber-style ETA countdown — ticks down once a second between location
+  // updates, and snaps back to a freshly computed value (distance / assumed
+  // 25km/h average city speed — there's no Directions API integration for a
+  // real routed ETA) whenever a new position arrives, rather than counting
+  // down to zero and sitting there stale.
+  int? _etaSeconds;
+  Timer? _etaTicker;
+
   late final AnimationController _tweenController;
 
   @override
@@ -60,6 +69,9 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
     super.initState();
     _tweenController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
       ..addListener(_onTweenTick);
+    _etaTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_etaSeconds != null && _etaSeconds! > 0) setState(() => _etaSeconds = _etaSeconds! - 1);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _init());
   }
 
@@ -70,9 +82,16 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
     SocketService().removeOnConnectListener(_joinAndListen);
     SocketService().offReceiveLocation();
     _tweenController.dispose();
+    _etaTicker?.cancel();
     _mapController?.dispose();
     context.read<JobDetailProvider>().reset();
     super.dispose();
+  }
+
+  void _recomputeEta() {
+    final distance = _liveDistanceMeters;
+    if (distance == null) return;
+    _etaSeconds = ((distance / 1000) / 25 * 3600).round();
   }
 
   // Called once the assigned worker is known AND on every socket reconnect
@@ -134,6 +153,7 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
           _workerLatLng = ll;
           _workerToLatLng = ll;
         }
+        _recomputeEta();
       });
       _maybeFitBounds();
     } catch (_) {
@@ -149,7 +169,7 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
       setState(() => _clientLocationDenied = true);
       return;
     }
-    setState(() => _clientLatLng = LatLng(pos['lat']!, pos['lng']!));
+    setState(() { _clientLatLng = LatLng(pos['lat']!, pos['lng']!); _recomputeEta(); });
     _maybeFitBounds();
   }
 
@@ -165,6 +185,7 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
       _workerFromLatLng = from;
       _workerToLatLng = next;
       _workerLastUpdate = DateTime.now();
+      _recomputeEta();
     });
     _tweenController
       ..reset()
@@ -287,6 +308,7 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
     return GoogleMap(
       initialCameraPosition: CameraPosition(target: initialTarget, zoom: 14),
       markers: _buildMarkers(),
+      polylines: _buildPolylines(context),
       style: isDark ? _darkMapStyle : null,
       myLocationEnabled: _clientLatLng != null,
       myLocationButtonEnabled: _clientLatLng != null,
@@ -322,6 +344,23 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
     return markers;
   }
 
+  // Straight-line connector, not a routed path — there's no Directions API
+  // integration here, and a fake road-following polyline would misrepresent
+  // the worker's actual route. Still useful as an at-a-glance direction/
+  // distance indicator, same spirit as the distance-based ETA below.
+  Set<Polyline> _buildPolylines(BuildContext context) {
+    if (_clientLatLng == null || _workerLatLng == null) return {};
+    return {
+      Polyline(
+        polylineId: const PolylineId('worker_to_client'),
+        points: [_workerLatLng!, _clientLatLng!],
+        color: Theme.of(context).colorScheme.primary,
+        width: 4,
+        patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+      ),
+    };
+  }
+
   Widget _buildBottomPanel(BuildContext context, Map<String, dynamic>? job) {
     final theme = Theme.of(context);
     final tokens = theme.extension<AppTokens>()!;
@@ -331,6 +370,8 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
     final rating = (_worker?['averageRating'] as num?)?.toDouble() ?? 0;
     final mobile = _worker?['mobileNumber']?.toString() ?? '';
     final workerId = (_worker?['id'] ?? _worker?['_id'])?.toString() ?? '';
+    final jobTitle = job?['title']?.toString() ?? 'Job';
+    final budget = job?['budget'] ?? job?['budgetRange']?['min'] ?? 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -347,7 +388,19 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_isLiveTracking) _buildEtaCountdown(context),
+              if (_isLiveTracking) const SizedBox(height: AppSpace.sm),
               _buildLiveStatusPill(context),
+              const SizedBox(height: AppSpace.md),
+              Row(children: [
+                Icon(Icons.work_outline_rounded, size: 16, color: tokens.muted),
+                const SizedBox(width: AppSpace.xs),
+                Expanded(child: Text(jobTitle, style: theme.textTheme.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                const SizedBox(width: AppSpace.sm),
+                Text('₹$budget', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+              ]),
+              const SizedBox(height: AppSpace.md),
+              Divider(color: tokens.border, height: 1),
               const SizedBox(height: AppSpace.md),
               InkWell(
                 borderRadius: BorderRadius.circular(AppRadius.button),
@@ -356,7 +409,7 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: tokens.brandSoft,
-                    backgroundImage: workerPic.isNotEmpty ? NetworkImage(workerPic) : null,
+                    backgroundImage: workerPic.isNotEmpty ? ResizeImage(NetworkImage(workerPic), width: 144, height: 144) : null,
                     child: workerPic.isEmpty
                         ? Text(workerName.isNotEmpty ? workerName[0].toUpperCase() : 'W',
                             style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold))
@@ -398,6 +451,26 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
     );
   }
 
+  Widget _buildEtaCountdown(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
+    final secs = _etaSeconds;
+    if (secs == null) return const SizedBox.shrink();
+    final minutes = (secs / 60).ceil();
+    return Row(children: [
+      Icon(Icons.timer_outlined, size: 22, color: theme.colorScheme.primary),
+      const SizedBox(width: AppSpace.sm),
+      Text(
+        minutes <= 0 ? 'Arriving now' : '$minutes min',
+        style: theme.textTheme.headlineMedium?.copyWith(color: theme.colorScheme.primary),
+      ),
+      if (minutes > 0) ...[
+        const SizedBox(width: 4),
+        Text('away', style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted)),
+      ],
+    ]);
+  }
+
   Widget _buildLiveStatusPill(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = theme.extension<AppTokens>()!;
@@ -418,12 +491,10 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
       );
     }
 
-    final etaMinutes = distance == null ? null : ((distance / 1000) / 25 * 60).round();
     final updateLabel = _lastUpdateLabel;
     final parts = <String>[
       updateLabel != null ? 'Live · updated $updateLabel' : 'Live',
       if (distanceText != null) '$distanceText away',
-      if (etaMinutes != null) (etaMinutes < 1 ? '<1 min' : '~$etaMinutes min'),
       _workerMoving ? 'moving' : 'stationary',
     ];
     return _statusPill(
@@ -477,7 +548,7 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> with SingleTicker
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: tokens.brandSoft,
-                  backgroundImage: workerPic.isNotEmpty ? NetworkImage(workerPic) : null,
+                  backgroundImage: workerPic.isNotEmpty ? ResizeImage(NetworkImage(workerPic), width: 168, height: 168) : null,
                   child: workerPic.isEmpty
                       ? Text(workerName.isNotEmpty ? workerName[0].toUpperCase() : 'W',
                           style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 20))
